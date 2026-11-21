@@ -28,13 +28,15 @@ const MODES: { mode: AssistantMode; icon: typeof Scale }[] = [
   { mode: 'interview', icon: MessagesSquare },
 ]
 
-/** Prawy panel asystenta z przełącznikiem trybu. Każdy tryb ma osobną historię pytań. */
-/** Kontekst rozmowy: o kim jest rozmowa i gotowe pytania dopasowane do sytuacji. */
+/** Kontekst panelu: który pracownik jest otwarty i gotowe pytania dopasowane do jego sytuacji. */
 export interface AssistantContext {
   subject: string
+  /** Wyjaśnienie, czego asystent nie wie (np. że nie dostaje danych pracownika). */
+  note?: string
   suggestions: Record<AssistantMode, readonly string[]>
 }
 
+/** Prawy panel asystenta z przełącznikiem trybu. Każdy tryb ma osobną historię pytań. */
 export function AssistantPanel({
   id,
   hidden = false,
@@ -207,10 +209,13 @@ export function AssistantPanel({
 
       <form onSubmit={handleSubmit} className="border-t border-line px-6 pt-4 pb-5" noValidate>
         {context && (
-          <p className="mb-3 flex items-center gap-2 rounded-sm bg-sunken px-2.5 py-1.5 text-sm text-ink">
-            <UserRound aria-hidden className="size-4 shrink-0 text-accent" />
-            <span className="truncate">{context.subject}</span>
-          </p>
+          <div className="mb-3 rounded-sm bg-sunken px-2.5 py-1.5">
+            <p className="flex items-center gap-2 text-sm text-ink">
+              <UserRound aria-hidden className="size-4 shrink-0 text-ink-muted" />
+              <span className="truncate">{context.subject}</span>
+            </p>
+            {context.note && <p className="mt-0.5 pl-6 text-xs leading-snug text-ink-muted">{context.note}</p>}
+          </div>
         )}
         <label htmlFor={questionId} className="mb-1.5 block text-sm font-medium text-ink">
           {t.questionLabel}

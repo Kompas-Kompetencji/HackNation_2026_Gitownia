@@ -9,67 +9,76 @@ import { fullName } from '../../lib/format'
 import { texts } from '../../lib/texts'
 import type { AssessmentSummary, Employee, JobDescriptionDocument } from '../../types'
 import type { AssistantContext } from '../../assistant/AssistantPanel'
+import type { SectionState } from './sectionState'
 import { EmployeeHeader } from './EmployeeHeader'
 import { AssessmentHistory } from './AssessmentHistory'
 import { JobDescriptionSection } from './JobDescriptionSection'
 import { NotesSection } from './NotesSection'
 
-type LoadState =
+type EmployeeState =
   | { kind: 'loading' }
   | { kind: 'error' }
   | { kind: 'not_found' }
   | { kind: 'forbidden' }
-  | { kind: 'ready'; employee: Employee; documents: JobDescriptionDocument[]; assessments: AssessmentSummary[] }
+  | { kind: 'ready'; employee: Employee }
 
 const OPEN_STATUSES = ['draft', 'awaiting_interview']
 
-/** Panel pracownika: szczegóły, terminy, historia ocen, opis stanowiska, notatki i asystent z kontekstem. */
+/**
+ * Panel pracownika: szczegóły, terminy, historia ocen, opis stanowiska, notatki i asystent z kontekstem.
+ * Każda sekcja wczytuje dane osobno, więc błąd jednej nie wyłącza reszty panelu.
+ */
 export function EmployeePage() {
   const t = texts.employee
   const { employeeId = '' } = useParams()
   const location = useLocation()
   const navigate = useNavigate()
   const navState = location.state as { created?: string; withDocument?: boolean } | null
-  const [state, setState] = useState<LoadState>({ kind: 'loading' })
+  const [state, setState] = useState<EmployeeState>({ kind: 'loading' })
+  const [docs, setDocs] = useState<SectionState<JobDescriptionDocument[]>>({ kind: 'loading' })
+  const [assessments, setAssessments] = useState<SectionState<AssessmentSummary[]>>({ kind: 'loading' })
   const [editorOpen, setEditorOpen] = useState(false)
   const [notice, setNotice] = useState<string | null>(null)
-  const [pendingCreate, setPendingCreate] = useState(false)
   const [creating, setCreating] = useState(false)
   const [createError, setCreateError] = useState(false)
 
-  const fetchAll = useCallback(async () => {
-    const employee = await getEmployee(employeeId)
-    if (!employee) return { kind: 'not_found' } as const
-    const [documents, assessments] = await Promise.all([
-      listJobDescriptions(employeeId),
-      listAssessments({ employee_id: employeeId }),
-    ])
-    return { kind: 'ready', employee, documents, assessments } as const
+  const loadEmployee = useCallback(async () => {
+    try {
+      const employee = await getEmployee(employeeId)
+      setState(employee ? { kind: 'ready', employee } : { kind: 'not_found' })
+      return !!employee
+    } catch (error) {
+      setState(error instanceof ApiError && error.status === 403 ? { kind: 'forbidden' } : { kind: 'error' })
+      return false
+    }
   }, [employeeId])
 
-  const load = useCallback(() => {
+  const loadDocs = useCallback(() => {
+    setDocs({ kind: 'loading' })
+    return listJobDescriptions(employeeId)
+      .then((data) => setDocs({ kind: 'ready', data }))
+      .catch(() => setDocs({ kind: 'error' }))
+  }, [employeeId])
+
+  const loadAssessments = useCallback(() => {
+    setAssessments({ kind: 'loading' })
+    return listAssessments({ employee_id: employeeId })
+      .then((data) => setAssessments({ kind: 'ready', data }))
+      .catch(() => setAssessments({ kind: 'error' }))
+  }, [employeeId])
+
+  const loadAll = useCallback(() => {
     setState({ kind: 'loading' })
-    fetchAll()
-      .then(setState)
-      .catch((error) => setState(error instanceof ApiError && error.status === 403 ? { kind: 'forbidden' } : { kind: 'error' }))
-  }, [fetchAll])
-
-  useEffect(load, [load])
-
-  const createDraft = useCallback(
-    async (employee: Employee) => {
-      setCreating(true)
-      setCreateError(false)
-      try {
-        const draft = await createAssessmentDraft({ employee_id: employee.id, kind: employee.assessment_kind })
-        navigate(`/przelozony/oceny/${draft.id}`)
-      } catch {
-        setCreateError(true)
-        setCreating(false)
+    // Sekcje wczytujemy dopiero, gdy wiadomo, że pracownik istnieje i jest dostępny.
+    void loadEmployee().then((ok) => {
+      if (ok) {
+        void loadDocs()
+        void loadAssessments()
       }
-    },
-    [navigate],
-  )
+    })
+  }, [loadEmployee, loadDocs, loadAssessments])
+
+  useEffect(loadAll, [loadAll])
 
   if (state.kind !== 'ready') {
     return (
@@ -85,7 +94,7 @@ export function EmployeePage() {
           <div className="mt-6">
             <Alert
               action={
-                <Button variant="secondary" onClick={load} className="py-1.5 text-sm">
+                <Button variant="secondary" onClick={loadAll} className="py-1.5 text-sm">
                   {texts.common.retry}
                 </Button>
               }
@@ -108,35 +117,49 @@ export function EmployeePage() {
     )
   }
 
-  const { employee, documents, assessments } = state
-  const openDraft = assessments.find((a) => OPEN_STATUSES.includes(a.status)) ?? null
-  const needsDocument = employee.assessment_kind === 'periodic' && (documents.length === 0 || !employee.form)
+  const { employee } = state
+  const openDraft =
+    assessments.kind === 'ready' ? (assessments.data.find((a) => OPEN_STATUSES.includes(a.status)) ?? null) : null
+  // Gdy lista opisów się nie wczytała, rozstrzyga brak ustalonego arkusza.
+  const needsDocument =
+    employee.assessment_kind === 'periodic' &&
+    (!employee.form || (docs.kind === 'ready' && docs.data.length === 0))
+
+  async function createDraft() {
+    setCreating(true)
+    setCreateError(false)
+    try {
+      const draft = await createAssessmentDraft({ employee_id: employee.id, kind: employee.assessment_kind })
+      navigate(`/przelozony/oceny/${draft.id}`)
+    } catch {
+      setCreateError(true)
+      setCreating(false)
+    }
+  }
 
   function handlePrimary() {
     if (openDraft) return navigate(`/przelozony/oceny/${openDraft.id}`)
     if (needsDocument) {
       setNotice(t.actions.needsDocument)
-      setPendingCreate(true)
       setEditorOpen(true)
       return
     }
-    void createDraft(employee)
+    void createDraft()
   }
 
+  // Po zapisie opisu zostajemy w panelu: sekcja pokazuje wersję i przyjęty arkusz,
+  // a przełożony sam tworzy ocenę przyciskiem na górze.
   async function handleDocumentSaved() {
-    const fresh = await fetchAll()
-    setState(fresh)
+    await Promise.all([loadEmployee(), loadDocs()])
     setEditorOpen(false)
     setNotice(null)
-    if (pendingCreate && fresh.kind === 'ready') {
-      setPendingCreate(false)
-      await createDraft(fresh.employee)
-    }
   }
 
-  const situation = employee.assessment_kind === 'first' ? 'first' : employee.status === 'assessment_overdue' ? 'overdue' : 'periodic'
+  const situation =
+    employee.assessment_kind === 'first' ? 'first' : employee.status === 'assessment_overdue' ? 'overdue' : 'periodic'
   const assistantContext: AssistantContext = {
     subject: t.assistantSubject(fullName(employee)),
+    note: t.assistantSubjectNote,
     suggestions: t.assistantSuggestions[situation],
   }
 
@@ -154,27 +177,28 @@ export function EmployeePage() {
       <EmployeeHeader
         employee={employee}
         openDraft={openDraft}
+        needsDocument={needsDocument}
+        primaryAvailable={assessments.kind === 'ready'}
         creating={creating}
         createError={createError}
         onPrimary={handlePrimary}
       />
 
       <div className="space-y-12">
-        <AssessmentHistory assessments={assessments} />
+        <AssessmentHistory state={assessments} onRetry={() => void loadAssessments()} />
         <JobDescriptionSection
           employee={employee}
-          documents={documents}
+          state={docs}
+          onRetry={() => void loadDocs()}
           editorOpen={editorOpen}
           notice={notice}
           onOpenEditor={() => {
             setNotice(null)
-            setPendingCreate(false)
             setEditorOpen(true)
           }}
           onCloseEditor={() => {
             setEditorOpen(false)
             setNotice(null)
-            setPendingCreate(false)
           }}
           onSaved={handleDocumentSaved}
         />

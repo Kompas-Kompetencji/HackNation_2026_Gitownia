@@ -17,6 +17,8 @@ type ScheduleState = { kind: 'loading' } | { kind: 'error' } | { kind: 'ready'; 
 export function EmployeeHeader({
   employee: e,
   openDraft,
+  needsDocument,
+  primaryAvailable,
   creating,
   createError,
   onPrimary,
@@ -24,6 +26,10 @@ export function EmployeeHeader({
   employee: Employee
   /** Rozpoczęty szkic oceny, jeśli jest. */
   openDraft: AssessmentSummary | null
+  /** Ocena okresowa bez opisu stanowiska: przycisk najpierw prowadzi do wgrania opisu. */
+  needsDocument: boolean
+  /** false, dopóki historia ocen się nie wczyta (nie wiadomo, czy jest już szkic). */
+  primaryAvailable: boolean
   creating: boolean
   createError: boolean
   onPrimary: () => void
@@ -36,7 +42,9 @@ export function EmployeeHeader({
     ? t.actions.continueDraft(openDraft.kind)
     : isFirst
       ? t.actions.startFirst
-      : t.actions.createPeriodic
+      : needsDocument
+        ? t.actions.createPeriodicNeedsDocument
+        : t.actions.createPeriodic
 
   return (
     <header className="mb-10">
@@ -48,12 +56,16 @@ export function EmployeeHeader({
           </p>
         </div>
         <div className="flex shrink-0 flex-col items-end gap-1.5">
-          <Button onClick={onPrimary} disabled={creating}>
+          <Button onClick={onPrimary} disabled={creating || !primaryAvailable}>
             {creating && <LoaderCircle aria-hidden className="size-4 animate-spin" />}
             {creating ? t.actions.creating : primaryLabel}
           </Button>
-          {openDraft?.started_at && (
+          {!primaryAvailable ? (
+            <p className="text-sm text-ink-muted">{t.actions.waitingForHistory}</p>
+          ) : openDraft?.started_at ? (
             <p className="text-sm text-ink-muted">{t.actions.draftStarted(formatDate(openDraft.started_at))}</p>
+          ) : (
+            needsDocument && !isFirst && <p className="text-sm text-ink-muted">{t.actions.needsDocumentHint}</p>
           )}
         </div>
       </div>

@@ -6,6 +6,7 @@ import { formatDateTime } from '../../lib/format'
 import { texts } from '../../lib/texts'
 import type { Employee, JobDescriptionDocument } from '../../types'
 import { emptyDocument, toConfirmed, type DocumentData } from '../wizard/model'
+import type { SectionState } from './sectionState'
 import { StepDocument } from '../wizard/StepDocument'
 
 const MAX_BYTES = 10 * 1024 * 1024
@@ -16,7 +17,8 @@ const MAX_BYTES = 10 * 1024 * 1024
  */
 export function JobDescriptionSection({
   employee,
-  documents,
+  state,
+  onRetry,
   editorOpen,
   notice,
   onOpenEditor,
@@ -24,7 +26,8 @@ export function JobDescriptionSection({
   onSaved,
 }: {
   employee: Employee
-  documents: JobDescriptionDocument[]
+  state: SectionState<JobDescriptionDocument[]>
+  onRetry: () => void
   editorOpen: boolean
   /** Komunikat nad edytorem, np. prośba o opis przed oceną okresową. */
   notice: string | null
@@ -34,11 +37,18 @@ export function JobDescriptionSection({
 }) {
   const t = texts.employee.document
   const isFirst = employee.assessment_kind === 'first'
+  const documents = state.kind === 'ready' ? state.data : []
   const sorted = [...documents].sort((a, b) => b.version - a.version)
   const [current, ...previous] = sorted
-  const [savedVersion, setSavedVersion] = useState<number | null>(null)
+  const [saved, setSaved] = useState<{ version: number; form: string | null; forAssessment: boolean } | null>(null)
   const editorRef = useRef<HTMLDivElement>(null)
   const openButtonRef = useRef<HTMLButtonElement>(null)
+  const savedRef = useRef<HTMLParagraphElement>(null)
+
+  // Po zapisie fokus na potwierdzenie, żeby czytnik ekranu je odczytał, a klawiatura wróciła do sekcji.
+  useEffect(() => {
+    if (saved && !editorOpen) savedRef.current?.focus()
+  }, [saved, editorOpen])
 
   // Po otwarciu edytora fokus na jego początek (także gdy otwiera go główny przycisk).
   useEffect(() => {
@@ -49,8 +59,13 @@ export function JobDescriptionSection({
   }, [editorOpen])
 
   async function handleSaved(doc: JobDescriptionDocument) {
-    setSavedVersion(doc.version)
     await onSaved(doc)
+    setSaved({
+      version: doc.version,
+      form: doc.analysis ? texts.wizard.document.formOptions[doc.analysis.suggested_form].label : null,
+      // Edytor otwarty głównym przyciskiem (z prośbą o opis) → podpowiedź, co dalej.
+      forAssessment: notice !== null && !isFirst,
+    })
   }
 
   function close() {
@@ -65,18 +80,44 @@ export function JobDescriptionSection({
         <h2 id="opis-stanowiska" className="text-title font-semibold text-ink">
           {t.title}
         </h2>
-        {!editorOpen && (
-          <Button ref={openButtonRef} variant="secondary" onClick={() => { setSavedVersion(null); onOpenEditor() }} className="py-2 text-sm">
+        {!editorOpen && state.kind === 'ready' && (
+          <Button ref={openButtonRef} variant="secondary" onClick={() => { setSaved(null); onOpenEditor() }} className="py-2 text-sm">
             <FilePen aria-hidden className="size-4" />
             {current ? t.change : t.add}
           </Button>
         )}
       </div>
 
-      {savedVersion !== null && !editorOpen && (
-        <p role="status" className="mb-3 flex items-center gap-2 rounded-md bg-positive-soft px-4 py-2.5 text-sm text-positive">
-          <CircleCheck aria-hidden className="size-4 shrink-0" />
-          {t.saved(savedVersion)}
+      {state.kind === 'loading' && (
+        <p role="status" className="flex items-center gap-2 text-ink-muted">
+          <LoaderCircle aria-hidden className="size-4 animate-spin" />
+          {texts.common.loading}
+        </p>
+      )}
+      {state.kind === 'error' && (
+        <Alert
+          action={
+            <Button variant="secondary" onClick={onRetry} className="py-1.5 text-sm">
+              {texts.common.retry}
+            </Button>
+          }
+        >
+          {t.loadError}
+        </Alert>
+      )}
+
+      {saved && !editorOpen && (
+        <p
+          ref={savedRef}
+          tabIndex={-1}
+          role="status"
+          className="mb-3 flex items-start gap-2 rounded-md bg-positive-soft px-4 py-2.5 text-positive focus:outline-none focus-visible:outline-2 focus-visible:outline-accent"
+        >
+          <CircleCheck aria-hidden className="mt-1 size-4 shrink-0" />
+          <span>
+            {t.saved(saved.version, saved.form)}
+            {saved.forAssessment && <span className="block text-ink">{t.readyForAssessment}</span>}
+          </span>
         </p>
       )}
 
@@ -98,7 +139,7 @@ export function JobDescriptionSection({
         </div>
       )}
 
-      {current ? (
+      {state.kind !== 'ready' ? null : current ? (
         <div className="rounded-md border border-line bg-surface">
           <div className="flex items-start gap-3 px-5 py-4">
             <FileText aria-hidden className="mt-0.5 size-5 shrink-0 text-accent" />

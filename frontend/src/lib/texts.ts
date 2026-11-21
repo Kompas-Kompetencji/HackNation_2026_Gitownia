@@ -236,6 +236,9 @@ export const texts = {
     actions: {
       startFirst: 'Rozpocznij pierwszą ocenę',
       createPeriodic: 'Utwórz ocenę okresową',
+      createPeriodicNeedsDocument: 'Wgraj opis stanowiska i utwórz ocenę okresową',
+      needsDocumentHint: 'Najpierw potrzebny jest opis stanowiska.',
+      waitingForHistory: 'Przycisk będzie dostępny po wczytaniu historii ocen.',
       continueDraft: (kind: 'first' | 'periodic') =>
         kind === 'first' ? 'Kontynuuj pierwszą ocenę' : 'Kontynuuj ocenę okresową',
       draftStarted: (date: string) => `Szkic rozpoczęty ${date}`,
@@ -267,7 +270,9 @@ export const texts = {
       cancel: 'Anuluj',
       saveVersion: 'Zapisz nową wersję',
       saving: 'Zapisuję…',
-      saved: (v: number) => `Zapisano wersję ${v} opisu stanowiska.`,
+      saved: (v: number, form: string | null) =>
+        form ? `Zapisano wersję ${v} opisu stanowiska. Przyjęty arkusz: ${form}.` : `Zapisano wersję ${v} opisu stanowiska.`,
+      readyForAssessment: 'Możesz teraz utworzyć ocenę okresową przyciskiem na górze strony.',
       saveError: 'Nie udało się zapisać opisu stanowiska. Spróbuj ponownie.',
       firstLead: 'Opis trafi do archiwum pracownika i przyda się w rozmowie wstępnej. Na ścieżce pierwszej oceny nie jest analizowany.',
       loadError: 'Nie udało się wczytać opisów stanowiska.',
@@ -285,7 +290,8 @@ export const texts = {
       loadError: 'Nie udało się wczytać notatek.',
       counter: (n: number, max: number) => `${n} z ${max} znaków`,
     },
-    assistantSubject: (name: string) => `Rozmowa dotyczy: ${name}`,
+    assistantSubject: (name: string) => `Otwarty panel: ${name}`,
+    assistantSubjectNote: 'Asystent nie otrzymuje danych pracownika. Gotowe pytania są dobrane do jego sytuacji.',
     assistantSuggestions: {
       first: {
         formal: ['Do kiedy przeprowadzić rozmowę wstępną?', 'Jak pracownik przygotowuje sprawozdanie do pierwszej oceny?'],

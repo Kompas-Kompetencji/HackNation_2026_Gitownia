@@ -1,13 +1,21 @@
-import { History } from 'lucide-react'
+import { History, LoaderCircle } from 'lucide-react'
+import { Alert, Button } from '../../components/ui'
+import type { SectionState } from './sectionState'
 import { ResultBadge } from '../../components/StatusBadge'
 import { formatDate } from '../../lib/format'
 import { texts } from '../../lib/texts'
 import type { AssessmentSummary } from '../../types'
 
 /** Zakończone oceny pracownika, od najnowszej. */
-export function AssessmentHistory({ assessments }: { assessments: AssessmentSummary[] }) {
+export function AssessmentHistory({
+  state,
+  onRetry,
+}: {
+  state: SectionState<AssessmentSummary[]>
+  onRetry: () => void
+}) {
   const t = texts.employee.history
-  const completed = assessments
+  const completed = (state.kind === 'ready' ? state.data : [])
     .filter((a) => a.status === 'completed' && a.completed_at)
     .sort((a, b) => (b.completed_at ?? '').localeCompare(a.completed_at ?? ''))
 
@@ -16,7 +24,24 @@ export function AssessmentHistory({ assessments }: { assessments: AssessmentSumm
       <h2 id="historia-ocen" className="mb-3 text-title font-semibold text-ink">
         {t.title}
       </h2>
-      {completed.length === 0 ? (
+      {state.kind === 'loading' && (
+        <p role="status" className="flex items-center gap-2 text-ink-muted">
+          <LoaderCircle aria-hidden className="size-4 animate-spin" />
+          {texts.common.loading}
+        </p>
+      )}
+      {state.kind === 'error' && (
+        <Alert
+          action={
+            <Button variant="secondary" onClick={onRetry} className="py-1.5 text-sm">
+              {texts.common.retry}
+            </Button>
+          }
+        >
+          {t.loadError}
+        </Alert>
+      )}
+      {state.kind !== 'ready' ? null : completed.length === 0 ? (
         <p className="flex items-center gap-3 rounded-md border border-dashed border-line-strong px-5 py-4 text-ink-muted">
           <History aria-hidden className="size-4 shrink-0" />
           {t.empty}
