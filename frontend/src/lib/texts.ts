@@ -470,7 +470,11 @@ export const texts = {
         loading: 'Wyliczam wynik…',
         error: 'Nie udało się pobrać wyniku oceny.',
         missing: (n: number) =>
-          n === 1 ? 'Wynik pojawi się, gdy 1 kryterium dostanie decyzję.' : `Wynik pojawi się, gdy ${n} kryteria dostaną decyzję.`,
+          n === 1
+            ? 'Wynik pojawi się, gdy 1 kryterium dostanie decyzję.'
+            : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14)
+              ? `Wynik pojawi się, gdy ${n} kryteria dostaną decyzję.`
+              : `Wynik pojawi się, gdy ${n} kryteriów dostanie decyzję.`,
         mean: 'Średnia z kryteriów',
         level: 'Ogólny poziom',
         reasons: 'Podstawa wyniku',

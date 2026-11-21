@@ -32,7 +32,7 @@ export function Stepper({
   const additional = criteria.filter((c) => !c.mandatory)
 
   return (
-    <nav aria-label={t.label} className="sticky top-32 text-sm">
+    <nav aria-label={t.label} className="sticky top-32 max-h-[calc(100vh-9rem)] self-start overflow-y-auto text-sm">
       <ol className="space-y-5">
         <li>
           <StepButton id={SETUP_STEP} current={current} onSelect={onSelect} icon={Settings2} label={t.setup} />
