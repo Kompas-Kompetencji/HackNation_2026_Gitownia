@@ -80,12 +80,22 @@ export function SummaryStep({
       suggested: id in suggestions ? suggestions[id] : undefined,
       decision: state.decisions[id]?.selected_level ?? null,
       note: state.decisions[id]?.decision_note ?? '',
+      noEvidence:
+        !!state.decisions[id]?.selected_level &&
+        !c.competency.indicators.some((i) => state.answers[i.indicator_id]?.selected_level != null),
       step: criterionStep(id),
     }
   })
 
   const missing = criteria.filter((c) => !state.decisions[c.competency.competency_id]?.selected_level)
   const blocked = criteria.filter((c) => isBlocked(state, c.competency))
+  // Decyzja bez ocenionego wskaźnika: walidacja formularza, ta sama zasada co blokada „brak podstaw".
+  const noEvidence = criteria.filter(
+    (c) =>
+      state.decisions[c.competency.competency_id]?.selected_level &&
+      !isBlocked(state, c.competency) &&
+      !c.competency.indicators.some((i) => state.answers[i.indicator_id]?.selected_level != null),
+  )
   const decisionKey = rows.map((r) => `${r.competency_id}:${r.decision}`).join('|')
 
   /* Wynik oceny z backendu, gdy wszystkie kryteria mają decyzję. */
@@ -121,6 +131,7 @@ export function SummaryStep({
   const issues: Array<{ text: string; step?: string; focus?: 'justification' }> = [
     ...missing.map((c) => ({ text: t.issues.missingDecision(c.competency.name), step: criterionStep(c.competency.competency_id) })),
     ...blocked.map((c) => ({ text: t.issues.blocked(c.competency.name), step: criterionStep(c.competency.competency_id) })),
+    ...noEvidence.map((c) => ({ text: t.issues.noEvidence(c.competency.name), step: criterionStep(c.competency.competency_id) })),
     ...(justificationMissing ? [{ text: t.issues.justification, focus: 'justification' as const }] : []),
     ...(missing.length === 0 && evalState.kind !== 'ready' ? [{ text: t.issues.resultPending }] : []),
   ]

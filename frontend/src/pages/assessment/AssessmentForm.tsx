@@ -242,7 +242,8 @@ export function AssessmentForm({
 
   function goTo(step: string) {
     const target = steps.indexOf(step)
-    if (currentBlocked && target > stepIndex) {
+    // Podsumowanie zawsze dostępne (pokazuje braki i blokuje zakończenie); kolejne kryteria nie.
+    if (currentBlocked && target > stepIndex && step !== SUMMARY_STEP) {
       document.getElementById('blokada-kryterium')?.focus()
       return
     }
@@ -411,14 +412,24 @@ export function AssessmentForm({
               ) : (
                 <span />
               )}
-              <Button
-                onClick={() => goTo(nextStep)}
-                disabled={!template}
-                aria-describedby={currentBlocked ? 'blokada-kryterium' : undefined}
-              >
-                {nextCriterion ? t.nav.next(nextCriterion.competency.name) : t.nav.toSummary}
-                <ArrowRight aria-hidden className="size-4" />
-              </Button>
+              <div className="flex items-center gap-4">
+                {currentBlocked && (
+                  <p id="dalej-zablokowane" className="flex max-w-xs items-start gap-1.5 text-right text-sm text-danger">
+                    <CircleAlert aria-hidden className="mt-0.5 size-4 shrink-0" />
+                    {t.nav.blocked}
+                  </p>
+                )}
+                <Button
+                  onClick={() => goTo(nextStep)}
+                  disabled={!template}
+                  aria-disabled={currentBlocked && nextStep !== SUMMARY_STEP ? true : undefined}
+                  aria-describedby={currentBlocked ? 'dalej-zablokowane' : undefined}
+                  className={currentBlocked && nextStep !== SUMMARY_STEP ? 'cursor-not-allowed opacity-60' : ''}
+                >
+                  {nextCriterion ? t.nav.next(nextCriterion.competency.name) : t.nav.toSummary}
+                  <ArrowRight aria-hidden className="size-4" />
+                </Button>
+              </div>
             </div>
           )}
         </div>

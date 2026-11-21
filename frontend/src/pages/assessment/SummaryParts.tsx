@@ -15,6 +15,8 @@ export interface DecisionRow {
   name: string
   mandatory: boolean
   suggested: Level | null | undefined
+  /** Decyzja bez żadnego ocenionego wskaźnika (blokuje zakończenie). */
+  noEvidence?: boolean
   decision: Level | null
   note: string
   /** Krok formularza do edycji; brak = widok tylko do odczytu. */
@@ -56,6 +58,17 @@ export function DecisionsTable({
               <th scope="row" className="px-4 py-3 font-normal">
                 <span className="text-ink">{r.name}</span>
                 <span className="block text-xs text-ink-muted">{r.mandatory ? c.mandatory : c.additional}</span>
+                {r.noEvidence && (
+                  <span className="mt-1 flex items-center gap-1 text-xs font-medium text-danger">
+                    <CircleAlert aria-hidden className="size-3.5" />
+                    {c.noEvidence}
+                  </span>
+                )}
+                {r.decision && r.suggested && r.decision !== r.suggested && (
+                  <span className="mt-1 inline-block rounded-sm bg-warning-soft px-1.5 py-0.5 text-xs font-medium text-warning">
+                    {c.differs}
+                  </span>
+                )}
                 {r.note && <span className="mt-1 block text-sm text-ink-muted italic">„{r.note}”</span>}
               </th>
               {showSuggestion && (

@@ -342,6 +342,7 @@ export const texts = {
       back: 'Wstecz',
       next: (name: string) => `Dalej: ${name}`,
       toSummary: 'Dalej: podsumowanie',
+      blocked: 'Najpierw oceń jeden wskaźnik tego kryterium. Podsumowanie jest dostępne w pasku kroków.',
     },
 
     save: {
@@ -438,6 +439,8 @@ export const texts = {
         differs: (decision: number, suggested: number) =>
           `Twoja decyzja (${decision} pkt) różni się od wskazówki (${suggested} pkt). To dozwolone. Warto krótko zapisać dlaczego: przyda się w rozmowie i w uzasadnieniu.`,
         note: 'Dlaczego inny poziom niż wskazówka (opcjonalnie)',
+        noEvidence:
+          'Żaden wskaźnik tego kryterium nie ma jeszcze oceny. Decyzja bez ocenionych wskaźników nie ma podstawy w arkuszu: oceń przynajmniej jeden wskaźnik.',
         notePlaceholder: 'Na przykład: dwa opóźnienia w lutym miały większą wagę niż pozostałe przykłady.',
       },
       blocked: {
@@ -462,6 +465,8 @@ export const texts = {
         additional: 'dodatkowe',
         noDecision: 'Brak decyzji',
         noSuggestion: '—',
+        differs: 'różni się od wskazówki',
+        noEvidence: 'bez ocenionych wskaźników',
         edit: (name: string) => `Zmień: ${name}`,
         editShort: 'Zmień',
       },
@@ -492,6 +497,7 @@ export const texts = {
         title: 'Zanim zakończysz ocenę',
         missingDecision: (name: string) => `Brak decyzji: ${name}`,
         blocked: (name: string) => `Brak ocenionego wskaźnika: ${name}`,
+        noEvidence: (name: string) => `Decyzja bez ocenionych wskaźników: ${name}`,
         justification: 'Brak uzasadnienia przy ocenie negatywnej',
         resultPending: 'Wynik oceny nie jest jeszcze wyliczony',
         goTo: 'Przejdź',

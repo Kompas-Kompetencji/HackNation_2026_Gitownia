@@ -94,6 +94,7 @@ export function CriterionStep({
         value={decision?.selected_level ?? null}
         note={decision?.decision_note ?? ''}
         suggested={suggested}
+        hasEvidence={competency.indicators.some((i) => state.answers[i.indicator_id]?.selected_level != null)}
         onChange={onDecision}
       />
     </div>
@@ -436,12 +437,14 @@ function DecisionField({
   value,
   note,
   suggested,
+  hasEvidence,
   onChange,
 }: {
   competencyId: string
   value: Level | null
   note: string
   suggested: Level | null
+  hasEvidence: boolean
   onChange: (patch: { selected_level?: Level; decision_note?: string }) => void
 }) {
   const d = t.decision
@@ -488,6 +491,13 @@ function DecisionField({
           )
         })}
       </div>
+
+      {value !== null && !hasEvidence && (
+        <p role="status" className="mt-4 flex items-start gap-2 rounded-md bg-warning-soft px-3 py-2 text-sm text-warning">
+          <CircleAlert aria-hidden className="mt-0.5 size-4 shrink-0" />
+          {d.noEvidence}
+        </p>
+      )}
 
       {differs && (
         <div className="mt-4">
