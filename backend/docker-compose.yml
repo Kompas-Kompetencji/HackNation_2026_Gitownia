@@ -1,0 +1,59 @@
+services:
+  m1-backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: kompas-m1-backend
+    ports:
+      - "${PORT:-8000}:8000"
+    environment:
+      - PORT=8000
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-*}
+      - DEBUG=false
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health')"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+# ============================================================================
+# PRZYKŁAD INTEGRACJI Z KONTENERAMI RESZTY ZESPOŁU (FRONTEND + MODUŁ AI)
+# ============================================================================
+# Aby spiąć M1 z usługami Frontend oraz AI w jednym wspólnym docker-compose.yml:
+#
+# services:
+#   m1-backend:
+#     build: ./backend
+#     environment:
+#       - PORT=8000
+#       - ALLOWED_ORIGINS=http://localhost:3000,http://frontend:3000
+#     ports:
+#       - "8000:8000"
+#     networks:
+#       - kompas-net
+#
+#   ai-service:
+#     build: ./ai
+#     environment:
+#       - M1_API_BASE_URL=http://m1-backend:8000/api/v1
+#     depends_on:
+#       - m1-backend
+#     networks:
+#       - kompas-net
+#
+#   frontend:
+#     build: ./frontend
+#     environment:
+#       - NEXT_PUBLIC_M1_API_URL=http://localhost:8000/api/v1
+#     ports:
+#       - "3000:3000"
+#     depends_on:
+#       - m1-backend
+#     networks:
+#       - kompas-net
+#
+# networks:
+#   kompas-net:
+#     driver: bridge

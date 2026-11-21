@@ -1,0 +1,733 @@
+{
+  "title": "MODEL KOMPETENCJI | SŁUŻBA CYWILNA",
+  "version": "1.0.0",
+  "source": "spec_seed_dz_u_2016_poz_470_and_model_kompetencji_pdf",
+  "generated_at_utc": "2026-11-21T18:08:41.862887+00:00",
+  "summary": {
+    "competencies_count": 14,
+    "behavioral_indicators_count": 49,
+    "rating_levels_count": 5
+  },
+  "rating_scale": [
+    {
+      "score": 1,
+      "key": "1",
+      "label": "znacznie poniżej oczekiwań"
+    },
+    {
+      "score": 3,
+      "key": "3",
+      "label": "poniżej oczekiwań"
+    },
+    {
+      "score": 5,
+      "key": "5",
+      "label": "na poziomie oczekiwań"
+    },
+    {
+      "score": 7,
+      "key": "7",
+      "label": "powyżej oczekiwań"
+    },
+    {
+      "score": 9,
+      "key": "9",
+      "label": "znacznie powyżej oczekiwań"
+    }
+  ],
+  "competencies": [
+    {
+      "id": 1,
+      "name": "Rzetelność",
+      "upper_name": "RZETELNOŚĆ",
+      "indicator_count": 2,
+      "mandatory_for_B": false,
+      "mandatory_for_C": true,
+      "mandatory_for_first_eval": true,
+      "indicators": [
+        {
+          "id": "C01_I01",
+          "indicator": "Wykonywanie zadań zgodnie z obowiązującymi standardami (przepisami, zasadami, procedurami) oraz dbałość o jakość rezultatów.",
+          "levels": {
+            "1": "Nagminnie narusza obowiązujące przepisy, zasady lub procedury wewnętrzne; oddaje opracowania z rażącymi błędami wymagającymi wykonania pracy od nowa.",
+            "3": "Pomija istotne wymogi proceduralne lub prawne; przygotowywane materiały zawierają powtarzające się usterki wymagające korekty przełożonego.",
+            "5": "Wykonuje powierzone zadania zgodnie z przepisami prawa, zasadami i procedurami urzędu; dostarcza rzetelne i kompletne rezultaty.",
+            "7": "Wyróżnia się wysoką skrupulatnością w zadaniach wielowątkowych; samodzielnie wychwytuje nieścisłości formalnoprawne i zapewnia ponadstandardową jakość.",
+            "9": "Stanowi wzór jakości i zgodności z prawem w urzędzie; tworzy standardy weryfikacji zapobiegające błędom w całym zespole."
+          }
+        },
+        {
+          "id": "C01_I02",
+          "indicator": "Dotrzymywanie zobowiązań (realizacja zadań) w wyznaczonym czasie.",
+          "levels": {
+            "1": "Systematycznie przekracza ustalone terminy realizacji zadań i nie informuje o opóźnieniach, dezorganizując pracę komórki.",
+            "3": "Ma trudności z dotrzymywaniem terminów przy standardowym obciążeniu; wymaga przypomnień lub zgłasza opóźnienie po terminie.",
+            "5": "Realizuje powierzone zadania i przyjęte zobowiązania w wyznaczonych terminach, a o obiektywnych przeszkodach informuje z wyprzedzeniem.",
+            "7": "Realizuje zadania z bezpiecznym buforem czasowym, skutecznie dotrzymując zobowiązań również przy spiętrzeniu pilnych spraw.",
+            "9": "Bezbłędnie zarządza terminowością zadań o najwyższym stopniu pilności, proaktywnie zabezpieczając terminy ustawowe w skali wydziału."
+          }
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "name": "Komunikacja",
+      "upper_name": "KOMUNIKACJA",
+      "indicator_count": 4,
+      "mandatory_for_B": true,
+      "mandatory_for_C": true,
+      "mandatory_for_first_eval": true,
+      "indicators": [
+        {
+          "id": "C02_I01",
+          "indicator": "Koncentrowanie się na wypowiedzi rozmówcy i dbanie o wzajemne zrozumienie.",
+          "levels": {
+            "1": "Przerywa rozmówcom, ignoruje przekazywane informacje i nie weryfikuje ustaleń, co prowadzi do poważnych nieporozumień.",
+            "3": "Słucha pobieżnie, pomija istotne szczegóły wypowiedzi i rzadko upewnia się, czy intencje stron zostały właściwie zrozumiane.",
+            "5": "Uważnie słucha rozmówcy, zadaje pytania doprecyzowujące i podsumowuje ustalenia, dbając o wzajemne zrozumienie.",
+            "7": "Aktywnie wychwytuje niejasności w wypowiedziach i parafrazuje złożone wątki, eliminując ryzyko rozbieżności interpretacyjnych.",
+            "9": "Modelowo moderuje wielostronne i trudne rozmowy, zapewniając pełną spójność ustaleń pomiędzy wszystkimi interesariuszami."
+          }
+        },
+        {
+          "id": "C02_I02",
+          "indicator": "Wypowiadanie się w sposób jasny i precyzyjny, dostosowany do sytuacji i rozmówcy (dobieranie stylu, języka i treści).",
+          "levels": {
+            "1": "Wypowiada się chaotycznie, niezrozumiale lub w sposób nieadekwatny do sytuacji, utrudniając porozumienie.",
+            "3": "Formułuje wypowiedzi ustne w sposób rozwlekły lub nieprecyzyjny; ma trudność z doborem stylu i słownictwa do odbiorcy.",
+            "5": "Wypowiada się jasno, zwięźle i rzeczowo, dobierając styl, język oraz szczegółowość informacji odpowiednio do sytuacji i rozmówcy.",
+            "7": "Klarownie tłumaczy zawiłe zagadnienia prawne, techniczne lub organizacyjne zróżnicowanym odbiorcom, zachowując wysoką precyzję języka.",
+            "9": "Po mistrzowsku wypowiada się na gremiach kierowniczych i międzynarodowych, syntetycznie przekazując sedno najbardziej złożonych spraw."
+          }
+        },
+        {
+          "id": "C02_I03",
+          "indicator": "Formułowanie jasnych i precyzyjnych wypowiedzi pisemnych dostosowanych do sytuacji i odbiorcy (dobieranie stylu, języka i treści).",
+          "levels": {
+            "1": "Tworzy pisma niespójne logicznie, nieczytelne i z błędami językowymi, wymagające napisania od podstaw.",
+            "3": "Redaguje teksty nadmiernie zawiłe lub niepełne, które wymagają istotnego przeredagowania przed akceptacją przełożonego.",
+            "5": "Formułuje przejrzyste, poprawne językowo i uporządkowane pisma oraz notatki, dostosowane stylem i treścią do odbiorcy.",
+            "7": "Przygotowuje wzorcowe redakcyjnie projekty stanowisk, opinii i odpowiedzi w sprawach złożonych, gotowe do podpisu bez poprawek.",
+            "9": "Tworzy najwyższej próby dokumenty strategiczne, legislacyjne lub dyplomatyczne, stanowiące w urzędzie wzorzec komunikacji pisemnej."
+          }
+        },
+        {
+          "id": "C02_I04",
+          "indicator": "Przedstawianie przekonujących argumentów odpowiednio do sytuacji.",
+          "levels": {
+            "1": "Nie potrafi uzasadnić stanowiska; posługuje się ogólnikami lub emocjami zamiast rzeczowych argumentów.",
+            "3": "Przedstawia niepełną argumentację i traci spójność w obliczu podstawowych pytań oraz wątpliwości rozmówcy.",
+            "5": "Przedstawia rzeczowe, logiczne oraz oparte na faktach i przepisach argumenty adekwatne do sytuacji.",
+            "7": "Dobiera wielowymiarową argumentację uwzględniającą obiekcje odbiorców, skutecznie przekonując ich do rekomendowanego rozwiązania.",
+            "9": "Buduje strategiczną argumentację w sprawach spornych i precedensowych, zjednując poparcie kluczowych interesariuszy i kierownictwa."
+          }
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "name": "Wykorzystywanie wiedzy i doskonalenie zawodowe",
+      "upper_name": "WYKORZYSTYWANIE WIEDZY I DOSKONALENIE ZAWODOWE",
+      "indicator_count": 3,
+      "mandatory_for_B": false,
+      "mandatory_for_C": true,
+      "mandatory_for_first_eval": true,
+      "indicators": [
+        {
+          "id": "C03_I01",
+          "indicator": "Wykorzystywanie wiedzy przy realizacji zadań na zajmowanym stanowisku pracy.",
+          "levels": {
+            "1": "Wykazuje rażące braki w podstawowej wiedzy merytorycznej i prawnej, przez co błędnie realizuje obowiązki.",
+            "3": "Ma trudności z praktycznym zastosowaniem posiadanej wiedzy w mniej typowych sprawach; często oczekuje gotowych rozwiązań.",
+            "5": "Prawidłowo i samodzielnie wykorzystuje wymaganą wiedzę specjalistyczną oraz przepisy prawa podczas realizacji zadań na stanowisku.",
+            "7": "Biegle łączy wiedzę ekspercką ze swojej dziedziny z obszarami pokrewnymi, rozstrzygając złożone zagadnienia merytoryczne.",
+            "9": "Pełni rolę autorytetu merytorycznego w urzędzie, twórczo wykorzystując wiedzę ekspercką w sprawach bezprecedensowych."
+          }
+        },
+        {
+          "id": "C03_I02",
+          "indicator": "Doskonalenie wiedzy i umiejętności niezbędnych do wykonywania zadań na zajmowanym stanowisku pracy, w szczególności wyszukiwanie i pozyskiwanie wiedzy, korzystanie z dobrych praktyk i doświadczeń innych.",
+          "levels": {
+            "1": "Nie aktualizuje wiedzy mimo zmian przepisów i ignoruje informacje zwrotne oraz dobre praktyki wypracowane w urzędzie.",
+            "3": "Uzupełnia wiedzę wyłącznie na polecenie przełożonego; rzadko śledzi zmiany regulacyjne i niechętnie korzysta z doświadczeń innych.",
+            "5": "Systematycznie aktualizuje wiedzę o zmianach w przepisach, samodzielnie wyszukuje informacje i stosuje dobre praktyki w pracy.",
+            "7": "Proaktywnie rozwija kompetencje, analizuje orzecznictwo oraz praktyki krajowe i międzynarodowe, przenosząc je na grunt wydziału.",
+            "9": "Wyznacza kierunki rozwoju wiedzy w organizacji, identyfikując nadchodzące zmiany regulacyjne i adaptując najlepsze światowe praktyki."
+          }
+        },
+        {
+          "id": "C03_I03",
+          "indicator": "Korzystanie z dostępnych źródeł informacji, rozwiązań i technologii.",
+          "levels": {
+            "1": "Nie radzi sobie z obsługą podstawowych systemów teleinformatycznych urzędu lub korzysta z nieaktualnych źródeł prawa.",
+            "3": "W ograniczonym stopniu wykorzystuje dostępne narzędzia cyfrowe i bazy wiedzy, wybierając nieefektywne sposoby pracy.",
+            "5": "Sprawnie korzysta z systemów informatycznych urzędu, baz aktów prawnych oraz wiarygodnych źródeł informacji przy realizacji zadań.",
+            "7": "Zaawansowanie wykorzystuje dostępne technologie, bazy danych i narzędzia analityczne, wyraźnie usprawniając realizację obowiązków.",
+            "9": "Inicjuje wdrażanie nowych narzędzi cyfrowych i metod pracy z informacją, podnosząc efektywność technologiczną całej komórki."
+          }
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "name": "Organizacja pracy i orientacja na osiąganie celów",
+      "upper_name": "ORGANIZACJA PRACY I ORIENTACJA NA OSIĄGANIE CELÓW",
+      "indicator_count": 5,
+      "mandatory_for_B": true,
+      "mandatory_for_C": true,
+      "mandatory_for_first_eval": true,
+      "indicators": [
+        {
+          "id": "C04_I01",
+          "indicator": "Określanie sposobu realizacji zadań/celów.",
+          "levels": {
+            "1": "Przystępuje do pracy chaotycznie, bez planu działania, co prowadzi do zbędnych czynności i nieosiągania celu.",
+            "3": "Planuje działania pobieżnie, pomijając istotne etapy proceduralne lub zależności czasowe.",
+            "5": "Trafnie określa kolejne etapy oraz harmonogram realizacji powierzonych zadań i celów, dobierając właściwe metody działania.",
+            "7": "Tworzy wielowariantowe plany realizacji złożonych przedsięwzięć, z wyprzedzeniem uwzględniając punkty kontrolne i ryzyka.",
+            "9": "Projektuje wzorcowe metodyki i procesy realizacji złożonych celów międzywydziałowych, optymalizując ścieżkę dojścia do rezultatu."
+          }
+        },
+        {
+          "id": "C04_I02",
+          "indicator": "Realizowanie zadań/celów w kolejności uwzględniającej ich wagę i pilność (ustalanie priorytetów działania).",
+          "levels": {
+            "1": "Zajmuje się sprawami drugorzędnymi kosztem zadań pilnych i kluczowych; nie odróżnia spraw krytycznych od rutynowych.",
+            "3": "Ma trudności z samodzielnym szeregowaniem zadań równoległych; oczekuje od przełożonego ustalania kolejności działań.",
+            "5": "Prawidłowo ustala priorytety działania, realizując zadania w kolejności wynikającej z ich wagi merytorycznej i pilności.",
+            "7": "Sprawnie zarządza dynamicznie zmieniającymi się priorytetami przy dużym natężeniu prac, zachowując ciągłość realizacji celów.",
+            "9": "Mistrzowsko koordynuje priorytety pod presją czasu, pomagając zespołowi skupić wysiłek na zadaniach o najwyższej wadze państwowej."
+          }
+        },
+        {
+          "id": "C04_I03",
+          "indicator": "Dobieranie niezbędnych zasobów umożliwiających realizację zadań/celów.",
+          "levels": {
+            "1": "Nie identyfikuje potrzebnych danych i narzędzi przed rozpoczęciem pracy lub marnotrawi powierzone zasoby i czas.",
+            "3": "Z opóźnieniem dostrzega brak kluczowych informacji lub zasobów niezbędnych do wykonania zadania, powodując przestoje.",
+            "5": "Trafnie identyfikuje i z wyprzedzeniem gromadzi informacje, dokumenty oraz narzędzia niezbędne do sprawnej realizacji zadań.",
+            "7": "Optymalizuje wykorzystanie zasobów czasowych, organizacyjnych i informacyjnych, osiągając pełne rezultaty przy racjonalnym nakładzie.",
+            "9": "Twórczo integruje rozproszone zasoby wewnętrzne i zewnętrzne, umożliwiając realizację ambitnych przedsięwzięć."
+          }
+        },
+        {
+          "id": "C04_I04",
+          "indicator": "Dostosowywanie się do zmieniających się okoliczności.",
+          "levels": {
+            "1": "Reaguje oporem lub bezradnością na zmianę przepisów czy priorytetów; kurczowo trzyma się nieaktualnych schematów.",
+            "3": "Potrzebuje dużo czasu i wsparcia, aby dostosować sposób działania do nowych wytycznych lub nieprzewidzianych okoliczności.",
+            "5": "Elastycznie dostosowuje plan i sposób wykonywania zadań do zmieniających się uwarunkowań prawnych oraz organizacyjnych.",
+            "7": "Szybko i konstruktywnie przeorganizowuje pracę w obliczu nagłych zmian, utrzymując wysoką skuteczność operacyjną.",
+            "9": "Wyprzedza zmiany otoczenia, przygotowując warianty awaryjne i wspierając zespół w płynnej adaptacji do nowych regulacji."
+          }
+        },
+        {
+          "id": "C04_I05",
+          "indicator": "Wytrwałość i zaangażowanie w realizację zadań/celów.",
+          "levels": {
+            "1": "Łatwo zniechęca się przy pierwszych trudnościach, porzuca niedokończone wątki i wykazuje bierność wobec celów.",
+            "3": "Wykazuje nierówne zaangażowanie; w razie napotkania barier biernie czeka na rozwiązanie problemu przez przełożonego.",
+            "5": "Konsekwentnie i z zaangażowaniem dąży do zrealizowania powierzonych zadań, pokonując typowe trudności realizacyjne.",
+            "7": "Wykazuje ponadprzeciętną determinację i inicjatywę w doprowadzaniu do końca spraw trudnych oraz wielowątkowych.",
+            "9": "Swoją niesłabnącą determinacją inspiruje otoczenie do osiągania najtrudniejszych celów publicznych mimo złożonych barier."
+          }
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "name": "Kreatywność",
+      "upper_name": "KREATYWNOŚĆ",
+      "indicator_count": 2,
+      "mandatory_for_B": false,
+      "mandatory_for_C": false,
+      "mandatory_for_first_eval": false,
+      "indicators": [
+        {
+          "id": "C05_I01",
+          "indicator": "Proponowanie lub tworzenie nowych rozwiązań.",
+          "levels": {
+            "1": "Nie zgłasza żadnych usprawnień oraz bezpodstawnie neguje propozycje zmian zgłaszane przez innych.",
+            "3": "Rzadko wychodzi z inicjatywą usprawnień, powielając dotychczasowe schematy nawet wtedy, gdy są nieefektywne.",
+            "5": "Zgłasza przemyślane, realistyczne propozycje nowych rozwiązań lub usprawnień adekwatne do ram prawnych urzędu.",
+            "7": "Samodzielnie projektuje i wdraża innowacyjne rozwiązania organizacyjne lub prawne, wymiernie podnosząc sprawność wydziału.",
+            "9": "Tworzy przełomowe koncepcje i rozwiązania systemowe wyznaczające nowe standardy funkcjonowania administracji publicznej."
+          }
+        },
+        {
+          "id": "C05_I02",
+          "indicator": "Nieschematyczne podejście do zadań.",
+          "levels": {
+            "1": "W sytuacjach nietypowych jest bezradny, ponieważ potrafi działać wyłącznie według szczegółowej instrukcji krokowej.",
+            "3": "Ma trudność z wyjściem poza utarty schemat w sprawach precedensowych, mechanicznie stosując nieadekwatne wzorce.",
+            "5": "W sytuacjach nietypowych patrzy na problem z szerszej perspektywy i dobiera nieszablonowy, zgodny z prawem sposób działania.",
+            "7": "Łączy perspektywę prawną, technologiczną i operacyjną, skutecznie rozwiązując problemy bezprecedensowe.",
+            "9": "Modelowo przekształca złożone bariery regulacyjne lub organizacyjne w nowatorskie, w pełni legalne mechanizmy działania."
+          }
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "name": "Współpraca",
+      "upper_name": "WSPÓŁPRACA",
+      "indicator_count": 6,
+      "mandatory_for_B": true,
+      "mandatory_for_C": true,
+      "mandatory_for_first_eval": true,
+      "indicators": [
+        {
+          "id": "C06_I01",
+          "indicator": "Włączanie się w działania realizowane razem z innymi osobami, jeśli istnieje taka możliwość.",
+          "levels": {
+            "1": "Unika udziału we wspólnych zadaniach i przerzuca ciężar obowiązków zespołowych na współpracowników.",
+            "3": "Angażuje się w prace zespołowe wyłącznie na polecenie przełożonego, ograniczając swój udział do niezbędnego minimum.",
+            "5": "Chętnie i aktywnie włącza się w zadania zespołowe oraz międzywydziałowe, rzetelnie realizując swoją część pracy.",
+            "7": "Proaktywnie oferuje pomoc współpracownikom przy spiętrzeniu prac i podejmuje się trudnych odcinków zadań wspólnych.",
+            "9": "Inicjuje i integruje współpracę międzykomórkową, mobilizując interdyscyplinarne zespoły wokół wspólnych celów urzędu."
+          }
+        },
+        {
+          "id": "C06_I02",
+          "indicator": "Dbanie o przepływ informacji.",
+          "levels": {
+            "1": "Zataja lub przetrzymuje kluczowe informacje potrzebne innym do pracy, powodując błędy i opóźnienia.",
+            "3": "Przekazuje informacje wybiórczo lub ze znacznym opóźnieniem, pomijając część zainteresowanych osób.",
+            "5": "Na bieżąco, kompletnie i we właściwym czasie przekazuje współpracownikom oraz przełożonym informacje istotne dla zadań.",
+            "7": "Dba o wzorcową transparentność informacyjną w projektach wielopodmiotowych, wyprzedzająco sygnalizując zależności.",
+            "9": "Buduje niezawodne mechanizmy wymiany informacji pomiędzy departamentami i instytucjami zewnętrznymi, eliminując silosy."
+          }
+        },
+        {
+          "id": "C06_I03",
+          "indicator": "Dbanie o dobrą atmosferę i otwartość we współpracy.",
+          "levels": {
+            "1": "Wywołuje napięcia, zachowuje się niekoleżeńsko i psuje relacje w zespole.",
+            "3": "Bywa zdystansowany w kontaktach roboczych; pod wpływem stresu reaguje zniecierpliwieniem utrudniającym współpracę.",
+            "5": "Odnosi się do współpracowników z życzliwością i szacunkiem, zachowuje otwartość i współtworzy dobrą atmosferę pracy.",
+            "7": "Łagodzi napięcia wynikające z presji czasu, budując klimat wzajemnego zaufania i partnerskiego wsparcia.",
+            "9": "Jest filarem kultury współpracy w urzędzie; buduje konstruktywny klimat współdziałania nawet między grupami o sprzecznych interesach."
+          }
+        },
+        {
+          "id": "C06_I04",
+          "indicator": "Dostrzeganie wkładu pracy innych osób.",
+          "levels": {
+            "1": "Przypisuje sobie cudze osiągnięcia lub deprecjonuje pracę pozostałych członków zespołu.",
+            "3": "Koncentruje się wyłącznie na własnym udziale w zadaniu, pomijając milczeniem wsparcie współpracowników.",
+            "5": "Uczciwie wskazuje i docenia wkład pracy innych osób zaangażowanych w realizację wspólnego zadania.",
+            "7": "Podkreśla zasługi współpracowników i partnerów z innych komórek, wzmacniając ich motywację do współdziałania.",
+            "9": "Buduje kulturę wzajemnego uznania w organizacji, dbając o sprawiedliwą ekspozycję dorobku wszystkich uczestników projektu."
+          }
+        },
+        {
+          "id": "C06_I05",
+          "indicator": "Branie pod uwagę zdania innych osób.",
+          "levels": {
+            "1": "Z góry odrzuca opinie innych osób, forsując wyłącznie własne zdanie bez merytorycznej dyskusji.",
+            "3": "Niechętnie przyjmuje uwagi współpracowników, traktując odmienne propozycje jako krytykę personalną.",
+            "5": "Uważnie analizuje opinie i sugestie innych osób, uwzględniając zasadne argumenty w wypracowywanych rozwiązaniach.",
+            "7": "Aktywnie zabiega o zróżnicowane opinie ekspertów z innych dziedzin, podnosząc jakość końcowych rozstrzygnięć.",
+            "9": "Syntetyzuje odmienne perspektywy eksperckie i instytucjonalne, przekuwając różnicę zdań w lepsze rozwiązania systemowe."
+          }
+        },
+        {
+          "id": "C06_I06",
+          "indicator": "Dzielenie się wiedzą i doświadczeniem.",
+          "levels": {
+            "1": "Odmawia udzielenia wskazówek mniej doświadczonym pracownikom i blokuje transfer wiedzy w zespole.",
+            "3": "Dzieli się wiedzą niechętnie lub zdawkowo, wyłącznie na wyraźne polecenie przełożonego.",
+            "5": "Chętnie dzieli się posiadaną wiedzą merytoryczną, praktycznymi wskazówkami oraz doświadczeniem ze współpracownikami.",
+            "7": "Aktywnie wspiera wdrożenie nowych pracowników, opracowuje wzory dokumentów i prowadzi wewnętrzne konsultacje.",
+            "9": "Pełni rolę mentora w urzędzie, systematycznie podnosząc kompetencje kadr poprzez szkolenia wewnętrzne i bazy wiedzy."
+          }
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "name": "Myślenie analityczne",
+      "upper_name": "MYŚLENIE ANALITYCZNE",
+      "indicator_count": 3,
+      "mandatory_for_B": false,
+      "mandatory_for_C": false,
+      "mandatory_for_first_eval": false,
+      "indicators": [
+        {
+          "id": "C07_I01",
+          "indicator": "Rozróżnianie informacji istotnych i nieistotnych.",
+          "levels": {
+            "1": "Gubi się w natłoku danych; opiera analizy na informacjach przypadkowych lub pobocznych, pomijając fakty kluczowe.",
+            "3": "Ma trudność z selekcją materiału źródłowego, tworząc przeładowane zestawienia bez wyodrębnienia sedna sprawy.",
+            "5": "Trafnie oddziela informacje kluczowe od drugorzędnych oraz weryfikuje wiarygodność analizowanych danych.",
+            "7": "Sprawnie filtruje obszerne i wielojęzyczne akty prawne oraz raporty, błyskawicznie identyfikując elementy krytyczne.",
+            "9": "W warunkach szumu informacyjnego i niepełnych danych bezbłędnie wyławia sygnały o strategicznym znaczeniu dla resortu."
+          }
+        },
+        {
+          "id": "C07_I02",
+          "indicator": "Dostrzeganie zależności między informacjami.",
+          "levels": {
+            "1": "Analizuje fakty w izolacji; nie dostrzega oczywistych związków przyczynowo-skutkowych ani sprzeczności w dokumentach.",
+            "3": "Dostrzega wyłącznie proste zależności bezpośrednie, pomijając skutki uboczne lub powiązania z przepisami pokrewnymi.",
+            "5": "Prawidłowo identyfikuje związki przyczynowo-skutkowe, zależności logiczne oraz rozbieżności między informacjami i przepisami.",
+            "7": "Wychwytuje złożone współzależności prawne, finansowe i organizacyjne oraz trafnie prognozuje długofalowe skutki regulacji.",
+            "9": "Przeprowadza głębokie analizy międzysektorowe, identyfikując ukryte ryzyka i synergie w skali państwa lub prawa UE."
+          }
+        },
+        {
+          "id": "C07_I03",
+          "indicator": "Formułowanie wniosków.",
+          "levels": {
+            "1": "Formułuje wnioski błędne, sprzeczne z materiałem źródłowym albo nie formułuje żadnych konkluzji.",
+            "3": "Wyciąga wnioski powierzchowne lub ogólnikowe, które nie dają przełożonemu podstawy do podjęcia decyzji.",
+            "5": "Na podstawie analizy formułuje logiczne, jednoznaczne i uargumentowane wnioski oraz praktyczne rekomendacje.",
+            "7": "Formułuje trafne, wariantowe konkluzje wraz z oceną korzyści i ryzyka każdej opcji, ułatwiając decyzje kierownicze.",
+            "9": "Przekuwa najbardziej zawiłe analizy prawno-techniczne w przejrzyste rekomendacje strategiczne dla kierownictwa urzędu."
+          }
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "name": "Negocjowanie",
+      "upper_name": "NEGOCJOWANIE",
+      "indicator_count": 3,
+      "mandatory_for_B": false,
+      "mandatory_for_C": false,
+      "mandatory_for_first_eval": false,
+      "indicators": [
+        {
+          "id": "C08_I01",
+          "indicator": "Przygotowywanie się do negocjacji, w szczególności opracowanie projektu stanowiska, zakresu możliwych ustępstw i argumentacji.",
+          "levels": {
+            "1": "Przystępuje do uzgodnień bez przygotowania, znajomości stanowiska ani granic ustępstw, narażając interes urzędu.",
+            "3": "Przygotowuje się do negocjacji powierzchownie, bez analizy racji drugiej strony i bez wariantów rezerwowych.",
+            "5": "Rzetelnie przygotowuje się do negocjacji: opracowuje projekt stanowiska, argumentację, granice ustępstw i analizuje interesy stron.",
+            "7": "Opracowuje pogłębione scenariusze negocjacyjne przewidujące ruchy partnerów, kontrargumenty i warianty kompromisowe.",
+            "9": "Tworzy kompleksowe strategie i instrukcje negocjacyjne na forum krajowym lub międzynarodowym, mapując układ sił i koalicji."
+          }
+        },
+        {
+          "id": "C08_I02",
+          "indicator": "Stosowanie technik i strategii negocjacyjnych.",
+          "levels": {
+            "1": "Ulega presji rozmówców przy pierwszej rozbieżności albo prowadzi rozmowy konfrontacyjnie, zrywając uzgodnienia.",
+            "3": "Stosuje ubogi repertuar zachowań negocjacyjnych; łatwo traci inicjatywę lub przedwcześnie ujawnia granice ustępstw.",
+            "5": "Świadomie i kulturalnie stosuje adekwatne techniki negocjacyjne, oddziela ludzi od problemu i broni interesów urzędu.",
+            "7": "Elastycznie dostosowuje taktykę w trudnych rokowaniach wielostronnych, przełamuje impasy i buduje porozumienia wygrana-wygrana.",
+            "9": "Po mistrzowsku prowadzi złożone negocjacje na forum UE/NATO lub międzyresortowym, zachowując pełną kontrolę nad procesem."
+          }
+        },
+        {
+          "id": "C08_I03",
+          "indicator": "Osiągnięcie efektu negocjacji akceptowanego przez przełożonych.",
+          "levels": {
+            "1": "Kończy uzgodnienia wynikiem sprzecznym z instrukcją lub niekorzystnym dla urzędu.",
+            "3": "Osiąga jedynie częściowe ustalenia kosztem nadmiernych ustępstw lub pozostawia kluczowe kwestie nierozstrzygnięte.",
+            "5": "Wypracowuje porozumienie mieszczące się w mandacie negocjacyjnym i w pełni akceptowane przez przełożonych.",
+            "7": "Uzyskuje rezultaty zabezpieczające interes urzędu powyżej założeń minimalnych, utrzymując dobre relacje z partnerami.",
+            "9": "W sytuacjach skrajnie rozbieżnych interesów doprowadza do trwałych, strategicznie korzystnych porozumień."
+          }
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "name": "Wystąpienia publiczne",
+      "upper_name": "WYSTĄPIENIA PUBLICZNE",
+      "indicator_count": 4,
+      "mandatory_for_B": false,
+      "mandatory_for_C": false,
+      "mandatory_for_first_eval": false,
+      "indicators": [
+        {
+          "id": "C09_I01",
+          "indicator": "Wykorzystywanie różnych środków przekazu (np. narzędzi multimedialnych) i dbałość o sposób prezentacji (w tym autoprezentacji).",
+          "levels": {
+            "1": "Prezentuje materiały nieczytelne i z błędami, a jego sposób prezentacji podważa profesjonalny wizerunek urzędu.",
+            "3": "Nieumiejętnie korzysta z narzędzi prezentacyjnych (np. mechanicznie odczytuje przeładowane slajdy), osłabiając odbiór przekazu.",
+            "5": "Dba o profesjonalną autoprezentację oraz przygotowuje przejrzyste materiały wspierające główny przekaz wystąpienia.",
+            "7": "Umiejętnie łączy słowo mówione z wizualizacją danych, prowadząc dynamiczne i angażujące prezentacje.",
+            "9": "Reprezentuje urząd na najwyższym poziomie podczas konferencji krajowych i międzynarodowych, stanowiąc wizytówkę służby cywilnej."
+          }
+        },
+        {
+          "id": "C09_I02",
+          "indicator": "Nawiązywanie i utrzymywanie kontaktu z audytorium.",
+          "levels": {
+            "1": "Unika kontaktu z odbiorcami i mówi monotonnie bez uwzględnienia reakcji sali, całkowicie tracąc uwagę słuchaczy.",
+            "3": "Ma trudność z nawiązaniem kontaktu z salą i rzadko reaguje na sygnały niezrozumienia ze strony uczestników.",
+            "5": "Nawiązuje i utrzymuje dobry kontakt z audytorium, dostosowując tempo i sposób mówienia do odbiorców.",
+            "7": "Swobodnie angażuje zróżnicowane audytorium, umiejętnie moderuje sesje pytań i buduje życzliwą relację ze słuchaczami.",
+            "9": "Charyzmatycznie skupia uwagę licznych gremiów eksperckich, utrzymując pełne zaangażowanie sali przez całe wystąpienie."
+          }
+        },
+        {
+          "id": "C09_I03",
+          "indicator": "Zarządzanie czasem wystąpienia, w szczególności przestrzeganie ram czasowych, elastyczne reagowanie na potrzeby audytorium.",
+          "levels": {
+            "1": "Rażąco przekracza wyznaczony czas wystąpienia lub kończy je bez omówienia kluczowych tez.",
+            "3": "Niewłaściwie rozkłada akcenty w czasie, omawiając wątki poboczne kosztem najważniejszych konkluzji.",
+            "5": "Przestrzega ram czasowych wystąpienia, logicznie rozkłada proporcje treści i elastycznie reaguje na potrzeby audytorium.",
+            "7": "Płynnie modyfikuje strukturę wystąpienia w czasie rzeczywistym przy zmianach agendy, zachowując wszystkie kluczowe wnioski.",
+            "9": "Z najwyższą precyzją zarządza czasem wystąpień własnych i całych paneli dyskusyjnych, idealnie balansując prezentację i dyskusję."
+          }
+        },
+        {
+          "id": "C09_I04",
+          "indicator": "Radzenie sobie ze stresem i emocjami, w szczególności wywołanymi krytyką i trudnymi pytaniami.",
+          "levels": {
+            "1": "Pod wpływem stresu lub trudnych pytań traci panowanie nad sobą, reaguje emocjonalnie albo przerywa wypowiedź.",
+            "3": "Wyraźnie traci pewność siebie w obliczu krytyki lub trudnych pytań, udzielając wymijających odpowiedzi.",
+            "5": "Zachowuje spokój i kulturę osobistą podczas wystąpień, rzeczowo odpowiadając na trudne pytania oraz uwagi krytyczne.",
+            "7": "W obliczu ostrej polemiki odpowiada z pełnym opanowaniem i klasą, przekuwając trudne pytania we wzmocnienie przekazu urzędu.",
+            "9": "Imponuje niezachwianym opanowaniem w najbardziej wymagających wystąpieniach parlamentarnych, medialnych lub międzynarodowych."
+          }
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "name": "Orientacja na klienta/interesanta",
+      "upper_name": "ORIENTACJA NA KLIENTA/INTERESANTA",
+      "indicator_count": 2,
+      "mandatory_for_B": false,
+      "mandatory_for_C": false,
+      "mandatory_for_first_eval": false,
+      "indicators": [
+        {
+          "id": "C10_I01",
+          "indicator": "Taktowne zachowanie, wyrażające szacunek i zrozumienie dla drugiej osoby.",
+          "levels": {
+            "1": "Traktuje klientów/interesantów lekceważąco lub nieuprzejmie, naruszając standardy etyki służby cywilnej.",
+            "3": "Zachowuje się oschle lub zniecierpliwienie wobec mniej zorientowanych interesantów.",
+            "5": "Odnosi się do każdego klienta/interesanta z taktem, kulturą osobistą i szacunkiem, wykazując zrozumienie dla jego sytuacji.",
+            "7": "Zachowuje wysoką empatię, cierpliwość i profesjonalizm również w kontaktach z rozmówcami wzburzonymi lub w trudnej sytuacji.",
+            "9": "Stanowi wzór postawy proobywatelskiej; swoją kulturą i spokojem rozładowuje najbardziej napięte sytuacje w relacjach zewnętrznych."
+          }
+        },
+        {
+          "id": "C10_I02",
+          "indicator": "Reagowanie na potrzeby klienta/interesanta, w szczególności rozpoznawanie jego potrzeb i proponowanie rozwiązań.",
+          "levels": {
+            "1": "Ignoruje zapytania interesantów, odsyła ich bez sprawdzenia właściwości lub udziela błędnych informacji.",
+            "3": "Ogranicza się do formalistycznego minimum, nie starając się rozpoznać rzeczywistej potrzeby interesanta.",
+            "5": "Uważnie rozpoznaje potrzebę klienta/interesanta, udziela pełnej informacji i proponuje zgodne z prawem rozwiązania.",
+            "7": "Proaktywnie pomaga interesantowi przejść przez wymogi administracyjne, wskazując najsprawniejszą ścieżkę załatwienia sprawy.",
+            "9": "Inicjuje systemowe uproszczenia procedur i komunikatów zewnętrznych na podstawie zidentyfikowanych potrzeb obywateli."
+          }
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "name": "Radzenie sobie w sytuacjach kryzysowych",
+      "upper_name": "RADZENIE SOBIE W SYTUACJACH KRYZYSOWYCH",
+      "indicator_count": 3,
+      "mandatory_for_B": false,
+      "mandatory_for_C": false,
+      "mandatory_for_first_eval": false,
+      "indicators": [
+        {
+          "id": "C11_I01",
+          "indicator": "Rozpoznawanie sytuacji kryzysowych i informowanie o nich zainteresowanych.",
+          "levels": {
+            "1": "Bagatelizuje lub ukrywa symptomy incydentu czy kryzysu, nie informując przełożonych ani właściwych służb.",
+            "3": "Z opóźnieniem rozpoznaje eskalację zagrożenia lub przekazuje niepełne informacje utrudniające ocenę sytuacji.",
+            "5": "W porę rozpoznaje symptomy sytuacji kryzysowej i niezwłocznie, precyzyjnie informuje przełożonych oraz właściwe podmioty.",
+            "7": "Wychwytuje wczesne sygnały ostrzegawcze przed eskalacją kryzysu, przekazując ustrukturyzowany obraz sytuacji.",
+            "9": "Projektuje i doskonali mechanizmy wczesnego ostrzegania, zapewniając natychmiastową świadomość sytuacyjną kierownictwa."
+          }
+        },
+        {
+          "id": "C11_I02",
+          "indicator": "Podejmowanie działań mających na celu rozwiązanie kryzysu.",
+          "levels": {
+            "1": "W sytuacji kryzysowej ulega panice, pozostaje bierny lub podejmuje chaotyczne działania pogłębiające kryzys.",
+            "3": "Działa niepewnie pod presją zagrożenia; wymaga ciągłego instruowania przy uruchamianiu procedur awaryjnych.",
+            "5": "Zachowuje opanowanie i sprawnie podejmuje adekwatne działania zaradcze zmierzające do rozwiązania sytuacji kryzysowej.",
+            "7": "Skutecznie koordynuje działania pod silną presją czasu, trafnie adaptując procedury reagowania do przebiegu incydentu.",
+            "9": "Przejmuje wiodącą rolę operacyjną w najpoważniejszych kryzysach, integrując działania wielu instytucji i minimalizując straty."
+          }
+        },
+        {
+          "id": "C11_I03",
+          "indicator": "Wyciąganie wniosków z sytuacji kryzysowych.",
+          "levels": {
+            "1": "Po zakończeniu kryzysu nie analizuje jego przyczyn i powtarza te same błędy w kolejnych zdarzeniach.",
+            "3": "Ogranicza się do doraźnego zamknięcia incydentu bez sformułowania wniosków zapobiegawczych na przyszłość.",
+            "5": "Analizuje przebieg i przyczyny sytuacji kryzysowej, formułując rzeczowe wnioski zapobiegające podobnym zdarzeniom.",
+            "7": "Opracowuje po incydencie lub ćwiczeniach konkretne aktualizacje planów reagowania oraz procedur i wdraża je w praktyce.",
+            "9": "Przekuwa doświadczenia z incydentów krajowych i międzynarodowych w systemowe wzmocnienie odporności państwa i urzędu."
+          }
+        }
+      ]
+    },
+    {
+      "id": 12,
+      "name": "Zarządzanie strategiczne",
+      "upper_name": "ZARZĄDZANIE STRATEGICZNE",
+      "indicator_count": 3,
+      "mandatory_for_B": false,
+      "mandatory_for_C": false,
+      "mandatory_for_first_eval": false,
+      "indicators": [
+        {
+          "id": "C12_I01",
+          "indicator": "Tworzenie wizji oraz wyznaczanie celów strategicznych w oparciu o całościowe i perspektywiczne widzenie organizacji, otoczenia oraz strategie rozwoju.",
+          "levels": {
+            "1": "Działa wyłącznie doraźnie; wyznacza cele sprzeczne ze strategią urzędu lub oderwane od realiów otoczenia.",
+            "3": "Formułuje kierunki działania w wąskiej perspektywie własnej komórki, bez uwzględnienia długofalowych polityk publicznych.",
+            "5": "Tworzy spójną wizję rozwoju obszaru i wyznacza długofalowe cele strategiczne zgodne z misją urzędu oraz strategiami rządowymi.",
+            "7": "Trafnie antycypuje trendy technologiczne, społeczne i regulacyjne, wyznaczając dalekowzroczne kierunki strategiczne.",
+            "9": "Kształtuje przełomowe strategie i polityki publiczne o znaczeniu ogólnopaństwowym lub unijnym."
+          }
+        },
+        {
+          "id": "C12_I02",
+          "indicator": "Formułowanie celów operacyjnych na podstawie celów strategicznych.",
+          "levels": {
+            "1": "Nie potrafi przełożyć kierunków strategicznych na konkretne zadania, pozostawiając strategię martwą deklaracją.",
+            "3": "Formułuje cele operacyjne nieprecyzyjnie lub niemierzalnie, utrudniając przypisanie odpowiedzialności i rozliczenie efektów.",
+            "5": "Skutecznie przekłada cele strategiczne na mierzalne, realistyczne i określone w czasie cele operacyjne.",
+            "7": "Zapewnia pełną spójność pomiędzy strategią, planami rocznymi, budżetem zadaniowym i bieżącymi priorytetami.",
+            "9": "Projektuje wzorcowe systemy zarządzania przez cele pozwalające dynamicznie sterować realizacją programów wieloletnich."
+          }
+        },
+        {
+          "id": "C12_I03",
+          "indicator": "Analiza ryzyka planowanych działań o charakterze strategicznym.",
+          "levels": {
+            "1": "Podejmuje działania strategiczne bez jakiejkolwiek oceny ryzyka prawnego, finansowego lub organizacyjnego.",
+            "3": "Przeprowadza analizę ryzyka powierzchownie i czysto formalnie, pomijając realne zagrożenia wdrożeniowe.",
+            "5": "Systematycznie identyfikuje i ocenia kluczowe ryzyka planowanych działań strategicznych oraz określa mechanizmy zaradcze.",
+            "7": "Prowadzi wielowymiarową ocenę ryzyk systemowych i przygotowuje skuteczne scenariusze awaryjne.",
+            "9": "Integruje zarządzanie ryzykiem strategicznym z procesem decyzyjnym całej organizacji przy złożonych reformach."
+          }
+        }
+      ]
+    },
+    {
+      "id": 13,
+      "name": "Zarządzanie ludźmi",
+      "upper_name": "ZARZĄDZANIE LUDŹMI",
+      "indicator_count": 6,
+      "mandatory_for_B": true,
+      "mandatory_for_C": false,
+      "mandatory_for_first_eval": false,
+      "indicators": [
+        {
+          "id": "C13_I01",
+          "indicator": "Przydzielanie zakresu odpowiedzialności, zadań i uprawnień pracownikom (delegowanie zadań).",
+          "levels": {
+            "1": "Przydziela zadania chaotycznie bez określenia oczekiwań, skrajnie nierówno obciąża zespół lub blokuje pracę brakiem delegowania.",
+            "3": "Deleguje zadania bez doprecyzowania rezultatu i terminu albo nadmiernie ingeruje w drobne szczegóły wykonania.",
+            "5": "Jasno i równomiernie przydziela pracownikom zadania, zakres odpowiedzialności oraz uprawnienia adekwatnie do ich kompetencji.",
+            "7": "Deleguje zadania rozwojowo, optymalnie wykorzystując mocne strony ekspertów i budując samodzielność zespołu.",
+            "9": "Mistrzowsko kształtuje podział odpowiedzialności w zespole, zapewniając bezbłędną realizację złożonych portfeli zadań."
+          }
+        },
+        {
+          "id": "C13_I02",
+          "indicator": "Monitorowanie realizacji zadań oraz w razie potrzeby podejmowanie działań korygujących lub zapobiegawczych.",
+          "levels": {
+            "1": "Traci kontrolę nad stanem prac w zespole, dowiadując się o niewykonaniu zadań dopiero po upływie terminów.",
+            "3": "Monitoruje postępy niesystematycznie, reagując dopiero wtedy, gdy problemy znacząco opóźniły realizację celu.",
+            "5": "Systematycznie monitoruje postępy i jakość realizacji zadań oraz w porę podejmuje działania korygujące lub zapobiegawcze.",
+            "7": "Stosuje przejrzyste punkty kontrolne bez mikrozarządzania, wcześnie wychwytując wąskie gardła i realokując wsparcie.",
+            "9": "Buduje samoregulujący się system nadzoru operacyjnego gwarantujący najwyższą jakość i terminowość pracy zespołu."
+          }
+        },
+        {
+          "id": "C13_I03",
+          "indicator": "Motywowanie pracowników.",
+          "levels": {
+            "1": "Demotywuje pracowników niesprawiedliwym traktowaniem, brakiem szacunku lub stosowaniem wyłącznie presji.",
+            "3": "Rzadko docenia zaangażowanie pracowników i nie reaguje na spadek motywacji w zespole.",
+            "5": "Dba o zaangażowanie zespołu poprzez sprawiedliwe traktowanie, docenianie wyników oraz wyjaśnianie sensu zadań.",
+            "7": "Indywidualizuje podejście motywacyjne do potrzeb członków zespołu, utrzymując wysokie morale przy dużym obciążeniu.",
+            "9": "Tworzy inspirujące środowisko pracy przyciągające i zatrzymujące najlepszych ekspertów służby cywilnej."
+          }
+        },
+        {
+          "id": "C13_I04",
+          "indicator": "Udzielanie pracownikom informacji zwrotnej opartej na ocenie ich zaangażowania i sposobu realizacji zadań.",
+          "levels": {
+            "1": "Nie udziela merytorycznej informacji zwrotnej albo formułuje oceny krzywdzące i niepoparte faktami.",
+            "3": "Udziela informacji zwrotnej sporadycznie i ogólnikowo, skupiając się wyłącznie na wytykaniu błędów.",
+            "5": "Regularnie udziela pracownikom konstruktywnej informacji zwrotnej opartej na faktach, doceniając osiągnięcia i wskazując obszary poprawy.",
+            "7": "Prowadzi bieżący, partnerski dialog rozwojowy z pracownikami, wspierając systematyczne podnoszenie jakości ich pracy.",
+            "9": "Kształtuje kulturę otwartego, dwustronnego feedbacku behawioralnego, stanowiąc wzór wspierającego przełożonego."
+          }
+        },
+        {
+          "id": "C13_I05",
+          "indicator": "Rozwiązywanie konfliktów.",
+          "levels": {
+            "1": "Ignoruje narastające konflikty w zespole, faworyzuje jedną ze stron lub sam eskaluje spory.",
+            "3": "Reaguje na konflikty z opóźnieniem lub powierzchownie wycisza spór bez usunięcia jego przyczyn.",
+            "5": "W porę reaguje na nieporozumienia i konflikty, bezstronnie wysłuchuje stron i doprowadza do konstruktywnego rozwiązania.",
+            "7": "Diagnozuje źródła napięć na styku ról zanim przerodzą się w konflikt, skutecznie chroniąc współpracę w zespole.",
+            "9": "Z powodzeniem rozwiązuje głębokie konflikty wewnątrz- i międzyzespołowe, trwale odbudowując zaufanie i efektywność."
+          }
+        },
+        {
+          "id": "C13_I06",
+          "indicator": "Wspieranie pracowników w rozwoju zawodowym, w szczególności identyfikowanie potrzeb rozwojowych, proponowanie działań rozwojowych oraz monitorowanie ich realizacji.",
+          "levels": {
+            "1": "Blokuje udział pracowników w szkoleniach i traktuje IPRZ wyłącznie jako zbędną formalność.",
+            "3": "Określa potrzeby szkoleniowe schematycznie, bez powiązania z zadaniami stanowiska i nie monitoruje ich efektów.",
+            "5": "Trafnie identyfikuje potrzeby rozwojowe pracowników, uzgadnia adekwatne działania w IPRZ oraz monitoruje ich realizację.",
+            "7": "Łączy szkolenia z mentoringiem i zadaniami rozwojowymi, świadomie budując wszechstronność oraz zastępowalność w zespole.",
+            "9": "Strategicznie rozwija talenty i sukcesję ekspercką, przygotowując pracowników do ról eksperckich i kierowniczych."
+          }
+        }
+      ]
+    },
+    {
+      "id": 14,
+      "name": "Podejmowanie decyzji i odpowiedzialność",
+      "upper_name": "PODEJMOWANIE DECYZJI I ODPOWIEDZIALNOŚĆ",
+      "indicator_count": 3,
+      "mandatory_for_B": true,
+      "mandatory_for_C": false,
+      "mandatory_for_first_eval": false,
+      "indicators": [
+        {
+          "id": "C14_I01",
+          "indicator": "Wypracowywanie alternatywnych rozwiązań na podstawie analizy informacji, w szczególności potencjalnego ryzyka.",
+          "levels": {
+            "1": "Podejmuje pochopne rozstrzygnięcia bez analizy faktów, przepisów i ryzyka albo nie rozważa żadnej alternatywy.",
+            "3": "Rozważa wyłącznie jeden oczywisty wariant i pobieżnie ocenia ryzyko, przez co decyzje wymagają częstych korekt.",
+            "5": "Przed podjęciem decyzji analizuje dostępne informacje oraz potencjalne ryzyka, wypracowując racjonalne warianty działania.",
+            "7": "Systematycznie zestawia wielowymiarowe warianty decyzyjne wraz z precyzyjnym bilansem korzyści, kosztów i ryzyk.",
+            "9": "W sprawach precedensowych projektuje optymalne scenariusze decyzyjne zabezpieczające interes publiczny długofalowo."
+          }
+        },
+        {
+          "id": "C14_I02",
+          "indicator": "Podejmowanie decyzji (decyzyjność).",
+          "levels": {
+            "1": "Unika podejmowania decyzji leżących w jego kompetencjach, przerzucając rozstrzygnięcia na przełożonych lub odwlekając sprawy.",
+            "3": "Zwleka z podjęciem decyzji w sytuacjach niejednoznacznych, powodując przestoje w pracy zespołu.",
+            "5": "W ramach posiadanych uprawnień podejmuje jednoznaczne, wyważone decyzje we właściwym czasie.",
+            "7": "Zachowuje wysoką decyzyjność pod presją czasu i przy niepełnej informacji, nadając zespołowi jasny kierunek działania.",
+            "9": "Odważnie i trafnie rozstrzyga najtrudniejsze dylematy zarządcze oraz kryzysowe w granicach prawa."
+          }
+        },
+        {
+          "id": "C14_I03",
+          "indicator": "Przyjmowanie odpowiedzialności za efekty podjętych decyzji.",
+          "levels": {
+            "1": "W razie niepowodzenia wypiera się własnych decyzji i przerzuca winę na podwładnych lub współpracowników.",
+            "3": "Niechętnie przyznaje się do nietrafnych rozstrzygnięć, skupiając się na usprawiedliwieniach zamiast naprawie skutków.",
+            "5": "Bierze pełną odpowiedzialność za skutki podjętych decyzji, a w razie błędu niezwłocznie podejmuje działania naprawcze.",
+            "7": "Odważnie firmuje trudne decyzje na zewnątrz i chroni zespół w sytuacjach uzasadnionego ryzyka operacyjnego.",
+            "9": "Prezentuje najwyższy etos służby publicznej, łącząc pełną rozliczalność za rezultaty z budowaniem kultury odpowiedzialności."
+          }
+        }
+      ]
+    }
+  ]
+}

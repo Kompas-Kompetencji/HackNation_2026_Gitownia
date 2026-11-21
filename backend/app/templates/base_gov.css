@@ -1,0 +1,240 @@
+@page {
+    size: A4 portrait;
+    margin: 14mm;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+html, body {
+    margin: 0;
+    padding: 0;
+    font-family: "DejaVu Serif", "Liberation Serif", "Times New Roman", serif;
+    font-size: 9.2pt;
+    line-height: 1.28;
+    color: #000000;
+    background-color: #ffffff;
+}
+
+.page-break {
+    page-break-before: always;
+    break-before: page;
+}
+
+.avoid-break {
+    page-break-inside: avoid;
+    break-inside: avoid;
+}
+
+.attachment-label {
+    text-align: right;
+    font-weight: bold;
+    font-size: 10.5pt;
+    margin-bottom: 2pt;
+}
+
+.wzor-label {
+    text-align: center;
+    font-style: italic;
+    font-size: 10pt;
+    margin-bottom: 6pt;
+}
+
+.arkusz-code {
+    text-align: left;
+    font-weight: bold;
+    font-size: 10.5pt;
+    margin-bottom: 6pt;
+}
+
+.doc-title {
+    text-align: center;
+    font-weight: bold;
+    font-size: 11pt;
+    line-height: 1.35;
+    margin-bottom: 10pt;
+    text-transform: uppercase;
+}
+
+.part-heading {
+    text-align: center;
+    font-size: 10.5pt;
+    font-weight: normal;
+    letter-spacing: 2pt;
+    margin-top: 8pt;
+    margin-bottom: 8pt;
+    text-transform: uppercase;
+}
+
+.section-caption {
+    font-weight: bold;
+    font-size: 8.8pt;
+    text-transform: uppercase;
+    margin-top: 8pt;
+    margin-bottom: 2pt;
+}
+
+.section-caption-roman {
+    font-size: 10pt;
+    font-weight: normal;
+    text-transform: uppercase;
+    margin-top: 9pt;
+    margin-bottom: 3pt;
+}
+
+table.gov-table {
+    width: 100%;
+    border-collapse: collapse;
+    border: 1.2pt solid #000000;
+    margin-bottom: 6pt;
+    table-layout: fixed;
+}
+
+table.gov-table th,
+table.gov-table td {
+    border: 0.75pt solid #000000;
+    padding: 3.5pt 5pt;
+    vertical-align: middle;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+}
+
+.bg-gray {
+    background-color: #d9d9d9;
+}
+
+.bg-separator {
+    background-color: #d9d9d9;
+    height: 10pt;
+    padding: 0 !important;
+}
+
+.label-cell {
+    background-color: #d9d9d9;
+    font-weight: bold;
+    font-size: 8.5pt;
+}
+
+.label-cell-normal {
+    background-color: #d9d9d9;
+    font-weight: normal;
+    font-size: 8.8pt;
+}
+
+.value-cell {
+    background-color: #ffffff;
+    font-weight: normal;
+    min-height: 16pt;
+}
+
+.center {
+    text-align: center;
+}
+
+.right {
+    text-align: right;
+}
+
+.bold {
+    font-weight: bold;
+}
+
+.italic {
+    font-style: italic;
+}
+
+.small-hint {
+    font-size: 7.5pt;
+    font-style: italic;
+}
+
+.score-header {
+    background-color: #d9d9d9;
+    text-align: center;
+    font-size: 8pt;
+    font-weight: normal;
+    padding: 2.5pt 2pt;
+}
+
+.score-pts-header {
+    background-color: #ffffff;
+    text-align: center;
+    font-size: 7.8pt;
+    padding: 2pt;
+}
+
+.mark-box {
+    text-align: center;
+    font-weight: bold;
+    font-size: 10.5pt;
+    vertical-align: middle;
+}
+
+.text-box-large {
+    min-height: 88pt;
+    height: 88pt;
+    vertical-align: top !important;
+    padding: 5pt 6pt !important;
+    white-space: pre-wrap;
+    text-align: justify;
+}
+
+.text-box-xl {
+    min-height: 170pt;
+    height: 170pt;
+    vertical-align: top !important;
+    padding: 6pt 7pt !important;
+    white-space: pre-wrap;
+    text-align: justify;
+}
+
+.clause-list {
+    margin: 2pt 0 2pt 14pt;
+    padding: 0;
+}
+
+.clause-list li {
+    margin-bottom: 2pt;
+}
+
+table.sig-layout {
+    width: 100%;
+    border-collapse: collapse;
+    border: none;
+    margin-top: 14pt;
+    margin-bottom: 2pt;
+}
+
+table.sig-layout td {
+    border: none !important;
+    padding: 1pt 4pt !important;
+    text-align: center;
+    vertical-align: bottom;
+    font-size: 8pt;
+}
+
+.sig-dots {
+    font-size: 8pt;
+    letter-spacing: 0.5pt;
+    margin-bottom: 1pt;
+}
+
+.sig-value {
+    font-size: 8.5pt;
+    font-style: normal;
+    min-height: 11pt;
+}
+
+.sig-caption {
+    font-style: italic;
+    font-size: 8pt;
+}
+
+.part3-intro {
+    text-align: center;
+    font-style: italic;
+    font-size: 9pt;
+    margin-bottom: 12pt;
+    line-height: 1.35;
+}

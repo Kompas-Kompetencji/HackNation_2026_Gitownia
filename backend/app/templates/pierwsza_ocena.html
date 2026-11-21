@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <title>Arkusz pierwszej oceny w służbie cywilnej</title>
+    <link rel="stylesheet" href="base_gov.css">
+</head>
+<body>
+
+    <div class="attachment-label">Załącznik nr 2</div>
+    <div class="wzor-label">WZÓR</div>
+    <div class="doc-title">ARKUSZ PIERWSZEJ OCENY W SŁUŻBIE CYWILNEJ</div>
+
+    <!-- ==================== I. CZĘŚĆ OGÓLNA ==================== -->
+    <div class="section-caption-roman">I.&nbsp;&nbsp;&nbsp;&nbsp;CZĘŚĆ OGÓLNA</div>
+    <table class="gov-table">
+        <tr>
+            <td class="label-cell-normal" style="width: 35%;">NAZWA URZĘDU</td>
+            <td class="value-cell" style="width: 65%;">{{ req.nazwa_urzedu }}</td>
+        </tr>
+    </table>
+
+    <div class="section-caption">DANE OCENIANEGO</div>
+    <table class="gov-table">
+        <tr>
+            <td class="label-cell-normal" style="width: 48%;">Imię</td>
+            <td class="value-cell" style="width: 52%;">{{ req.oceniany.imie }}</td>
+        </tr>
+        <tr>
+            <td class="label-cell-normal">Nazwisko</td>
+            <td class="value-cell">{{ req.oceniany.nazwisko }}</td>
+        </tr>
+        <tr>
+            <td class="label-cell-normal">Komórka organizacyjna</td>
+            <td class="value-cell">{{ req.oceniany.komorka_organizacyjna }}</td>
+        </tr>
+        <tr>
+            <td class="label-cell-normal">Stanowisko pracy</td>
+            <td class="value-cell">{{ req.oceniany.stanowisko_pracy }}</td>
+        </tr>
+        <tr>
+            <td class="label-cell-normal">Data nawiązania stosunku pracy</td>
+            <td class="value-cell right">
+                <span>{{ req.oceniany.data_nawiazania_stosunku_pracy | fmt_date }}</span>
+                <span class="small-hint">&nbsp;(dd.mm.rrrr)</span>
+            </td>
+        </tr>
+    </table>
+
+    <div class="section-caption">DANE BEZPOŚREDNIEGO PRZEŁOŻONEGO</div>
+    <table class="gov-table">
+        <tr>
+            <td class="label-cell" style="width: 35%;">Imię</td>
+            <td class="value-cell" style="width: 65%;">{{ req.oceniajacy.imie }}</td>
+        </tr>
+        <tr>
+            <td class="label-cell">Nazwisko</td>
+            <td class="value-cell">{{ req.oceniajacy.nazwisko }}</td>
+        </tr>
+        <tr>
+            <td class="label-cell">Komórka organizacyjna</td>
+            <td class="value-cell">{{ req.oceniajacy.komorka_organizacyjna }}</td>
+        </tr>
+        <tr>
+            <td class="label-cell">Stanowisko pracy</td>
+            <td class="value-cell">{{ req.oceniajacy.stanowisko_pracy }}</td>
+        </tr>
+    </table>
+
+    <div class="section-caption">DANE KIERUJĄCEGO KOMÓRKĄ ORGANIZACYJNĄ</div>
+    <table class="gov-table">
+        <tr>
+            <td class="label-cell" style="width: 35%;">Imię</td>
+            <td class="value-cell" style="width: 65%;">{{ req.kierujacy_komorka.imie if req.kierujacy_komorka else "" }}</td>
+        </tr>
+        <tr>
+            <td class="label-cell">Nazwisko</td>
+            <td class="value-cell">{{ req.kierujacy_komorka.nazwisko if req.kierujacy_komorka else "" }}</td>
+        </tr>
+        <tr>
+            <td class="label-cell">Komórka organizacyjna</td>
+            <td class="value-cell">{{ req.kierujacy_komorka.komorka_organizacyjna if req.kierujacy_komorka else "" }}</td>
+        </tr>
+        <tr>
+            <td class="label-cell">Stanowisko pracy</td>
+            <td class="value-cell">{{ req.kierujacy_komorka.stanowisko_pracy if req.kierujacy_komorka else "" }}</td>
+        </tr>
+    </table>
+
+    <!-- ==================== II. ROZMOWA WSTĘPNA ==================== -->
+    <div class="section-caption-roman">II.&nbsp;&nbsp;&nbsp;&nbsp;ROZMOWA WSTĘPNA</div>
+    <table class="gov-table">
+        <tr>
+            <td class="label-cell-normal" style="width: 48%;">Data przeprowadzenia rozmowy wstępnej</td>
+            <td class="value-cell right" style="width: 52%;">
+                <span>{{ req.data_rozmowy_wstepnej | fmt_date }}</span>
+                <span class="small-hint">&nbsp;(dd.mm.rrrr)</span>
+            </td>
+        </tr>
+        <tr>
+            <td class="label-cell-normal">
+                Termin wyznaczony na złożenie sprawozdania<br>
+                dotyczącego zadań realizowanych przez ocenianego<br>
+                w trakcie przepracowanego okresu
+            </td>
+            <td class="value-cell right">
+                od {{ req.termin_zlozenia_sprawozdania_od | fmt_date or "(dd.mm.rrrr)" }} – do {{ req.termin_zlozenia_sprawozdania_do | fmt_date or "(dd.mm.rrrr)" }}
+            </td>
+        </tr>
+        <tr>
+            <td class="label-cell-normal">
+                Okres, w którym powinna zostać dokonana<br>
+                pierwsza ocena w służbie cywilnej
+            </td>
+            <td class="value-cell right">
+                od {{ req.okres_oceny_od | fmt_date or "(dd.mm.rrrr)" }} – do {{ req.okres_oceny_do | fmt_date or "(dd.mm.rrrr)" }}
+            </td>
+        </tr>
+    </table>
+
+    <table class="gov-table avoid-break">
+        <tr>
+            <td class="bg-gray italic">
+                Potwierdzamy przeprowadzenie rozmowy wstępnej oraz wyznaczenie terminu na złożenie sprawozdania i zapoznanie z nim ocenianego.
+            </td>
+        </tr>
+        <tr>
+            <td class="value-cell">
+                <table class="sig-layout">
+                    <tr>
+                        <td style="width: 30%;">
+                            <div class="sig-value">{{ req.miejscowosc }}</div>
+                            <div class="sig-dots">………………………………….</div>
+                            <div class="sig-caption">miejscowość</div>
+                        </td>
+                        <td style="width: 32%;">
+                            <div class="sig-value">{{ req.data_rozmowy_wstepnej | fmt_date }}</div>
+                            <div class="sig-dots">………………………………….</div>
+                            <div class="sig-caption">data (dd.mm.rrrr)</div>
+                        </td>
+                        <td style="width: 38%;">
+                            <div class="sig-value">&nbsp;</div>
+                            <div class="sig-dots">………………………………….</div>
+                            <div class="sig-caption">podpis bezpośredniego przełożonego</div>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+        <tr>
+            <td class="value-cell">
+                <table class="sig-layout">
+                    <tr>
+                        <td style="width: 30%;">
+                            <div class="sig-value">{{ req.miejscowosc }}</div>
+                            <div class="sig-dots">………………………………….</div>
+                            <div class="sig-caption">miejscowość</div>
+                        </td>
+                        <td style="width: 32%;">
+                            <div class="sig-value">{{ req.data_rozmowy_wstepnej | fmt_date }}</div>
+                            <div class="sig-dots">………………………………….</div>
+                            <div class="sig-caption">data (dd.mm.rrrr)</div>
+                        </td>
+                        <td style="width: 38%;">
+                            <div class="sig-value">&nbsp;</div>
+                            <div class="sig-dots">………………………………….</div>
+                            <div class="sig-caption">podpis ocenianego</div>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+
+    <!-- ==================== III. ROZMOWA OCENIAJĄCA ==================== -->
+    <div class="page-break"></div>
+    <div class="section-caption-roman">III.&nbsp;&nbsp;&nbsp;&nbsp;ROZMOWA OCENIAJĄCA</div>
+    <table class="gov-table">
+        <tr>
+            <td class="label-cell-normal" style="width: 48%;">Data przeprowadzenia rozmowy oceniającej</td>
+            <td class="value-cell right" style="width: 52%;">
+                <span>{{ req.data_rozmowy_oceniajacej | fmt_date }}</span>
+                <span class="small-hint">&nbsp;(dd.mm.rrrr)</span>
+            </td>
+        </tr>
+    </table>
+
+    <table class="gov-table avoid-break">
+        <tr>
+            <td class="bg-gray italic">
+                Potwierdzamy przeprowadzenie rozmowy oceniającej i omówienie w trakcie tej rozmowy wszystkich wymaganych zagadnień.
+            </td>
+        </tr>
+        <tr>
+            <td class="value-cell">
+                <table class="sig-layout">
+                    <tr>
+                        <td style="width: 22%;">
+                            <div class="sig-value">{{ req.miejscowosc }}</div>
+                            <div class="sig-dots">…………………………</div>
+                            <div class="sig-caption">miejscowość</div>
+                        </td>
+                        <td style="width: 22%;">
+                            <div class="sig-value">{{ req.data_rozmowy_oceniajacej | fmt_date }}</div>
+                            <div class="sig-dots">…………………………</div>
+                            <div class="sig-caption">data (dd.mm.rrrr)</div>
+                        </td>
+                        <td style="width: 30%;">
+                            <div class="sig-value">{{ (req.oceniajacy.imie ~ " " ~ req.oceniajacy.nazwisko).strip() }}</div>
+                            <div class="sig-dots">………………………………</div>
+                            <div class="sig-caption">imię i nazwisko lub pieczątka bezpośredniego przełożonego</div>
+                        </td>
+                        <td style="width: 26%;">
+                            <div class="sig-value">&nbsp;</div>
+                            <div class="sig-dots">…………………………</div>
+                            <div class="sig-caption">podpis bezpośredniego przełożonego</div>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+        <tr>
+            <td class="value-cell">
+                <table class="sig-layout">
+                    <tr>
+                        <td style="width: 22%;">
+                            <div class="sig-value">{{ req.miejscowosc }}</div>
+                            <div class="sig-dots">…………………………</div>
+                            <div class="sig-caption">miejscowość</div>
+                        </td>
+                        <td style="width: 22%;">
+                            <div class="sig-value">{{ req.data_rozmowy_oceniajacej | fmt_date }}</div>
+                            <div class="sig-dots">…………………………</div>
+                            <div class="sig-caption">data (dd.mm.rrrr)</div>
+                        </td>
+                        <td style="width: 30%;">
+                            <div class="sig-value">{{ (req.oceniany.imie ~ " " ~ req.oceniany.nazwisko).strip() }}</div>
+                            <div class="sig-dots">………………………………</div>
+                            <div class="sig-caption">imię i nazwisko lub pieczątka ocenianego</div>
+                        </td>
+                        <td style="width: 26%;">
+                            <div class="sig-value">&nbsp;</div>
+                            <div class="sig-dots">…………………………</div>
+                            <div class="sig-caption">podpis ocenianego</div>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+
+    <!-- ==================== IV. OCENA POSTAWY ... ==================== -->
+    <div class="section-caption-roman">
+        IV.&nbsp;&nbsp;&nbsp;&nbsp;OCENA POSTAWY OCENIANEGO, JEGO ZAANGAŻOWANIA I POSTĘPÓW W PRACY,<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;RELACJI ZE WSPÓŁPRACOWNIKAMI ORAZ TERMINOWOŚCI WYKONYWANIA ZADAŃ
+    </div>
+    <table class="gov-table">
+        <tr>
+            <th class="label-cell-normal" style="width: 43%;" rowspan="3">ELEMENTY OCENY</th>
+            <th class="label-cell-normal" style="width: 57%;" colspan="3">
+                OCENA CZĄSTKOWA <span class="small-hint">(należy wstawić znak „X” w odpowiednie pole)</span>
+            </th>
+        </tr>
+        <tr>
+            <th class="label-cell-normal center" style="width: 19%;">poniżej oczekiwań</th>
+            <th class="label-cell-normal center" style="width: 19%;">na poziomie oczekiwań</th>
+            <th class="label-cell-normal center" style="width: 19%;">powyżej oczekiwań</th>
+        </tr>
+        <tr>
+            <th class="label-cell-normal center"><strong>3</strong> punkty</th>
+            <th class="label-cell-normal center"><strong>5</strong> punktów</th>
+            <th class="label-cell-normal center"><strong>7</strong> punktów</th>
+        </tr>
+        {% for item in mandatory_rows %}
+        <tr>
+            <td class="value-cell">{{ loop.index }}.&nbsp;&nbsp;{{ item.name }}</td>
+            <td class="mark-box">{% if item.score == 3 %}X{% endif %}</td>
+            <td class="mark-box">{% if item.score == 5 %}X{% endif %}</td>
+            <td class="mark-box">{% if item.score == 7 %}X{% endif %}</td>
+        </tr>
+        {% endfor %}
+        <tr>
+            <td class="label-cell-normal" colspan="2">OCENA ŁĄCZNA</td>
+            <td class="value-cell center bold" colspan="2">{{ result.srednia_arytmetyczna | fmt_score }}</td>
+        </tr>
+    </table>
+
+    <!-- ==================== V. PIERWSZA OCENA W SŁUŻBIE CYWILNEJ ==================== -->
+    <div class="section-caption-roman">V.&nbsp;&nbsp;&nbsp;&nbsp;PIERWSZA OCENA W SŁUŻBIE CYWILNEJ</div>
+
+    <table class="gov-table">
+        <tr>
+            <td class="label-cell-normal" colspan="6">
+                OCENIANY ZALICZYŁ EGZAMIN ZE SŁUŻBY PRZYGOTOWAWCZEJ
+                <span class="small-hint">(należy wstawić znak „X” w odpowiednie pole)</span>
+            </td>
+        </tr>
+        <tr>
+            <td class="label-cell-normal" style="width: 18%;">TAK</td>
+            <td class="mark-box" style="width: 12%;">{% if exam_choice == "TAK" %}X{% endif %}</td>
+            <td class="label-cell-normal" style="width: 18%;">NIE</td>
+            <td class="mark-box" style="width: 12%;">{% if exam_choice == "NIE" %}X{% endif %}</td>
+            <td class="label-cell-normal" style="width: 28%;">NIE DOTYCZY</td>
+            <td class="mark-box" style="width: 12%;">{% if exam_choice == "NIE_DOTYCZY" %}X{% endif %}</td>
+        </tr>
+    </table>
+
+    <table class="gov-table">
+        <tr>
+            <td class="label-cell-normal" colspan="4">
+                SPRAWOZDANIE ZOSTAŁO ZŁOŻONE W WYZNACZONYM TERMINIE
+                <span class="small-hint">(należy wstawić znak „X” w odpowiednie pole)</span>
+            </td>
+        </tr>
+        <tr>
+            <td class="label-cell-normal" style="width: 38%;">TAK</td>
+            <td class="mark-box" style="width: 12%;">{% if req.sprawozdanie_zlozone_w_terminie is sameas true %}X{% endif %}</td>
+            <td class="label-cell-normal" style="width: 38%;">NIE</td>
+            <td class="mark-box" style="width: 12%;">{% if req.sprawozdanie_zlozone_w_terminie is sameas false %}X{% endif %}</td>
+        </tr>
+    </table>
+
+    <table class="gov-table">
+        <tr>
+            <td class="label-cell-normal" colspan="4">
+                PIERWSZA OCENA W SŁUŻBIE CYWILNEJ
+                <span class="small-hint">(należy wstawić znak „X” w odpowiednie pole)</span>
+            </td>
+        </tr>
+        <tr>
+            <td class="label-cell-normal" style="width: 38%;">POZYTYWNA</td>
+            <td class="mark-box" style="width: 12%;">{% if result.werdykt == "POZYTYWNA" %}X{% endif %}</td>
+            <td class="label-cell-normal" style="width: 38%;">NEGATYWNA</td>
+            <td class="mark-box" style="width: 12%;">{% if result.werdykt == "NEGATYWNA" %}X{% endif %}</td>
+        </tr>
+    </table>
+
+    <div class="page-break"></div>
+
+    <table class="gov-table">
+        <tr>
+            <td class="label-cell-normal">UZASADNIENIE PRZYZNANEJ OCENY</td>
+        </tr>
+        <tr>
+            <td class="value-cell text-box-large">{{ req.uzasadnienie or "" }}</td>
+        </tr>
+    </table>
+
+    <!-- ==================== VI. WNIOSKI DOTYCZĄCE ROZWOJU ZAWODOWEGO (TYLKO PRZY OCENIE POZYTYWNEJ) ==================== -->
+    {% if result.wnioski_rozwojowe_dozwolone %}
+    <div class="section-caption-roman">VI.&nbsp;&nbsp;&nbsp;&nbsp;WNIOSKI DOTYCZĄCE ROZWOJU ZAWODOWEGO OCENIANEGO</div>
+    <table class="gov-table">
+        <tr>
+            <td class="label-cell-normal">WNIOSKI DOTYCZĄCE ROZWOJU ZAWODOWEGO OCENIANEGO</td>
+        </tr>
+        <tr>
+            <td class="value-cell text-box-large">{{ req.wnioski_rozwojowe_pierwsza_ocena or "" }}</td>
+        </tr>
+    </table>
+    {% endif %}
+
+    <!-- ==================== VII. POTWIERDZENIE DOKONANIA PIERWSZEJ OCENY ==================== -->
+    <div class="section-caption-roman">VII.&nbsp;&nbsp;&nbsp;&nbsp;POTWIERDZENIE DOKONANIA PIERWSZEJ OCENY W SŁUŻBIE CYWILNEJ</div>
+    <table class="gov-table avoid-break">
+        <tr>
+            <td class="label-cell-normal">POTWIERDZENIE DOKONANIA PIERWSZEJ OCENY W SŁUŻBIE CYWILNEJ</td>
+        </tr>
+        <tr>
+            <td class="value-cell">
+                <table class="sig-layout">
+                    <tr>
+                        <td style="width: 22%;">
+                            <div class="sig-value">{{ req.miejscowosc }}</div>
+                            <div class="sig-dots">…………………………</div>
+                            <div class="sig-caption">miejscowość</div>
+                        </td>
+                        <td style="width: 22%;">
+                            <div class="sig-value">{{ req.data_sporzadzenia_oceny | fmt_date }}</div>
+                            <div class="sig-dots">…………………………</div>
+                            <div class="sig-caption">data (dd.mm.rrrr)</div>
+                        </td>
+                        <td style="width: 30%;">
+                            <div class="sig-value">{{ (req.oceniajacy.imie ~ " " ~ req.oceniajacy.nazwisko).strip() }}</div>
+                            <div class="sig-dots">………………………………</div>
+                            <div class="sig-caption">imię i nazwisko lub pieczątka bezpośredniego przełożonego</div>
+                        </td>
+                        <td style="width: 26%;">
+                            <div class="sig-value">&nbsp;</div>
+                            <div class="sig-dots">…………………………</div>
+                            <div class="sig-caption">podpis bezpośredniego przełożonego</div>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+        <tr>
+            <td class="value-cell">
+                <table class="sig-layout">
+                    <tr>
+                        <td style="width: 22%;">
+                            <div class="sig-value">{{ req.miejscowosc }}</div>
+                            <div class="sig-dots">…………………………</div>
+                            <div class="sig-caption">miejscowość</div>
+                        </td>
+                        <td style="width: 22%;">
+                            <div class="sig-value">{{ req.data_sporzadzenia_oceny | fmt_date }}</div>
+                            <div class="sig-dots">…………………………</div>
+                            <div class="sig-caption">data (dd.mm.rrrr)</div>
+                        </td>
+                        <td style="width: 30%;">
+                            <div class="sig-value">{{ (req.kierujacy_komorka.imie ~ " " ~ req.kierujacy_komorka.nazwisko).strip() if req.kierujacy_komorka else "" }}</div>
+                            <div class="sig-dots">………………………………</div>
+                            <div class="sig-caption">imię i nazwisko lub pieczątka kierującego komórką organizacyjną</div>
+                        </td>
+                        <td style="width: 26%;">
+                            <div class="sig-value">&nbsp;</div>
+                            <div class="sig-dots">…………………………</div>
+                            <div class="sig-caption">podpis kierującego komórką organizacyjną</div>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+
+    <table class="gov-table avoid-break">
+        <tr>
+            <td class="bg-gray italic">Zapoznałam(-łem) się z pierwszą oceną w służbie cywilnej.</td>
+        </tr>
+        <tr>
+            <td class="value-cell">
+                <table class="sig-layout">
+                    <tr>
+                        <td style="width: 22%;">
+                            <div class="sig-value">{{ req.miejscowosc }}</div>
+                            <div class="sig-dots">…………………………</div>
+                            <div class="sig-caption">miejscowość</div>
+                        </td>
+                        <td style="width: 22%;">
+                            <div class="sig-value">&nbsp;</div>
+                            <div class="sig-dots">…………………………</div>
+                            <div class="sig-caption">data (dd.mm.rrrr)</div>
+                        </td>
+                        <td style="width: 30%;">
+                            <div class="sig-value">{{ (req.oceniany.imie ~ " " ~ req.oceniany.nazwisko).strip() }}</div>
+                            <div class="sig-dots">………………………………</div>
+                            <div class="sig-caption">imię i nazwisko lub pieczątka ocenianego</div>
+                        </td>
+                        <td style="width: 26%;">
+                            <div class="sig-value">&nbsp;</div>
+                            <div class="sig-dots">…………………………</div>
+                            <div class="sig-caption">podpis ocenianego</div>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+
+</body>
+</html>
