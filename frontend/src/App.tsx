@@ -1,6 +1,7 @@
 import { BrowserRouter, Navigate, Outlet, Route, Routes } from 'react-router-dom'
 import { NewEmployeePage } from './pages/wizard/NewEmployeePage'
-import { EmployeePage } from './pages/EmployeePage'
+import { EmployeePage } from './pages/employee/EmployeePage'
+import { AssessmentStubPage } from './pages/employee/AssessmentStubPage'
 import { AuthProvider, homePathFor, useAuth } from './auth/AuthContext'
 import { RequireRole } from './auth/RequireRole'
 import { FullPageStatus } from './components/FullPageStatus'
@@ -34,6 +35,7 @@ export default function App() {
             <Route index element={<SupervisorHomePage />} />
             <Route path="pracownicy/nowy" element={<NewEmployeePage />} />
             <Route path="pracownicy/:employeeId" element={<EmployeePage />} />
+            <Route path="oceny/:assessmentId" element={<AssessmentStubPage />} />
             <Route path="*" element={<NotFoundPage />} />
           </Route>
           <Route
