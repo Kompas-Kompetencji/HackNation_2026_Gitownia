@@ -8,6 +8,21 @@ Szczegóły mapowania: [spiecie-z-backendem.md](spiecie-z-backendem.md).
 Priorytety: **P1** blokuje prawdziwą ścieżkę oceny, **P2** psuje jakość danych,
 **P3** porządki (frontend sobie radzi, ale z obejściem).
 
+## Stan realizacji (aktualizacja 21.11.2026, gałąź `backend-dane`)
+
+| Punkt | Stan |
+|---|---|
+| 0. Backend na `main` | **nie zrobione**: `main` nadal ma pusty odnośnik do podmodułu |
+| 1. `POST /calculate-score` | **zrobione** (`backend-dane`); frontend z niego korzysta. Remis na granicy: niższy poziom (§ 11 ust. 1 pkt 2), zostaje tak |
+| 2. `/osp/parse`: nazwa stanowiska, kryteria dodatkowe, liczba podległych | **nie zrobione**; frontend dalej z obejściami |
+| 3. Limit kryteriów dodatkowych w szablonie | **nie zrobione**; frontend ma 3 na sztywno |
+| 4. Asystent: ucinanie, kontekst rozmowy, Markdown | **nie zrobione** |
+| 5. `evaluate`: przecinek w liczbach, potwierdzenia | **nie zrobione** (kod 200 przy `errors` zostaje) |
+| 6. Dane: użytkownicy, pracownicy, notatki, opisy stanowiska, oceny, PDF oceny | **zrobione** (`backend-dane`): wszystkie trasy z tabeli, `X-User-Id`, 403 przy cudzych, `GET /assessments/{id}/pdf`; wersja pamięciowa i Supabase. Frontend przełączony w całości (`VITE_REAL_API=*`) |
+| 7. Terminy pierwszej oceny | bez zmian (działa, pytanie otwarte) |
+| 8. CORS | bez zmian (informacyjnie) |
+| 9. Kadry bez szczegółów ocen | **nowe**, patrz niżej |
+
 ---
 
 ## 0. Gałąź `main` nie zawiera kodu backendu (P1)
@@ -199,3 +214,17 @@ backend daje od 8. miesiąca do miesiąca przed końcem umowy. Zakładamy, że b
 `Origin`), ale przy wdrożeniu lepiej podać konkretne adresy w `ALLOWED_ORIGINS`.
 Frontend w trybie deweloperskim używa proxy Vite (`/api` → `http://localhost:8000`) i adresu
 `/api/v1`, więc CORS nie jest mu potrzebny.
+
+## 9. Kadry nie powinny widzieć treści ocen (P2, nowe)
+
+Wymagania: kadry widzą statusy, terminy i przypomnienia, „bez szczegółów ocen”. Na `backend-dane`
+`GET /assessments/{id}` i `GET /assessments/{id}/pdf` dla `hr-001` zwracają 200 z pełną treścią
+(odpowiedzi do wskaźników, decyzje, uzasadnienie, wynik). Prośba:
+
+- `GET /assessments` dla kadr bez zmian (`AssessmentSummary`: status, terminy, wynik),
+- `GET /assessments/{id}` i `GET /assessments/{id}/pdf` dla roli `hr` → **403**
+  (`{"detail": "Kadry nie mają dostępu do treści oceny."}`),
+- notatki (`GET /employees/{id}/notes`) zostają widoczne tylko dla autora (dziś kadry dostają pustą listę).
+
+Do ustalenia: czy kadry widzą `result` (pozytywna/negatywna) na liście. Frontend etapu 6 zakłada, że tak.
+
