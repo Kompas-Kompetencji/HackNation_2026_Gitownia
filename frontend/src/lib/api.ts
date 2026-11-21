@@ -66,6 +66,19 @@ function mockDelay<T>(value: T, ms = 350): Promise<T> {
   return new Promise((resolve) => setTimeout(() => resolve(structuredClone(value)), ms))
 }
 
+/** Jak mockDelay, ale błąd makiety zamienia na odrzuconą obietnicę po opóźnieniu. */
+function mockCall<T>(produce: () => T, ms = 350): Promise<T> {
+  return new Promise((resolve, reject) =>
+    setTimeout(() => {
+      try {
+        resolve(structuredClone(produce()))
+      } catch (error) {
+        reject(error)
+      }
+    }, ms),
+  )
+}
+
 /* ------------------------------------------------------------------ */
 /* Uzgodnione z backendem                                              */
 /* ------------------------------------------------------------------ */
@@ -77,7 +90,7 @@ export async function getCompetencies(): Promise<CompetencyModel> {
 
 /** Analiza pliku z opisem stanowiska pracy (OSP). */
 export async function analyzeOsp(file: File): Promise<OspAnalysis> {
-  if (USE_MOCKS) return mockDelay(mockAnalyzeOsp(file.name), 900)
+  if (USE_MOCKS) return mockCall(() => mockAnalyzeOsp(file.name), 900)
   const body = new FormData()
   body.append('file', file)
   return request<OspAnalysis>('/analyze-osp', { method: 'POST', body })
@@ -143,8 +156,8 @@ export async function createEmployee(data: CreateEmployeeInput): Promise<Employe
       supervisor_id: user?.id ?? '',
       first_name: data.first_name,
       last_name: data.last_name,
-      position_title: data.position_title ?? '',
-      organizational_unit: user?.organizational_unit ?? '',
+      position_title: data.position_title,
+      organizational_unit: data.organizational_unit ?? user?.organizational_unit ?? '',
       hire_date: data.hire_date,
       contract_type: data.contract_type,
       last_assessment_date: null,
@@ -185,22 +198,33 @@ export async function listJobDescriptions(employee_id: string): Promise<JobDescr
   return request<JobDescriptionDocument[]>(`/employees/${encodeURIComponent(employee_id)}/job-descriptions`)
 }
 
-export async function attachJobDescription(employee_id: string, file: File): Promise<JobDescriptionDocument> {
+/**
+ * Zapisuje opis stanowiska przy pracowniku.
+ * confirmedAnalysis = wynik analyzeOsp po poprawkach i potwierdzeniu przez przełożonego.
+ */
+export async function attachJobDescription(
+  employee_id: string,
+  file: File,
+  confirmedAnalysis?: OspAnalysis,
+): Promise<JobDescriptionDocument> {
   if (USE_MOCKS) {
-    const previous = jobDescriptions.filter((d) => d.employee_id === employee_id)
-    const doc: JobDescriptionDocument = {
-      id: `jd-${crypto.randomUUID().slice(0, 8)}`,
-      employee_id,
-      filename: file.name,
-      uploaded_at: new Date().toISOString(),
-      version: previous.length + 1,
-      analysis: mockAnalyzeOsp(file.name),
-    }
-    jobDescriptions.push(doc)
-    return mockDelay(doc, 900)
+    return mockCall(() => {
+      const previous = jobDescriptions.filter((d) => d.employee_id === employee_id)
+      const doc: JobDescriptionDocument = {
+        id: `jd-${crypto.randomUUID().slice(0, 8)}`,
+        employee_id,
+        filename: file.name,
+        uploaded_at: new Date().toISOString(),
+        version: previous.length + 1,
+        analysis: confirmedAnalysis ?? mockAnalyzeOsp(file.name),
+      }
+      jobDescriptions.push(doc)
+      return doc
+    }, 600)
   }
   const body = new FormData()
   body.append('file', file)
+  if (confirmedAnalysis) body.append('confirmed_analysis', JSON.stringify(confirmedAnalysis))
   return request<JobDescriptionDocument>(`/employees/${encodeURIComponent(employee_id)}/job-descriptions`, {
     method: 'POST',
     body,

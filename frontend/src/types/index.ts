@@ -14,7 +14,9 @@
  *  6. askAiAssistant zwraca status "answered" albo "no_data"; przy "no_data" lista źródeł jest pusta.
  *  7. calculateScore zwraca średnią i sugerowany poziom; wynik (pozytywny/negatywny)
  *     wylicza backend. Frontend nie liczy niczego sam.
- *  8. Typy z sekcji „TYLKO FRONTEND" (pracownicy, notatki, opisy stanowiska, lista ocen,
+ *  8. analyzeOsp zwraca też liczbę podległych pracowników (subordinates_count, null gdy brak w dokumencie).
+ *     Przełożony może poprawić wynik; poprawiona wersja trafia do attachJobDescription.
+ *  9. Typy z sekcji „TYLKO FRONTEND" (pracownicy, notatki, opisy stanowiska, lista ocen,
  *     użytkownicy) to propozycja: backend ich jeszcze nie ma.
  */
 
@@ -69,6 +71,8 @@ export interface OspAnalysis {
   organizational_unit: string | null
   /** Czy stanowisko obejmuje kierowanie zespołem (wpływa na wybór arkusza). */
   has_management_duties: boolean
+  /** Liczba podległych pracowników wykryta w opisie; null = brak informacji w dokumencie. */
+  subordinates_count: number | null
   suggested_form: AssessmentForm
   additional_criteria: AdditionalCriterion[]
 }
@@ -164,12 +168,14 @@ export interface Employee {
   status: EmployeeStatus
 }
 
+/** Wejście createEmployee. Pracownik trafia do zalogowanego przełożonego (backend bierze go z sesji). */
 export interface CreateEmployeeInput {
   first_name: string
   last_name: string
   hire_date: string
   contract_type: ContractType
-  position_title?: string
+  position_title: string
+  organizational_unit: string | null
 }
 
 export interface JobDescriptionDocument {
@@ -178,6 +184,7 @@ export interface JobDescriptionDocument {
   filename: string
   uploaded_at: string
   version: number
+  /** Wynik analizy po poprawkach i potwierdzeniu przez przełożonego. */
   analysis: OspAnalysis | null
 }
 
