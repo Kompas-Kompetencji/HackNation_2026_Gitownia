@@ -1,4 +1,6 @@
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
+import { BrowserRouter, Navigate, Outlet, Route, Routes } from 'react-router-dom'
+import { NewEmployeePage } from './pages/wizard/NewEmployeePage'
+import { EmployeePage } from './pages/EmployeePage'
 import { AuthProvider, homePathFor, useAuth } from './auth/AuthContext'
 import { RequireRole } from './auth/RequireRole'
 import { FullPageStatus } from './components/FullPageStatus'
@@ -22,13 +24,18 @@ export default function App() {
           <Route path="/" element={<RootRedirect />} />
           <Route path="/logowanie" element={<LoginPage />} />
           <Route
-            path="/przelozony/*"
+            path="/przelozony"
             element={
               <RequireRole role="supervisor">
-                <SupervisorHomePage />
+                <Outlet />
               </RequireRole>
             }
-          />
+          >
+            <Route index element={<SupervisorHomePage />} />
+            <Route path="pracownicy/nowy" element={<NewEmployeePage />} />
+            <Route path="pracownicy/:employeeId" element={<EmployeePage />} />
+            <Route path="*" element={<NotFoundPage />} />
+          </Route>
           <Route
             path="/kadry/*"
             element={
