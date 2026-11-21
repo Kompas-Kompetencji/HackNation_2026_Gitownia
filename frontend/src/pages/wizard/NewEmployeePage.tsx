@@ -21,14 +21,10 @@ export function NewEmployeePage() {
   const [personal, setPersonal] = useState<PersonalData>(emptyPersonal)
   const [doc, setDoc] = useState<DocumentData>(emptyDocument)
   const headingRef = useRef<HTMLHeadingElement>(null)
-  const firstRender = useRef(true)
 
-  // Po zmianie kroku fokus na nagłówek kroku, żeby czytnik ekranu i klawiatura zaczynały od góry.
+  // Po wejściu i po każdej zmianie kroku fokus na nagłówek kroku,
+  // żeby czytnik ekranu i klawiatura zaczynały od jego początku.
   useEffect(() => {
-    if (firstRender.current) {
-      firstRender.current = false
-      return
-    }
     headingRef.current?.focus()
   }, [step])
 

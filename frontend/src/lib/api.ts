@@ -120,6 +120,12 @@ function currentUser(): User | undefined {
   return mockUsers.find((u) => u.id === id)
 }
 
+/** Czy zalogowany przełożony ocenia tego pracownika (makieta uprawnień backendu). */
+function ownsEmployee(employee_id: string): boolean {
+  const user = currentUser()
+  return employees.some((e) => e.id === employee_id && e.supervisor_id === user?.id)
+}
+
 /** Użytkownicy do logowania demonstracyjnego (wybór roli). */
 export async function listDemoUsers(): Promise<User[]> {
   if (USE_MOCKS) return mockDelay(mockUsers, 150)
@@ -172,7 +178,7 @@ export async function createEmployee(data: CreateEmployeeInput): Promise<Employe
 }
 
 export async function listNotes(employee_id: string): Promise<Note[]> {
-  if (USE_MOCKS) return mockDelay(notes.filter((n) => n.employee_id === employee_id))
+  if (USE_MOCKS) return mockDelay(ownsEmployee(employee_id) ? notes.filter((n) => n.employee_id === employee_id) : [])
   return request<Note[]>(`/employees/${encodeURIComponent(employee_id)}/notes`)
 }
 
@@ -194,7 +200,9 @@ export async function addNote(employee_id: string, text: string): Promise<Note> 
 }
 
 export async function listJobDescriptions(employee_id: string): Promise<JobDescriptionDocument[]> {
-  if (USE_MOCKS) return mockDelay(jobDescriptions.filter((d) => d.employee_id === employee_id))
+  if (USE_MOCKS) {
+    return mockDelay(ownsEmployee(employee_id) ? jobDescriptions.filter((d) => d.employee_id === employee_id) : [])
+  }
   return request<JobDescriptionDocument[]>(`/employees/${encodeURIComponent(employee_id)}/job-descriptions`)
 }
 
