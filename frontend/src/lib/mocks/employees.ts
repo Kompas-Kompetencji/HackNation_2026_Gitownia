@@ -1,6 +1,9 @@
 import type { Employee } from '../../types'
 
-/** Fikcyjni pracownicy. Przełożony 1 (sup-001) ma trzech, przełożony 2 (sup-002) jednego. */
+/**
+ * Fikcyjni pracownicy. Przełożony 1 (sup-001) ma trzech (ocena okresowa, arkusze C, C, B),
+ * przełożony 2 (sup-002) jednego nowo zatrudnionego w pierwszej ocenie (arkusz "first").
+ */
 export const mockEmployees: Employee[] = [
   {
     id: 'emp-001',
@@ -11,6 +14,9 @@ export const mockEmployees: Employee[] = [
     organizational_unit: 'Wydział Skarg i Wniosków',
     hire_date: '2019-03-01',
     contract_type: 'indefinite',
+    contract_end_date: null,
+    assessment_kind: 'periodic',
+    form: 'C',
     last_assessment_date: '2024-12-09',
     last_assessment_result: 'positive',
     next_assessment_due: '2026-12-09',
@@ -25,6 +31,9 @@ export const mockEmployees: Employee[] = [
     organizational_unit: 'Wydział Prawny',
     hire_date: '2016-09-15',
     contract_type: 'appointment',
+    contract_end_date: null,
+    assessment_kind: 'periodic',
+    form: 'C',
     last_assessment_date: '2025-05-20',
     last_assessment_result: 'positive',
     next_assessment_due: '2027-05-20',
@@ -39,6 +48,9 @@ export const mockEmployees: Employee[] = [
     organizational_unit: 'Wydział Obsługi Interesantów',
     hire_date: '2021-02-01',
     contract_type: 'indefinite',
+    contract_end_date: null,
+    assessment_kind: 'periodic',
+    form: 'B',
     last_assessment_date: '2024-10-14',
     last_assessment_result: 'positive',
     next_assessment_due: '2026-10-14',
@@ -53,6 +65,9 @@ export const mockEmployees: Employee[] = [
     organizational_unit: 'Wydział Zamówień Publicznych',
     hire_date: '2026-06-01',
     contract_type: 'fixed_term_first',
+    contract_end_date: '2027-05-31',
+    assessment_kind: 'first',
+    form: 'first',
     last_assessment_date: null,
     last_assessment_result: null,
     next_assessment_due: '2026-12-15',

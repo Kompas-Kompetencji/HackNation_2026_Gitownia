@@ -1,10 +1,25 @@
-import type { AssessmentForm, ContractType, OspAnalysis } from '../../types'
+import type { AssessmentForm, AssessmentKind, ContractType, OspAnalysis } from '../../types'
 
 export interface PersonalData {
   first_name: string
   last_name: string
   hire_date: string
   contract_type: ContractType | ''
+  /** Wymagana tylko dla umowy na czas określony. */
+  contract_end_date: string
+  assessment_kind: AssessmentKind | ''
+}
+
+/** Krok 2 ścieżki pierwszej oceny: opcjonalny plik do archiwum, bez analizy. */
+export interface FirstDocumentData {
+  file: File | null
+  position_title: string
+}
+
+export const emptyFirstDocument: FirstDocumentData = { file: null, position_title: '' }
+
+export function needsContractEnd(contract: ContractType | ''): boolean {
+  return contract === 'fixed_term_first'
 }
 
 /** Wynik analizy w postaci edytowalnej przez przełożonego. */
@@ -23,7 +38,14 @@ export interface DocumentData {
   edited: EditableAnalysis | null
 }
 
-export const emptyPersonal: PersonalData = { first_name: '', last_name: '', hire_date: '', contract_type: '' }
+export const emptyPersonal: PersonalData = {
+  first_name: '',
+  last_name: '',
+  hire_date: '',
+  contract_type: '',
+  contract_end_date: '',
+  assessment_kind: '',
+}
 export const emptyDocument: DocumentData = { file: null, analysis: null, edited: null }
 
 export function toEditable(a: OspAnalysis): EditableAnalysis {

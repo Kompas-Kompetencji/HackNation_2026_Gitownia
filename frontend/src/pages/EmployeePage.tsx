@@ -115,6 +115,8 @@ function EmployeeDetails({
             <Row label={t.unit}>{e.organizational_unit}</Row>
             <Row label={t.hireDate}>{formatDate(e.hire_date)}</Row>
             <Row label={t.contractType}>{texts.contractType[e.contract_type]}</Row>
+            {e.contract_end_date && <Row label={t.contractEnd}>{formatDate(e.contract_end_date)}</Row>}
+            <Row label={t.form}>{e.form ? texts.forms[e.form] : '—'}</Row>
             <Row label={t.nextDue}>
               {e.next_assessment_due ? (
                 <>

@@ -4,11 +4,13 @@ import { Alert, Button, FieldError } from '../../components/ui'
 import { inputClass } from '../../components/styles'
 import { todayIso } from '../../lib/format'
 import { texts } from '../../lib/texts'
-import type { ContractType } from '../../types'
-import type { PersonalData } from './model'
+import type { AssessmentKind, ContractType } from '../../types'
+import { needsContractEnd, type PersonalData } from './model'
 
 type Errors = Partial<Record<keyof PersonalData, string>>
 const CONTRACT_TYPES: ContractType[] = ['fixed_term_first', 'indefinite', 'appointment']
+const PATHS: AssessmentKind[] = ['first', 'periodic']
+const RADIO_KEYS: (keyof PersonalData)[] = ['contract_type', 'assessment_kind']
 
 function validate(d: PersonalData): Errors {
   const e = texts.wizard.personal.errors
@@ -18,6 +20,11 @@ function validate(d: PersonalData): Errors {
   if (!d.hire_date) errors.hire_date = e.hireDate
   else if (d.hire_date > todayIso()) errors.hire_date = e.hireDateFuture
   if (!d.contract_type) errors.contract_type = e.contractType
+  if (needsContractEnd(d.contract_type)) {
+    if (!d.contract_end_date) errors.contract_end_date = e.contractEndDate
+    else if (d.hire_date && d.contract_end_date <= d.hire_date) errors.contract_end_date = e.contractEndBeforeHire
+  }
+  if (!d.assessment_kind) errors.assessment_kind = e.path
   return errors
 }
 
@@ -34,7 +41,14 @@ export function StepPersonal({
   const [errors, setErrors] = useState<Errors>({})
   const [submitted, setSubmitted] = useState(false)
   const formRef = useRef<HTMLFormElement>(null)
-  const ids = { first_name: useId(), last_name: useId(), hire_date: useId(), contract_type: useId() }
+  const ids = {
+    first_name: useId(),
+    last_name: useId(),
+    hire_date: useId(),
+    contract_type: useId(),
+    contract_end_date: useId(),
+    assessment_kind: useId(),
+  }
 
   function update<K extends keyof PersonalData>(key: K, v: PersonalData[K]) {
     const next = { ...value, [key]: v }
@@ -53,10 +67,10 @@ export function StepPersonal({
       onNext()
       return
     }
-    const target =
-      first === 'contract_type'
-        ? formRef.current?.querySelector<HTMLInputElement>('input[name="contract_type"]')
-        : document.getElementById(ids[first])
+    const target = RADIO_KEYS.includes(first)
+      ? (formRef.current?.querySelector<HTMLInputElement>(`input[name="${first}"]:checked`) ??
+        formRef.current?.querySelector<HTMLInputElement>(`input[name="${first}"]`))
+      : document.getElementById(ids[first])
     target?.focus()
   }
 
@@ -119,6 +133,64 @@ export function StepPersonal({
           ))}
         </div>
         {errors.contract_type && <FieldError id={`${ids.contract_type}-blad`}>{errors.contract_type}</FieldError>}
+      </fieldset>
+
+      {needsContractEnd(value.contract_type) && (
+        <div className="max-w-xs animate-panel-in">
+          <label htmlFor={ids.contract_end_date} className="mb-1.5 block font-medium text-ink">
+            {t.contractEndDate}
+          </label>
+          <input
+            id={ids.contract_end_date}
+            type="date"
+            min={value.hire_date || undefined}
+            value={value.contract_end_date}
+            onChange={(e) => update('contract_end_date', e.target.value)}
+            aria-required
+            aria-invalid={!!errors.contract_end_date}
+            aria-describedby={[`${ids.contract_end_date}-hint`, errors.contract_end_date ? `${ids.contract_end_date}-blad` : ''].filter(Boolean).join(' ')}
+            className={inputClass(!!errors.contract_end_date)}
+          />
+          <p id={`${ids.contract_end_date}-hint`} className="mt-1.5 text-sm text-ink-muted">
+            {t.contractEndHint}
+          </p>
+          {errors.contract_end_date && <FieldError id={`${ids.contract_end_date}-blad`}>{errors.contract_end_date}</FieldError>}
+        </div>
+      )}
+
+      <fieldset aria-describedby={describe('assessment_kind')} aria-required>
+        <legend className="mb-2 font-medium text-ink">{t.path}</legend>
+        <div className="grid grid-cols-2 gap-3">
+          {PATHS.map((k) => {
+            const checked = value.assessment_kind === k
+            return (
+              <label
+                key={k}
+                className={`flex cursor-pointer items-start gap-3 rounded-md border px-4 py-3 transition-colors duration-150 has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-accent ${
+                  checked
+                    ? 'border-accent bg-accent-soft'
+                    : errors.assessment_kind
+                      ? 'border-danger bg-surface hover:bg-sunken'
+                      : 'border-line-strong bg-surface hover:bg-sunken'
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="assessment_kind"
+                  value={k}
+                  checked={checked}
+                  onChange={() => update('assessment_kind', k)}
+                  className="mt-1 size-4 accent-accent focus-visible:outline-none"
+                />
+                <span>
+                  <span className="block font-medium text-ink">{t.pathOptions[k].label}</span>
+                  <span className="mt-0.5 block text-sm text-ink-muted">{t.pathOptions[k].hint}</span>
+                </span>
+              </label>
+            )
+          })}
+        </div>
+        {errors.assessment_kind && <FieldError id={`${ids.assessment_kind}-blad`}>{errors.assessment_kind}</FieldError>}
       </fieldset>
 
       <div className="flex justify-end border-t border-line pt-6">

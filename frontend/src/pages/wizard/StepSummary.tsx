@@ -1,19 +1,27 @@
-import { useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { ArrowLeft, Check, LoaderCircle } from 'lucide-react'
 import { Alert, Button } from '../../components/ui'
+import { getFirstAssessmentSchedule } from '../../lib/api'
 import { formatDate } from '../../lib/format'
 import { texts } from '../../lib/texts'
-import type { DocumentData, PersonalData } from './model'
+import type { FirstAssessmentSchedule } from '../../types'
+import { needsContractEnd, type DocumentData, type FirstDocumentData, type PersonalData } from './model'
+
+type ScheduleState = { kind: 'loading' } | { kind: 'error' } | { kind: 'ready'; schedule: FirstAssessmentSchedule }
 
 export function StepSummary({
   personal,
   document: doc,
+  firstDocument,
   onEdit,
   onBack,
   onCreate,
 }: {
   personal: PersonalData
+  /** Ścieżka oceny okresowej: wynik analizy opisu stanowiska. */
   document: DocumentData
+  /** Ścieżka pierwszej oceny: stanowisko i opcjonalny plik. */
+  firstDocument: FirstDocumentData
   onEdit: (step: 0 | 1) => void
   onBack: () => void
   /** Zwraca obietnicę; odrzucenie pokazuje błąd, a dane w kreatorze zostają. */
@@ -22,8 +30,26 @@ export function StepSummary({
   const t = texts.wizard.summary
   const d = texts.wizard.document
   const p = texts.wizard.personal
+  const isFirst = personal.assessment_kind === 'first'
   const [state, setState] = useState<'idle' | 'creating' | 'error'>('idle')
+  const [schedule, setSchedule] = useState<ScheduleState>({ kind: 'loading' })
   const edited = doc.edited
+
+  const loadSchedule = useCallback(() => {
+    if (!personal.contract_type) return
+    setSchedule({ kind: 'loading' })
+    getFirstAssessmentSchedule({
+      hire_date: personal.hire_date,
+      contract_type: personal.contract_type,
+      contract_end_date: needsContractEnd(personal.contract_type) ? personal.contract_end_date : null,
+    })
+      .then((s) => setSchedule({ kind: 'ready', schedule: s }))
+      .catch(() => setSchedule({ kind: 'error' }))
+  }, [personal.contract_type, personal.hire_date, personal.contract_end_date])
+
+  useEffect(() => {
+    if (isFirst) loadSchedule()
+  }, [isFirst, loadSchedule])
 
   async function handleCreate() {
     setState('creating')
@@ -43,23 +69,78 @@ export function StepSummary({
         <Row label={p.lastName}>{personal.last_name}</Row>
         <Row label={p.hireDate}>{personal.hire_date && formatDate(personal.hire_date)}</Row>
         <Row label={p.contractType}>{personal.contract_type && texts.contractType[personal.contract_type]}</Row>
+        {needsContractEnd(personal.contract_type) && personal.contract_end_date && (
+          <Row label={p.contractEndDate}>{formatDate(personal.contract_end_date)}</Row>
+        )}
+        <Row label={t.path}>{personal.assessment_kind && p.pathOptions[personal.assessment_kind].label}</Row>
       </SummarySection>
 
-      {edited && (
-        <SummarySection title={t.documentTitle} onEdit={() => onEdit(1)}>
-          <Row label={t.file}>{doc.file?.name}</Row>
-          <Row label={d.positionTitle}>{edited.position_title}</Row>
-          {edited.organizational_unit && <Row label={texts.employee.unit}>{edited.organizational_unit}</Row>}
-          <Row label={d.subordinates}>{edited.subordinates_count}</Row>
-          <Row label={d.form}>{d.formOptions[edited.form].label}</Row>
-          <Row label={d.criteria}>
-            <ol className="list-decimal space-y-0.5 pl-5">
-              {edited.criteria.map((c, i) => (
-                <li key={i}>{c}</li>
-              ))}
-            </ol>
-          </Row>
-        </SummarySection>
+      {isFirst ? (
+        <>
+          <SummarySection title={t.documentTitle} onEdit={() => onEdit(1)}>
+            <Row label={texts.wizard.firstDocument.positionTitle}>{firstDocument.position_title}</Row>
+            <Row label={t.file}>{firstDocument.file?.name ?? <span className="text-ink-muted">{t.noFile}</span>}</Row>
+            <Row label={t.form}>{texts.forms.first}</Row>
+          </SummarySection>
+
+          <section aria-labelledby="terminy" className="rounded-md border border-line bg-surface">
+            <div className="border-b border-line px-5 py-3">
+              <h3 id="terminy" className="font-semibold text-ink">
+                {t.scheduleTitle}
+              </h3>
+              <p className="text-sm text-ink-muted">{t.scheduleLead}</p>
+            </div>
+            <div aria-live="polite">
+              {schedule.kind === 'loading' && (
+                <p role="status" className="flex items-center gap-2 px-5 py-3 text-ink-muted">
+                  <LoaderCircle aria-hidden className="size-4 animate-spin" />
+                  {t.scheduleLoading}
+                </p>
+              )}
+              {schedule.kind === 'error' && (
+                <div className="px-5 py-3">
+                  <Alert
+                    action={
+                      <Button variant="secondary" onClick={loadSchedule} className="py-1.5 text-sm">
+                        {texts.common.retry}
+                      </Button>
+                    }
+                  >
+                    {t.scheduleError}
+                  </Alert>
+                </div>
+              )}
+              {schedule.kind === 'ready' && (
+                <dl className="divide-y divide-line">
+                  <Row label={t.interviewDue}>{t.interviewDueValue(formatDate(schedule.schedule.introductory_interview_due))}</Row>
+                  <Row label={t.period}>
+                    {t.periodValue(
+                      formatDate(schedule.schedule.first_assessment_period_start),
+                      formatDate(schedule.schedule.first_assessment_period_end),
+                    )}
+                  </Row>
+                </dl>
+              )}
+            </div>
+          </section>
+        </>
+      ) : (
+        edited && (
+          <SummarySection title={t.documentTitle} onEdit={() => onEdit(1)}>
+            <Row label={t.file}>{doc.file?.name}</Row>
+            <Row label={d.positionTitle}>{edited.position_title}</Row>
+            {edited.organizational_unit && <Row label={texts.employee.unit}>{edited.organizational_unit}</Row>}
+            <Row label={d.subordinates}>{edited.subordinates_count}</Row>
+            <Row label={d.form}>{d.formOptions[edited.form].label}</Row>
+            <Row label={d.criteria}>
+              <ol className="list-decimal space-y-0.5 pl-5">
+                {edited.criteria.map((c, i) => (
+                  <li key={i}>{c}</li>
+                ))}
+              </ol>
+            </Row>
+          </SummarySection>
+        )
       )}
 
       {state === 'error' && <Alert>{t.createError}</Alert>}

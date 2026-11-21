@@ -2,7 +2,9 @@
  * Wszystkie teksty interfejsu w jednym miejscu. Pełne nazwy, bez skrótów.
  */
 import type {
+  AssessmentKind,
   AssessmentStatus,
+  EmployeeForm,
   AssistantMode,
   ContractType,
   EmployeeStatus,
@@ -93,7 +95,10 @@ export const texts = {
     backToList: 'Wróć do listy pracowników',
     stepOf: (step: number, total: number) => `Krok ${step} z ${total}`,
     progressLabel: 'Postęp dodawania pracownika',
-    steps: ['Dane pracownika', 'Opis stanowiska', 'Potwierdzenie'],
+    steps: {
+      periodic: ['Dane pracownika', 'Opis stanowiska', 'Potwierdzenie'],
+      first: ['Dane pracownika', 'Opis stanowiska', 'Potwierdzenie i terminy'],
+    } satisfies Record<AssessmentKind, string[]>,
     next: 'Dalej',
     back: 'Wstecz',
     cancel: 'Anuluj',
@@ -104,12 +109,28 @@ export const texts = {
       lastName: 'Nazwisko',
       hireDate: 'Data zatrudnienia',
       contractType: 'Rodzaj umowy',
+      contractEndDate: 'Data zakończenia umowy',
+      contractEndHint: 'Dotyczy umowy na czas określony.',
+      path: 'Rodzaj oceny',
+      pathOptions: {
+        first: {
+          label: 'Nowo zatrudniony (pierwsza ocena)',
+          hint: 'Arkusz pierwszej oceny: pięć elementów, skala 3, 5, 7, bez kryteriów dodatkowych.',
+        },
+        periodic: {
+          label: 'Pracownik dotychczasowy (ocena okresowa)',
+          hint: 'Arkusz B lub C dobrany na podstawie opisu stanowiska, z kryteriami dodatkowymi.',
+        },
+      } satisfies Record<AssessmentKind, { label: string; hint: string }>,
       errors: {
         firstName: 'Wpisz imię pracownika.',
         lastName: 'Wpisz nazwisko pracownika.',
         hireDate: 'Podaj datę zatrudnienia.',
         hireDateFuture: 'Data zatrudnienia nie może być późniejsza niż dzisiejsza.',
         contractType: 'Wybierz rodzaj umowy.',
+        contractEndDate: 'Podaj datę zakończenia umowy.',
+        contractEndBeforeHire: 'Data zakończenia umowy musi być późniejsza niż data zatrudnienia.',
+        path: 'Wybierz rodzaj oceny.',
       },
       errorSummary: (n: number) => (n === 1 ? 'Popraw 1 pole, aby przejść dalej.' : `Popraw ${n} pola, aby przejść dalej.`),
     },
@@ -150,11 +171,29 @@ export const texts = {
       },
       confirm: 'Potwierdź dane i przejdź dalej',
     },
+    firstDocument: {
+      lead: 'Wgranie opisu stanowiska jest opcjonalne. Plik trafi do archiwum pracownika i przyda się w rozmowie wstępnej. Na tej ścieżce nie jest analizowany: pierwsza ocena ma stały arkusz bez kryteriów dodatkowych.',
+      positionTitle: 'Nazwa stanowiska',
+      positionTitleError: 'Wpisz nazwę stanowiska.',
+      fileLabel: 'Plik z opisem stanowiska (opcjonalnie)',
+      removeFile: 'Usuń plik',
+    },
     summary: {
       lead: 'Sprawdź dane. Po utworzeniu pracownik pojawi się na Twojej liście, a opis stanowiska zostanie zapisany w jego historii.',
       personalTitle: 'Dane pracownika',
       documentTitle: 'Opis stanowiska',
       file: 'Plik',
+      noFile: 'Nie wgrano',
+      path: 'Rodzaj oceny',
+      form: 'Arkusz',
+      scheduleTitle: 'Terminy pierwszej oceny',
+      scheduleLead: 'Terminy wylicza system na podstawie dat umowy.',
+      interviewDue: 'Rozmowa wstępna',
+      interviewDueValue: (date: string) => `do ${date}`,
+      period: 'Okres na pierwszą ocenę',
+      periodValue: (from: string, to: string) => `od ${from} do ${to}`,
+      scheduleLoading: 'Pobieram terminy…',
+      scheduleError: 'Nie udało się pobrać terminów pierwszej oceny.',
       edit: 'Zmień',
       create: 'Utwórz pracownika',
       creating: 'Tworzę pracownika…',
@@ -173,6 +212,8 @@ export const texts = {
     unit: 'Komórka organizacyjna',
     hireDate: 'Data zatrudnienia',
     contractType: 'Rodzaj umowy',
+    contractEnd: 'Data zakończenia umowy',
+    form: 'Arkusz oceny',
     status: 'Status oceny',
     nextDue: 'Termin następnej oceny',
     lastAssessment: 'Ostatnia ocena',
@@ -245,6 +286,12 @@ export const texts = {
       overdue: 'Po terminie',
     } satisfies Record<AssessmentStatus, string>,
   },
+
+  forms: {
+    B: 'Arkusz B (ocena okresowa)',
+    C: 'Arkusz C (ocena okresowa)',
+    first: 'Arkusz pierwszej oceny',
+  } satisfies Record<EmployeeForm, string>,
 
   contractType: {
     fixed_term_first: 'Pierwsza umowa na czas określony',

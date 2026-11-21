@@ -16,7 +16,10 @@
  *     wylicza backend. Frontend nie liczy niczego sam.
  *  8. analyzeOsp zwraca też liczbę podległych pracowników (subordinates_count, null gdy brak w dokumencie).
  *     Przełożony może poprawić wynik; poprawiona wersja trafia do attachJobDescription.
- *  9. Typy z sekcji „TYLKO FRONTEND" (pracownicy, notatki, opisy stanowiska, lista ocen,
+ *  9. Dwie ścieżki dodania pracownika: "first" (nowo zatrudniony, arkusz pierwszej oceny, bez analizy B/C)
+ *     i "periodic" (pracownik dotychczasowy, arkusz B lub C z analizy opisu stanowiska).
+ *     Terminy pierwszej oceny zwraca backend (getFirstAssessmentSchedule).
+ * 10. Typy z sekcji „TYLKO FRONTEND" (pracownicy, notatki, opisy stanowiska, lista ocen,
  *     użytkownicy) to propozycja: backend ich jeszcze nie ma.
  */
 
@@ -32,6 +35,12 @@ export type SelectedLevel = Level | null
 
 /** Arkusz oceny okresowej sugerowany na podstawie opisu stanowiska pracy. */
 export type AssessmentForm = 'B' | 'C'
+
+/**
+ * Arkusz przypisany pracownikowi: "B" lub "C" (ocena okresowa)
+ * albo "first" (pierwsza ocena nowo zatrudnionego: pięć elementów, skala 3/5/7, bez kryteriów dodatkowych).
+ */
+export type EmployeeForm = AssessmentForm | 'first'
 
 export interface BehavioralIndicator {
   indicator_id: string
@@ -161,6 +170,12 @@ export interface Employee {
   organizational_unit: string
   hire_date: string
   contract_type: ContractType
+  /** Data zakończenia umowy; tylko dla umowy na czas określony, w pozostałych przypadkach null. */
+  contract_end_date: string | null
+  /** Ścieżka oceny: pierwsza ocena (nowo zatrudniony) albo ocena okresowa. */
+  assessment_kind: AssessmentKind
+  /** Przypisany arkusz; null, dopóki przełożony nie potwierdzi opisu stanowiska (ścieżka okresowa). */
+  form: EmployeeForm | null
   last_assessment_date: string | null
   last_assessment_result: AssessmentResult | null
   /** Termin wyliczony przez backend. */
@@ -174,8 +189,28 @@ export interface CreateEmployeeInput {
   last_name: string
   hire_date: string
   contract_type: ContractType
+  contract_end_date: string | null
+  assessment_kind: AssessmentKind
+  /** "first" dla nowo zatrudnionego; "B" lub "C" po potwierdzeniu analizy opisu stanowiska. */
+  form: EmployeeForm
   position_title: string
   organizational_unit: string | null
+}
+
+/** Wejście getFirstAssessmentSchedule: dane umowy nowo zatrudnionego. */
+export interface FirstAssessmentScheduleInput {
+  hire_date: string
+  contract_type: ContractType
+  contract_end_date: string | null
+}
+
+/** Terminy pierwszej oceny wyliczone przez backend (frontend ich nie liczy). */
+export interface FirstAssessmentSchedule {
+  /** Termin rozmowy wstępnej z nowym pracownikiem. */
+  introductory_interview_due: string
+  /** Okres, w którym należy sporządzić pierwszą ocenę. */
+  first_assessment_period_start: string
+  first_assessment_period_end: string
 }
 
 export interface JobDescriptionDocument {
@@ -211,7 +246,7 @@ export interface AssessmentSummary {
   employee_name: string
   supervisor_name: string
   kind: AssessmentKind
-  form: AssessmentForm | 'first'
+  form: EmployeeForm
   status: AssessmentStatus
   started_at: string | null
   due_date: string

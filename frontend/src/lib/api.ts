@@ -15,6 +15,8 @@ import type {
   CompetencyModel,
   CreateEmployeeInput,
   Employee,
+  FirstAssessmentSchedule,
+  FirstAssessmentScheduleInput,
   IndicatorAnswer,
   JobDescriptionDocument,
   Note,
@@ -29,6 +31,7 @@ import {
   mockCalculateScore,
   mockCompetencyModel,
   mockEmployees,
+  mockFirstAssessmentSchedule,
   mockJobDescriptions,
   mockNotes,
   mockUsers,
@@ -166,15 +169,26 @@ export async function createEmployee(data: CreateEmployeeInput): Promise<Employe
       organizational_unit: data.organizational_unit ?? user?.organizational_unit ?? '',
       hire_date: data.hire_date,
       contract_type: data.contract_type,
+      contract_end_date: data.contract_end_date,
+      assessment_kind: data.assessment_kind,
+      form: data.form,
       last_assessment_date: null,
       last_assessment_result: null,
-      next_assessment_due: null, // termin wylicza backend
-      status: 'awaiting_first_assessment',
+      // Termin i status wylicza backend; makieta podaje wartości przykładowe.
+      next_assessment_due:
+        data.assessment_kind === 'first' ? mockFirstAssessmentSchedule(data).first_assessment_period_end : null,
+      status: data.assessment_kind === 'first' ? 'awaiting_first_assessment' : 'up_to_date',
     }
     employees.push(employee)
     return mockDelay(employee)
   }
   return request<Employee>('/employees', { method: 'POST', body: JSON.stringify(data) })
+}
+
+/** Terminy pierwszej oceny nowo zatrudnionego (rozmowa wstępna, okres na pierwszą ocenę). */
+export async function getFirstAssessmentSchedule(input: FirstAssessmentScheduleInput): Promise<FirstAssessmentSchedule> {
+  if (USE_MOCKS) return mockCall(() => mockFirstAssessmentSchedule(input), 400)
+  return request<FirstAssessmentSchedule>('/first-assessment-schedule', { method: 'POST', body: JSON.stringify(input) })
 }
 
 export async function listNotes(employee_id: string): Promise<Note[]> {
