@@ -105,7 +105,8 @@ export function AppLayout({ children, withAssistant = false }: { children: React
         <main id="tresc" tabIndex={-1} className="min-w-0 px-10 py-10 focus:outline-none">
           <div className={showAssistant ? 'max-w-5xl' : 'mx-auto max-w-6xl'}>{children}</div>
         </main>
-        {showAssistant && <AssistantPanel id="panel-asystenta" />}
+        {/* Panel zostaje zamontowany po ukryciu, żeby nie tracić historii rozmowy. */}
+        {withAssistant && <AssistantPanel id="panel-asystenta" hidden={!assistantOpen} />}
       </div>
     </div>
   )

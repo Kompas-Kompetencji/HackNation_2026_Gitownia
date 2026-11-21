@@ -1,5 +1,15 @@
 import { useEffect, useId, useRef, useState, type FormEvent, type KeyboardEvent } from 'react'
-import { BookOpenText, CircleAlert, FileSearch, LoaderCircle, MessagesSquare, Scale } from 'lucide-react'
+import {
+  BookOpenText,
+  ChevronRight,
+  CircleAlert,
+  Eraser,
+  FileSearch,
+  LoaderCircle,
+  MessagesSquare,
+  RotateCcw,
+  Scale,
+} from 'lucide-react'
 import { askAiAssistant } from '../lib/api'
 import { texts } from '../lib/texts'
 import type { AssistantAnswer, AssistantMode } from '../types'
@@ -17,7 +27,7 @@ const MODES: { mode: AssistantMode; icon: typeof Scale }[] = [
 ]
 
 /** Prawy panel asystenta z przełącznikiem trybu. Każdy tryb ma osobną historię pytań. */
-export function AssistantPanel({ id }: { id: string }) {
+export function AssistantPanel({ id, hidden = false }: { id: string; hidden?: boolean }) {
   const t = texts.assistant
   const [mode, setMode] = useState<AssistantMode>('formal')
   const [history, setHistory] = useState<Record<AssistantMode, Exchange[]>>({ formal: [], interview: [] })
@@ -62,6 +72,17 @@ export function AssistantPanel({ id }: { id: string }) {
     }
   }
 
+  function retry(exchange: Exchange) {
+    setHistory((h) => ({ ...h, [mode]: h[mode].filter((e) => e.id !== exchange.id) }))
+    void ask(exchange.question)
+  }
+
+  function clearConversation() {
+    setHistory((h) => ({ ...h, [mode]: [] }))
+    setFieldError(false)
+    textareaRef.current?.focus()
+  }
+
   function handleSubmit(event: FormEvent) {
     event.preventDefault()
     if (!pending) void ask(question)
@@ -85,11 +106,27 @@ export function AssistantPanel({ id }: { id: string }) {
   return (
     <aside
       id={id}
+      hidden={hidden}
       aria-label={t.regionLabel}
-      className="sticky top-16 flex h-[calc(100vh-4rem)] animate-panel-in flex-col border-l border-line bg-surface"
+      className={`sticky top-16 h-[calc(100vh-4rem)] animate-panel-in flex-col border-l border-line bg-surface ${
+        hidden ? 'hidden' : 'flex'
+      }`}
     >
       <div className="border-b border-line px-6 pt-6 pb-5">
-        <h2 className="text-title font-semibold text-ink">{t.title}</h2>
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="text-title font-semibold text-ink">{t.title}</h2>
+          {exchanges.length > 0 && (
+            <button
+              type="button"
+              onClick={clearConversation}
+              disabled={pending}
+              className="flex items-center gap-1.5 rounded-md px-2 py-1 text-sm text-ink-muted transition-colors duration-150 hover:bg-sunken hover:text-ink disabled:opacity-50"
+            >
+              <Eraser aria-hidden className="size-4" />
+              {t.clear}
+            </button>
+          )}
+        </div>
 
         <div role="radiogroup" aria-label={t.modeLabel} className="mt-4 grid grid-cols-2 gap-1 rounded-md bg-sunken p-1">
           {MODES.map(({ mode: m, icon: Icon }) => {
@@ -122,34 +159,34 @@ export function AssistantPanel({ id }: { id: string }) {
           <div>
             <p className="text-sm text-ink-muted">{t.emptyState}</p>
             <p className="mt-5 mb-2 text-sm font-medium text-ink">{t.suggestionsLabel}</p>
-            <ul className="space-y-1.5">
-              {t.suggestions[mode].map((s) => (
-                <li key={s}>
-                  <button
-                    type="button"
-                    onClick={() => void ask(s)}
-                    className="w-full rounded-md border border-line px-3 py-2 text-left text-sm text-ink transition-colors duration-150 hover:border-accent hover:bg-accent-soft"
-                  >
-                    {s}
-                  </button>
-                </li>
-              ))}
-            </ul>
+            <SuggestionList items={t.suggestions[mode]} disabled={pending} onPick={(s) => void ask(s)} />
           </div>
         ) : (
           <ol className="space-y-6">
             {exchanges.map((e) => (
               <li key={e.id}>
-                <p className="text-xs font-medium text-ink-faint">{t.you}</p>
+                <p className="text-xs font-medium text-ink-muted">{t.you}</p>
                 <p className="mt-0.5 font-medium text-ink">{e.question}</p>
                 <div className="mt-3">
-                  <ExchangeAnswer exchange={e} />
+                  <ExchangeAnswer exchange={e} onRetry={() => retry(e)} retryDisabled={pending} />
                 </div>
               </li>
             ))}
           </ol>
         )}
       </div>
+
+      {exchanges.length > 0 && (
+        <details className="group border-t border-line px-6 py-3">
+          <summary className="flex cursor-pointer list-none items-center gap-1.5 text-sm font-medium text-ink-muted hover:text-ink">
+            <ChevronRight aria-hidden className="size-4 transition-transform duration-150 group-open:rotate-90" />
+            {t.suggestionsLabel}
+          </summary>
+          <div className="mt-2">
+            <SuggestionList items={t.suggestions[mode]} disabled={pending} onPick={(s) => void ask(s)} />
+          </div>
+        </details>
+      )}
 
       <form onSubmit={handleSubmit} className="border-t border-line px-6 pt-4 pb-5" noValidate>
         <label htmlFor={questionId} className="mb-1.5 block text-sm font-medium text-ink">
@@ -194,7 +231,42 @@ export function AssistantPanel({ id }: { id: string }) {
   )
 }
 
-function ExchangeAnswer({ exchange }: { exchange: Exchange }) {
+function SuggestionList({
+  items,
+  disabled,
+  onPick,
+}: {
+  items: readonly string[]
+  disabled: boolean
+  onPick: (s: string) => void
+}) {
+  return (
+    <ul className="space-y-1.5">
+      {items.map((s) => (
+        <li key={s}>
+          <button
+            type="button"
+            onClick={() => onPick(s)}
+            disabled={disabled}
+            className="w-full rounded-md border border-line px-3 py-2 text-left text-sm text-ink transition-colors duration-150 hover:border-accent hover:bg-accent-soft disabled:cursor-wait disabled:opacity-60"
+          >
+            {s}
+          </button>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+function ExchangeAnswer({
+  exchange,
+  onRetry,
+  retryDisabled,
+}: {
+  exchange: Exchange
+  onRetry: () => void
+  retryDisabled: boolean
+}) {
   const t = texts.assistant
 
   if (exchange.state === 'pending') {
@@ -208,10 +280,21 @@ function ExchangeAnswer({ exchange }: { exchange: Exchange }) {
 
   if (exchange.state === 'error' || !exchange.answer) {
     return (
-      <p role="alert" className="flex items-start gap-2 rounded-md bg-danger-soft px-3 py-2.5 text-sm text-danger">
-        <CircleAlert aria-hidden className="mt-0.5 size-4 shrink-0" />
-        {t.error}
-      </p>
+      <div className="rounded-md bg-danger-soft px-3 py-2.5 text-sm text-danger">
+        <p className="flex items-start gap-2">
+          <CircleAlert aria-hidden className="mt-0.5 size-4 shrink-0" />
+          {t.error}
+        </p>
+        <button
+          type="button"
+          onClick={onRetry}
+          disabled={retryDisabled}
+          className="mt-2 ml-6 flex items-center gap-1.5 rounded-md border border-danger/40 bg-surface px-3 py-1.5 font-medium text-danger transition-colors duration-150 hover:bg-danger-soft disabled:opacity-50"
+        >
+          <RotateCcw aria-hidden className="size-3.5" />
+          {texts.common.retry}
+        </button>
+      </div>
     )
   }
 
@@ -239,7 +322,7 @@ function ExchangeAnswer({ exchange }: { exchange: Exchange }) {
               {t.sourceLabel}: {s.document_title}, {s.location}
             </span>
           </figcaption>
-          <blockquote className="mt-1 text-sm text-ink-muted">„{s.excerpt}"</blockquote>
+          <blockquote className="mt-1 text-sm text-ink-muted">„{s.excerpt}”</blockquote>
         </figure>
       ))}
     </div>
