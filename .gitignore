@@ -1,0 +1,11 @@
+cat << 'EOF' > .gitignore
+.env
+.env.local
+__pycache__/
+.venv/
+node_modules/
+.next/
+*.db
+*.sqlite3
+backend/chroma_db/
+EOF
