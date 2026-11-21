@@ -167,3 +167,8 @@ from app.routers.ai_router import ai_router
 app.include_router(ai_router)
 app.include_router(ai_router, prefix="/api")
 app.include_router(ai_router, prefix=settings.API_V1_PREFIX)
+
+# Trasy danych (pracownicy, notatki, opisy stanowiska, oceny) i wskazówka poziomu: /api/v1/...
+from app.routers.data_router import data_router  # noqa: E402
+
+app.include_router(data_router, prefix=settings.API_V1_PREFIX)
