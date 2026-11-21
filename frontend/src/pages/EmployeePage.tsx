@@ -22,7 +22,9 @@ export function EmployeePage() {
   const t = texts.employee
   const { employeeId = '' } = useParams()
   const location = useLocation()
-  const created = (location.state as { created?: string } | null)?.created
+  const navState = location.state as { created?: string; withDocument?: boolean } | null
+  const created = navState?.created
+  const withDocument = navState?.withDocument ?? true
   const [state, setState] = useState<LoadState>({ kind: 'loading' })
 
   const load = useCallback(() => {
@@ -76,7 +78,7 @@ export function EmployeePage() {
       )}
 
       {state.kind === 'ready' && (
-        <EmployeeDetails employee={state.employee} document={state.document} created={created} />
+        <EmployeeDetails employee={state.employee} document={state.document} created={created} withDocument={withDocument} />
       )}
     </AppLayout>
   )
@@ -86,10 +88,12 @@ function EmployeeDetails({
   employee: e,
   document: doc,
   created,
+  withDocument,
 }: {
   employee: Employee
   document: JobDescriptionDocument | null
   created?: string
+  withDocument: boolean
 }) {
   const t = texts.employee
   const analysis = doc?.analysis
@@ -99,7 +103,7 @@ function EmployeeDetails({
       {created && (
         <div role="status" className="mb-6 flex items-center gap-3 rounded-md bg-positive-soft px-4 py-3 text-positive">
           <CircleCheck aria-hidden className="size-4 shrink-0" />
-          {t.created(created)}
+          {t.created(created, withDocument)}
         </div>
       )}
 

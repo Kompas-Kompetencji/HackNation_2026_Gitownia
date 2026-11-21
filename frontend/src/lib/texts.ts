@@ -202,7 +202,8 @@ export const texts = {
   },
 
   employee: {
-    created: (name: string) => `Dodano pracownika ${name}. Opis stanowiska został zapisany.`,
+    created: (name: string, withDocument: boolean) =>
+      withDocument ? `Dodano pracownika ${name}. Opis stanowiska został zapisany.` : `Dodano pracownika ${name}.`,
     loading: 'Wczytywanie danych pracownika…',
     loadError: 'Nie udało się wczytać danych pracownika.',
     notFoundTitle: 'Nie znaleziono pracownika',

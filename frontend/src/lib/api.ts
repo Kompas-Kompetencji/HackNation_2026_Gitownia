@@ -222,7 +222,8 @@ export async function listJobDescriptions(employee_id: string): Promise<JobDescr
 
 /**
  * Zapisuje opis stanowiska przy pracowniku.
- * confirmedAnalysis = wynik analyzeOsp po poprawkach i potwierdzeniu przez przełożonego.
+ * confirmedAnalysis = wynik analyzeOsp po poprawkach i potwierdzeniu przez przełożonego
+ * (ścieżka oceny okresowej). Bez niego plik jest tylko archiwizowany, bez analizy.
  */
 export async function attachJobDescription(
   employee_id: string,
@@ -238,7 +239,8 @@ export async function attachJobDescription(
         filename: file.name,
         uploaded_at: new Date().toISOString(),
         version: previous.length + 1,
-        analysis: confirmedAnalysis ?? mockAnalyzeOsp(file.name),
+        // Bez potwierdzonej analizy (ścieżka pierwszej oceny) plik trafia tylko do archiwum.
+        analysis: confirmedAnalysis ?? null,
       }
       jobDescriptions.push(doc)
       return doc

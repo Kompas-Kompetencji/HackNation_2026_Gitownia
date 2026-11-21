@@ -77,7 +77,7 @@ export function NewEmployeePage() {
       })
       await attachJobDescription(employee.id, doc.file, confirmed)
     }
-    navigate(`/przelozony/pracownicy/${employee.id}`, { state: { created: fullName(employee) } })
+    navigate(`/przelozony/pracownicy/${employee.id}`, { state: { created: fullName(employee), withDocument: isFirst ? !!firstDoc.file : true } })
   }
 
   return (
