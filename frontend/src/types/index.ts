@@ -19,7 +19,10 @@
  *  9. Dwie ścieżki dodania pracownika: "first" (nowo zatrudniony, arkusz pierwszej oceny, bez analizy B/C)
  *     i "periodic" (pracownik dotychczasowy, arkusz B lub C z analizy opisu stanowiska).
  *     Terminy pierwszej oceny zwraca backend (getFirstAssessmentSchedule).
- * 10. Typy z sekcji „TYLKO FRONTEND" (pracownicy, notatki, opisy stanowiska, lista ocen,
+ * 10. getEmployee: pracownik innego przełożonego → błąd 403 (ApiError), nieistniejący → null.
+ * 11. createAssessmentDraft zwraca szkic oceny (status "draft"); jeśli dla pracownika istnieje już
+ *     nierozpoczęta ocena tego rodzaju, backend zamienia ją w szkic zamiast tworzyć nową.
+ * 12. Typy z sekcji „TYLKO FRONTEND" (pracownicy, notatki, opisy stanowiska, lista ocen,
  *     użytkownicy) to propozycja: backend ich jeszcze nie ma.
  */
 
@@ -249,8 +252,16 @@ export interface AssessmentSummary {
   form: EmployeeForm
   status: AssessmentStatus
   started_at: string | null
+  /** Data zakończenia (zatwierdzenia) oceny; null dla ocen w toku. */
+  completed_at: string | null
   due_date: string
   result: AssessmentResult | null
+}
+
+/** Wejście createAssessmentDraft. Arkusz backend bierze z pracownika (form). */
+export interface CreateAssessmentInput {
+  employee_id: string
+  kind: AssessmentKind
 }
 
 export interface AssessmentFilters {

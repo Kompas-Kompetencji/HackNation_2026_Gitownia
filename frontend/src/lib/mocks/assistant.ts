@@ -15,7 +15,53 @@ const REGULATIONS = 'Regulamin oceniania pracowników urzędu (dokument przykła
 const INSTRUCTION = 'Instrukcja wypełniania arkusza oceny (dokument przykładowy)'
 const GUIDE = 'Poradnik rozmowy oceniającej (dokument przykładowy)'
 
+// Kolejność ma znaczenie: reguły szczegółowe przed ogólnymi.
 const RULES: Rule[] = [
+  {
+    mode: 'formal',
+    keywords: ['rozmowę wstępną', 'rozmowy wstępnej', 'rozmowa wstępna'],
+    answer: {
+      answer:
+        'Rozmowę wstępną z nowo zatrudnionym pracownikiem przełożony przeprowadza na początku zatrudnienia. Omawia na niej zakres obowiązków, oczekiwania i sposób pierwszej oceny. Termin dla konkretnego pracownika widać w jego panelu.',
+      sources: [{ document_title: REGULATIONS, location: '§ 2 ust. 1', excerpt: 'Przełożony przeprowadza z nowym pracownikiem rozmowę wstępną.' }],
+    },
+  },
+  {
+    mode: 'formal',
+    keywords: ['sprawozdan'],
+    answer: {
+      answer:
+        'Przed pierwszą oceną pracownik przygotowuje krótkie sprawozdanie z wykonywanych zadań. Przełożony bierze je pod uwagę, oceniając pięć elementów: rzetelność, wykorzystywanie wiedzy, organizację pracy, komunikację i współpracę.',
+      sources: [{ document_title: REGULATIONS, location: '§ 4 ust. 3', excerpt: 'Pracownik przedkłada sprawozdanie z wykonywania obowiązków.' }],
+    },
+  },
+  {
+    mode: 'formal',
+    keywords: ['minął', 'minal', 'po terminie', 'przekrocz'],
+    answer: {
+      answer:
+        'Przekroczenie terminu nie zwalnia z obowiązku sporządzenia oceny. Należy ją sporządzić niezwłocznie i poinformować kadry o przyczynie opóźnienia.',
+      sources: [{ document_title: REGULATIONS, location: '§ 3 ust. 4', excerpt: 'Ocenę sporządza się niezwłocznie po ustaniu przyczyny opóźnienia.' }],
+    },
+  },
+  {
+    mode: 'formal',
+    keywords: ['rozmowę oceniającą', 'rozmowy oceniającej'],
+    answer: {
+      answer:
+        'Rozmowę oceniającą przeprowadza się przed sporządzeniem oceny okresowej, w terminie pozwalającym zakończyć ocenę przed upływem 24 miesięcy od poprzedniej. Termin dla tego pracownika widać w jego panelu.',
+      sources: [{ document_title: REGULATIONS, location: '§ 5 ust. 1', excerpt: 'Przed sporządzeniem oceny przełożony przeprowadza rozmowę oceniającą.' }],
+    },
+  },
+  {
+    mode: 'interview',
+    keywords: ['wstępn', 'nowym pracownikiem', 'nowego pracownika'],
+    answer: {
+      answer:
+        'Na rozmowie wstępnej omów zakres obowiązków z opisu stanowiska, pięć elementów pierwszej oceny i to, jak będziesz zbierać przykłady zachowań. Ustal, kto wprowadza pracownika w zadania, i umów termin rozmowy kontrolnej.',
+      sources: [{ document_title: GUIDE, location: 'Część 2', excerpt: 'Rozmowa wstępna ustala oczekiwania na okres pierwszej oceny.' }],
+    },
+  },
   {
     mode: 'formal',
     keywords: ['termin', 'kiedy', 'jak często', 'co ile'],

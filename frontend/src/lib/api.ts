@@ -12,6 +12,7 @@ import type {
   AssessmentSummary,
   AssistantAnswer,
   AssistantMode,
+  CreateAssessmentInput,
   CompetencyModel,
   CreateEmployeeInput,
   Employee,
@@ -117,6 +118,7 @@ export async function askAiAssistant(question: string, mode: AssistantMode): Pro
 const employees = structuredClone(mockEmployees)
 const notes = structuredClone(mockNotes)
 const jobDescriptions = structuredClone(mockJobDescriptions)
+const assessments = structuredClone(mockAssessments)
 
 function currentUser(): User | undefined {
   const id = readSessionUserId()
@@ -149,12 +151,25 @@ export async function listEmployees(): Promise<Employee[]> {
   return request<Employee[]>('/employees')
 }
 
+/**
+ * Pracownik zalogowanego przełożonego.
+ * null = pracownik nie istnieje; ApiError 403 = pracownik innego przełożonego (brak dostępu).
+ */
 export async function getEmployee(id: string): Promise<Employee | null> {
   if (USE_MOCKS) {
-    const user = currentUser()
-    return mockDelay(employees.find((e) => e.id === id && e.supervisor_id === user?.id) ?? null)
+    return mockCall(() => {
+      const employee = employees.find((e) => e.id === id)
+      if (!employee) return null
+      if (!ownsEmployee(id)) throw new ApiError(403, 'Brak dostępu do pracownika')
+      return employee
+    })
   }
-  return request<Employee>(`/employees/${encodeURIComponent(id)}`)
+  try {
+    return await request<Employee>(`/employees/${encodeURIComponent(id)}`)
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 404) return null
+    throw error
+  }
 }
 
 export async function createEmployee(data: CreateEmployeeInput): Promise<Employee> {
@@ -198,6 +213,7 @@ export async function listNotes(employee_id: string): Promise<Note[]> {
 
 export async function addNote(employee_id: string, text: string): Promise<Note> {
   if (USE_MOCKS) {
+    if (!ownsEmployee(employee_id)) return Promise.reject(new ApiError(403, 'Brak dostępu do pracownika'))
     const note: Note = {
       id: `note-${crypto.randomUUID().slice(0, 8)}`,
       employee_id,
@@ -243,6 +259,12 @@ export async function attachJobDescription(
         analysis: confirmedAnalysis ?? null,
       }
       jobDescriptions.push(doc)
+      // Potwierdzona analiza ustala arkusz oceny okresowej pracownika (robi to backend).
+      const employee = employees.find((e) => e.id === employee_id)
+      if (employee && confirmedAnalysis && employee.assessment_kind === 'periodic') {
+        employee.form = confirmedAnalysis.suggested_form
+        employee.position_title = confirmedAnalysis.position_title
+      }
       return doc
     }, 600)
   }
@@ -265,7 +287,7 @@ export async function listAssessments(filters: AssessmentFilters = {}): Promise<
     const visibleEmployeeIds =
       user?.role === 'hr' ? null : new Set(employees.filter((e) => e.supervisor_id === user?.id).map((e) => e.id))
     return mockDelay(
-      mockAssessments.filter(
+      assessments.filter(
         (a) =>
           (visibleEmployeeIds === null || visibleEmployeeIds.has(a.employee_id)) &&
           (!filters.employee_id || a.employee_id === filters.employee_id) &&
@@ -275,4 +297,62 @@ export async function listAssessments(filters: AssessmentFilters = {}): Promise<
   }
   const params = new URLSearchParams(Object.entries(filters).filter(([, v]) => v) as [string, string][])
   return request<AssessmentSummary[]>(`/assessments${params.size ? `?${params}` : ''}`)
+}
+
+/** Jedna ocena (na razie tylko podsumowanie; pełny formularz w etapie 4). */
+export async function getAssessment(id: string): Promise<AssessmentSummary | null> {
+  if (USE_MOCKS) {
+    return mockCall(() => {
+      const assessment = assessments.find((a) => a.id === id)
+      if (!assessment) return null
+      if (!ownsEmployee(assessment.employee_id)) throw new ApiError(403, 'Brak dostępu do oceny')
+      return assessment
+    })
+  }
+  try {
+    return await request<AssessmentSummary>(`/assessments/${encodeURIComponent(id)}`)
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 404) return null
+    throw error
+  }
+}
+
+/**
+ * Tworzy szkic oceny (pierwszej albo okresowej) dla pracownika.
+ * Istniejąca nierozpoczęta lub przeterminowana ocena tego rodzaju zamienia się w szkic.
+ */
+export async function createAssessmentDraft(input: CreateAssessmentInput): Promise<AssessmentSummary> {
+  if (USE_MOCKS) {
+    return mockCall(() => {
+      const employee = employees.find((e) => e.id === input.employee_id)
+      if (!employee || !ownsEmployee(employee.id)) throw new ApiError(403, 'Brak dostępu do pracownika')
+      if (!employee.form) throw new ApiError(409, 'Pracownik nie ma ustalonego arkusza oceny')
+      const now = new Date().toISOString()
+      const open = assessments.find(
+        (a) => a.employee_id === employee.id && a.kind === input.kind && ['not_started', 'overdue'].includes(a.status),
+      )
+      if (open) {
+        Object.assign(open, { status: 'draft', started_at: now, form: employee.form })
+        employee.status = 'assessment_in_progress'
+        return open
+      }
+      const draft: AssessmentSummary = {
+        id: `as-${crypto.randomUUID().slice(0, 8)}`,
+        employee_id: employee.id,
+        employee_name: `${employee.first_name} ${employee.last_name}`,
+        supervisor_name: `${currentUser()?.first_name ?? ''} ${currentUser()?.last_name ?? ''}`.trim(),
+        kind: input.kind,
+        form: employee.form,
+        status: 'draft',
+        started_at: now,
+        completed_at: null,
+        due_date: employee.next_assessment_due ?? now.slice(0, 10),
+        result: null,
+      }
+      assessments.unshift(draft)
+      employee.status = 'assessment_in_progress'
+      return draft
+    }, 500)
+  }
+  return request<AssessmentSummary>('/assessments', { method: 'POST', body: JSON.stringify(input) })
 }

@@ -3,11 +3,18 @@ import { mockAnalyzeOsp } from './osp'
 
 const documents: Omit<JobDescriptionDocument, 'analysis'>[] = [
   {
+    id: 'jd-001a',
+    employee_id: 'emp-001',
+    filename: 'opis_stanowiska_specjalista_skargi_2022.docx',
+    uploaded_at: '2022-11-03T09:15:00Z',
+    version: 1,
+  },
+  {
     id: 'jd-001',
     employee_id: 'emp-001',
     filename: 'opis_stanowiska_starszy_specjalista_skargi.docx',
     uploaded_at: '2024-11-20T10:00:00Z',
-    version: 1,
+    version: 2,
   },
   {
     id: 'jd-002',
@@ -16,13 +23,8 @@ const documents: Omit<JobDescriptionDocument, 'analysis'>[] = [
     uploaded_at: '2025-04-30T08:30:00Z',
     version: 1,
   },
-  {
-    id: 'jd-003',
-    employee_id: 'emp-003',
-    filename: 'opis_stanowiska_naczelnik_wydzialu_obslugi.docx',
-    uploaded_at: '2024-09-01T12:00:00Z',
-    version: 2,
-  },
+  // Małgorzata Wróbel-Sośnicka (emp-003) celowo nie ma opisu stanowiska:
+  // przed oceną okresową aplikacja prosi o jego wgranie.
 ]
 
 /** Zapisane opisy stanowiska z wynikiem analizy potwierdzonym przez przełożonego. */

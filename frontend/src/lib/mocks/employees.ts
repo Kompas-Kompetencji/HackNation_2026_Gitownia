@@ -50,7 +50,7 @@ export const mockEmployees: Employee[] = [
     contract_type: 'indefinite',
     contract_end_date: null,
     assessment_kind: 'periodic',
-    form: 'B',
+    form: null, // brak opisu stanowiska: arkusz B lub C ustali się po jego wgraniu
     last_assessment_date: '2024-10-14',
     last_assessment_result: 'positive',
     next_assessment_due: '2026-10-14',
