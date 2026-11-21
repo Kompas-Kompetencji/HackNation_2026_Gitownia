@@ -3,6 +3,8 @@
  *
  * Nazwy pól w snake_case, zgodnie z backendem (Python, FastAPI + Pydantic).
  *
+ * Spięcie z backendem (gałąź feature/wspolne-klejenie): docs/spiecie-z-backendem.md.
+ *
  * ZAŁOŻENIA (backend w repozytorium nie zawiera jeszcze kodu, gałąź main ma tylko
  * puste wskaźniki katalogów backend/ i frontend/; do potwierdzenia z zespołem):
  *  1. Poziomy oceny to liczby 1 | 3 | 5 | 7 | 9. „Brak podstaw do oceny" = selected_level: null.
@@ -10,7 +12,8 @@
  *  3. Daty przesyłane jako tekst ISO 8601: "2026-11-21" (data) lub "2026-11-21T10:15:00Z" (data i czas).
  *  4. star_note to obiekt z trzema polami (sytuacja, działanie, rezultat). Jeśli backend
  *     przechowuje go jako jeden tekst, wystarczy zmienić typ StarNote na string.
- *  5. analyzeOsp zwraca dokładnie trzy kryteria dodatkowe; formularz to "B" albo "C".
+ *  5. analyzeOsp zwraca do trzech kryteriów dodatkowych (z backendu zwykle 0–1, patrz
+ *     docs/prosby-dla-kolegi.md); formularz to "B" albo "C".
  *  6. askAiAssistant zwraca status "answered" albo "no_data"; przy "no_data" lista źródeł jest pusta.
  *  7. calculateScore zwraca średnią i sugerowany poziom; wynik (pozytywny/negatywny)
  *     wylicza backend. Frontend nie liczy niczego sam.
