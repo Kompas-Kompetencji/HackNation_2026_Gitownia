@@ -536,11 +536,12 @@ export async function completeAssessment(id: string, input: AssessmentDraftInput
  */
 export async function exportAssessmentPdf(id: string): Promise<Blob> {
   if (USE_MOCKS) {
-    return mockCall(() => {
+    const detail = await mockCall(() => {
       const assessment = assessments.find((a) => a.id === id)
       if (!assessment || !ownsEmployee(assessment.employee_id)) throw new ApiError(403, 'Brak dostępu do oceny')
-      return mockAssessmentPdf({ ...assessment, ...contentOf(id) })
-    }, 500)
+      return { ...assessment, ...contentOf(id) }
+    }, 300)
+    return mockAssessmentPdf(detail)
   }
   return requestBlob(`/assessments/${encodeURIComponent(id)}/pdf`)
 }
@@ -553,7 +554,7 @@ const MOCK_LEVEL_LABELS: Record<Level, string> = {
   9: 'znacznie powyżej oczekiwań',
 }
 
-function mockAssessmentPdf(a: AssessmentDetail): Blob {
+function mockAssessmentPdf(a: AssessmentDetail): Promise<Blob> {
   const employee = employees.find((e) => e.id === a.employee_id)
   const formLabel = a.form === 'B' ? 'Arkusz B' : a.form === 'C' ? 'Arkusz C' : 'Arkusz pierwszej oceny'
   const blocks: PdfBlock[] = [
@@ -591,5 +592,5 @@ function mockAssessmentPdf(a: AssessmentDetail): Blob {
     blocks.push({ text: 'Uzasadnienie', size: 12, bold: true, gap: 16 }, { text: a.justification_draft })
   }
   blocks.push({ text: 'Podpis oceniającego: ................................................', gap: 40 })
-  return buildSimplePdf(blocks, 'Kompas Kompetencji · dokument przykładowy z makiety')
+  return buildSimplePdf(blocks, 'Kompas Kompetencji · dokument przykładowy z makiety', `Arkusz oceny: ${a.employee_name}`)
 }

@@ -5,9 +5,9 @@ import { AppLayout } from '../../layout/AppLayout'
 import { EmptyState } from '../../components/EmptyState'
 import { Alert, Button } from '../../components/ui'
 import { ApiError, createAssessmentDraft, getEmployee, listAssessments, listJobDescriptions } from '../../lib/api'
-import { fullName } from '../../lib/format'
+import { formatDate, fullName } from '../../lib/format'
 import { texts } from '../../lib/texts'
-import type { AssessmentSummary, Employee, JobDescriptionDocument } from '../../types'
+import type { AssessmentResult, AssessmentSummary, Employee, JobDescriptionDocument } from '../../types'
 import type { AssistantContext } from '../../assistant/AssistantPanel'
 import type { SectionState } from './sectionState'
 import { EmployeeHeader } from './EmployeeHeader'
@@ -33,7 +33,7 @@ export function EmployeePage() {
   const { employeeId = '' } = useParams()
   const location = useLocation()
   const navigate = useNavigate()
-  const navState = location.state as { created?: string; withDocument?: boolean } | null
+  const navState = location.state as { created?: string; withDocument?: boolean; completedResult?: AssessmentResult | null } | null
   const [state, setState] = useState<EmployeeState>({ kind: 'loading' })
   const [docs, setDocs] = useState<SectionState<JobDescriptionDocument[]>>({ kind: 'loading' })
   const [assessments, setAssessments] = useState<SectionState<AssessmentSummary[]>>({ kind: 'loading' })
@@ -171,6 +171,16 @@ export function EmployeePage() {
         <p role="status" className="mb-6 flex items-center gap-3 rounded-md bg-positive-soft px-4 py-3 text-positive">
           <CircleCheck aria-hidden className="size-4 shrink-0" />
           {t.created(navState.created, navState.withDocument ?? true)}
+        </p>
+      )}
+
+      {navState?.completedResult && (
+        <p role="status" className="mb-6 flex items-center gap-3 rounded-md bg-positive-soft px-4 py-3 text-positive">
+          <CircleCheck aria-hidden className="size-4 shrink-0" />
+          {texts.assessment.completedNotice(
+            t.result[navState.completedResult],
+            employee.next_assessment_due ? formatDate(employee.next_assessment_due) : null,
+          )}
         </p>
       )}
 

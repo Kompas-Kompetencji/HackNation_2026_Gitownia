@@ -1,9 +1,11 @@
 /**
- * MAKIETA eksportu PDF: najprostszy dokument PDF budowany w przeglądarce, bez bibliotek.
+ * MAKIETA eksportu PDF: prosty dokument budowany w przeglądarce, bez bibliotek.
  * Docelowo PDF arkusza generuje backend (POST /evaluations/pdf, szablony arkusz_b/arkusz_c).
  *
- * Polskie znaki: czcionka Helvetica z kodowaniem WinAnsi i tablicą Differences
- * (glify aogonek, eogonek, lslash itd. są w standardowym zestawie Helvetica).
+ * Każda strona jest rysowana na canvasie czcionką aplikacji (IBM Plex Sans, pełne polskie znaki)
+ * i osadzana w PDF jako obraz JPEG. Standardowa Helvetica bez osadzenia nie ma w przeglądarkach PDF
+ * glifów ą, ę, ś, ż (puste miejsca), a osadzanie czcionki to zadanie dla backendu.
+ * Wada makiety: tekstu w pliku nie da się zaznaczyć.
  */
 export interface PdfBlock {
   text: string
@@ -14,94 +16,133 @@ export interface PdfBlock {
   indent?: number
 }
 
-const CODES: Record<string, number> = {
-  Ś: 0x8c, Ź: 0x8f, ś: 0x9c, ź: 0x9f, Ł: 0xa3, Ą: 0xa5, Ż: 0xaf, ł: 0xb3, ą: 0xb9, ż: 0xbf,
-  Ć: 0xc6, Ę: 0xca, Ń: 0xd1, Ó: 0xd3, ć: 0xe6, ę: 0xea, ń: 0xf1, ó: 0xf3,
-  '„': 0x84, '”': 0x94, '“': 0x93, '–': 0x96, '—': 0x97, '§': 0xa7, '·': 0xb7,
-}
-const DIFFERENCES =
-  '[140 /Sacute 143 /Zacute 156 /sacute 159 /zacute 163 /Lslash 165 /Aogonek 175 /Zdotaccent 179 /lslash 185 /aogonek 191 /zdotaccent 198 /Cacute 202 /Eogonek 209 /Nacute 230 /cacute 234 /eogonek 241 /nacute]'
-
-/** Tekst jako literał PDF; znaki spoza ASCII jako ósemkowe \ddd, więc plik zostaje w ASCII. */
-function pdfString(text: string): string {
-  let out = '('
-  for (const ch of text) {
-    const code = CODES[ch] ?? ch.charCodeAt(0)
-    if (ch === '(' || ch === ')' || ch === '\\') out += `\\${ch}`
-    else if (code >= 32 && code < 127) out += ch
-    else if (CODES[ch]) out += `\\${code.toString(8).padStart(3, '0')}`
-    else out += '?'
-  }
-  return `${out})`
-}
-
-const PAGE_W = 595
+const PAGE_W = 595 // A4 w punktach
 const PAGE_H = 842
 const MARGIN = 56
+const SCALE = 2 // rozdzielczość rysowania (piksele na punkt)
+const FONT = '"IBM Plex Sans", Arial, sans-serif'
 
-function wrap(text: string, size: number, bold: boolean, width: number): string[] {
-  const maxChars = Math.floor(width / (size * (bold ? 0.56 : 0.51)))
+function font(size: number, bold: boolean) {
+  return `${bold ? 600 : 400} ${size * SCALE}px ${FONT}`
+}
+
+function wrap(ctx: CanvasRenderingContext2D, text: string, width: number): string[] {
   const lines: string[] = []
   for (const paragraph of text.split('\n')) {
     let line = ''
     for (const word of paragraph.split(' ')) {
-      if (line && (line + ' ' + word).length > maxChars) {
+      const candidate = line ? `${line} ${word}` : word
+      if (line && ctx.measureText(candidate).width > width * SCALE) {
         lines.push(line)
         line = word
-      } else line = line ? `${line} ${word}` : word
+      } else line = candidate
     }
     lines.push(line)
   }
   return lines
 }
 
-export function buildSimplePdf(blocks: PdfBlock[], footer: string): Blob {
-  const pages: string[][] = [[]]
-  let y = PAGE_H - MARGIN
+function newPage(): CanvasRenderingContext2D {
+  const canvas = document.createElement('canvas')
+  canvas.width = PAGE_W * SCALE
+  canvas.height = PAGE_H * SCALE
+  const ctx = canvas.getContext('2d')!
+  ctx.fillStyle = '#ffffff'
+  ctx.fillRect(0, 0, canvas.width, canvas.height)
+  ctx.fillStyle = '#18212f'
+  ctx.textBaseline = 'alphabetic'
+  return ctx
+}
+
+function drawPages(blocks: PdfBlock[], footer: string): HTMLCanvasElement[] {
+  const pages = [newPage()]
+  let y = MARGIN
   for (const b of blocks) {
     const size = b.size ?? 10
     const indent = b.indent ?? 0
-    y -= b.gap ?? 0
-    for (const line of wrap(b.text, size, !!b.bold, PAGE_W - 2 * MARGIN - indent)) {
-      const lead = size * 1.4
-      if (y - lead < MARGIN + 24) {
-        pages.push([])
-        y = PAGE_H - MARGIN
+    y += b.gap ?? 0
+    let ctx = pages[pages.length - 1]
+    ctx.font = font(size, !!b.bold)
+    for (const line of wrap(ctx, b.text, PAGE_W - 2 * MARGIN - indent)) {
+      const lead = size * 1.45
+      if (y + lead > PAGE_H - MARGIN - 24) {
+        pages.push(newPage())
+        ctx = pages[pages.length - 1]
+        ctx.font = font(size, !!b.bold)
+        y = MARGIN
       }
-      y -= lead
-      pages[pages.length - 1].push(
-        `BT /${b.bold ? 'F2' : 'F1'} ${size} Tf ${MARGIN + indent} ${y.toFixed(1)} Td ${pdfString(line)} Tj ET`,
-      )
+      y += lead
+      ctx.fillText(line, (MARGIN + indent) * SCALE, y * SCALE)
     }
   }
-
-  const objects: string[] = []
-  const add = (body: string) => objects.push(body) // numer obiektu = indeks + 1
-  add('<< /Type /Catalog /Pages 2 0 R >>')
-  add('') // Pages uzupełniane niżej
-  add(`<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding << /Type /Encoding /BaseEncoding /WinAnsiEncoding /Differences ${DIFFERENCES} >> >>`)
-  add(`<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding << /Type /Encoding /BaseEncoding /WinAnsiEncoding /Differences ${DIFFERENCES} >> >>`)
-
-  const kids: string[] = []
-  pages.forEach((lines, i) => {
-    const footerLine = `BT /F1 8 Tf ${MARGIN} ${MARGIN - 8} Td ${pdfString(`${footer}  ·  Strona ${i + 1} z ${pages.length}`)} Tj ET`
-    const stream = [...lines, footerLine].join('\n')
-    add(`<< /Length ${stream.length} >>\nstream\n${stream}\nendstream`)
-    const contentRef = objects.length
-    add(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${PAGE_W} ${PAGE_H}] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents ${contentRef} 0 R >>`)
-    kids.push(`${objects.length} 0 R`)
+  pages.forEach((ctx, i) => {
+    ctx.font = font(8, false)
+    ctx.fillStyle = '#4f5967'
+    ctx.fillText(`${footer}  ·  Strona ${i + 1} z ${pages.length}`, MARGIN * SCALE, (PAGE_H - MARGIN + 12) * SCALE)
   })
-  objects[1] = `<< /Type /Pages /Kids [${kids.join(' ')}] /Count ${pages.length} >>`
+  return pages.map((ctx) => ctx.canvas)
+}
 
-  let out = '%PDF-1.4\n'
+function jpegBytes(canvas: HTMLCanvasElement): Uint8Array {
+  const base64 = canvas.toDataURL('image/jpeg', 0.9).split(',')[1]
+  return Uint8Array.from(atob(base64), (c) => c.charCodeAt(0))
+}
+
+/** Składa PDF z obrazów stron (obiekty: katalog, strony, informacje, potem obraz, treść i strona). */
+export async function buildSimplePdf(blocks: PdfBlock[], footer: string, title: string): Promise<Blob> {
+  await document.fonts.load(font(10, false))
+  await document.fonts.load(font(10, true))
+  const canvases = drawPages(blocks, footer)
+
+  const encoder = new TextEncoder()
+  const parts: Uint8Array[] = []
   const offsets: number[] = []
-  objects.forEach((body, i) => {
-    offsets.push(out.length)
-    out += `${i + 1} 0 obj\n${body}\nendobj\n`
+  let length = 0
+  const push = (chunk: string | Uint8Array) => {
+    const bytes = typeof chunk === 'string' ? encoder.encode(chunk) : chunk
+    parts.push(bytes)
+    length += bytes.length
+  }
+  const object = (n: number, body: string | Uint8Array[]) => {
+    offsets[n] = length
+    push(`${n} 0 obj\n`)
+    if (typeof body === 'string') push(body)
+    else body.forEach(push)
+    push('\nendobj\n')
+  }
+  // Tytuł w słowniku Info jako UTF-16BE (obsługuje polskie znaki).
+  const utf16 = (text: string) =>
+    `<FEFF${[...text].map((ch) => ch.charCodeAt(0).toString(16).padStart(4, '0')).join('')}>`
+
+  push('%PDF-1.4\n%âã\n')
+  const kids = canvases.map((_, i) => `${6 + i * 3} 0 R`).join(' ')
+  object(1, '<< /Type /Catalog /Pages 2 0 R >>')
+  object(2, `<< /Type /Pages /Kids [${kids}] /Count ${canvases.length} >>`)
+  object(3, `<< /Title ${utf16(title)} /Producer (Kompas Kompetencji - makieta) >>`)
+  canvases.forEach((canvas, i) => {
+    const image = 4 + i * 3
+    const content = image + 1
+    const page = image + 2
+    const jpeg = jpegBytes(canvas)
+    object(image, [
+      encoder.encode(
+        `<< /Type /XObject /Subtype /Image /Width ${canvas.width} /Height ${canvas.height} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${jpeg.length} >>\nstream\n`,
+      ),
+      jpeg,
+      encoder.encode('\nendstream'),
+    ])
+    const stream = `q ${PAGE_W} 0 0 ${PAGE_H} 0 0 cm /Im${i} Do Q`
+    object(content, `<< /Length ${stream.length} >>\nstream\n${stream}\nendstream`)
+    object(
+      page,
+      `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${PAGE_W} ${PAGE_H}] /Resources << /XObject << /Im${i} ${image} 0 R >> >> /Contents ${content} 0 R >>`,
+    )
   })
-  const xref = out.length
-  out += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`
-  out += offsets.map((o) => `${String(o).padStart(10, '0')} 00000 n \n`).join('')
-  out += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`
-  return new Blob([out], { type: 'application/pdf' })
+
+  const count = offsets.length
+  const xref = length
+  push(`xref\n0 ${count}\n0000000000 65535 f \n`)
+  for (let n = 1; n < count; n++) push(`${String(offsets[n]).padStart(10, '0')} 00000 n \n`)
+  push(`trailer\n<< /Size ${count} /Root 1 0 R /Info 3 0 R >>\nstartxref\n${xref}\n%%EOF`)
+  return new Blob(parts as BlobPart[], { type: 'application/pdf' })
 }
