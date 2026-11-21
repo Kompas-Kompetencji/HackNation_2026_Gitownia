@@ -176,9 +176,6 @@ function AccountGroup({
                 </span>
                 <span className="block text-sm text-ink-muted">{u.job_title}</span>
               </span>
-              <span className="ml-auto shrink-0 self-center rounded-sm border border-line px-2 py-0.5 text-xs text-ink-muted">
-                {texts.roles[u.role]}
-              </span>
             </label>
           )
         })}

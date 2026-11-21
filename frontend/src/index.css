@@ -14,7 +14,7 @@
   --color-sunken: #eceeea;
   --color-ink: #18212f;
   --color-ink-muted: #4f5967;
-  --color-ink-faint: #6b7380;
+  --color-ink-faint: #5d6571; /* min. 5:1 na paper i sunken (WCAG AA dla małego tekstu) */
   --color-line: #d6dad6;
   --color-line-strong: #b4bab5;
 

@@ -29,7 +29,7 @@ export const texts = {
     signIn: 'Zaloguj się',
     signingIn: 'Logowanie…',
     loading: 'Wczytywanie kont…',
-    loadError: 'Nie udało się wczytać listy kont. Sprawdź, czy backend działa, i odśwież stronę.',
+    loadError: 'Nie udało się wczytać listy kont. Odśwież stronę, a jeśli błąd się powtórzy, zgłoś go administratorowi.',
     chooseAccount: 'Wybierz konto, aby się zalogować.',
     demoNotice: 'Wersja demonstracyjna: dane osobowe są fikcyjne, logowanie nie wymaga hasła.',
     mockNotice: 'Dane przykładowe (makiety) są włączone.',
@@ -60,7 +60,7 @@ export const texts = {
     title: 'Moi pracownicy',
     lead: 'Tutaj pojawi się lista Twoich pracowników z terminami następnych ocen.',
     emptyTitle: 'Lista pracowników powstaje w kolejnym etapie',
-    emptyBody: 'Na razie możesz sprawdzić asystenta formalnego w panelu po prawej stronie.',
+    emptyBody: 'Na razie możesz zadać pytanie asystentowi formalnemu lub asystentowi rozmowy.',
   },
 
   hrHome: {
