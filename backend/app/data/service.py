@@ -1,0 +1,536 @@
+"""
+Logika tras danych: kontrola dostępu, pola wyliczane (statusy, terminy, nazwiska),
+szkic i zakończenie oceny, wskazówka poziomu dla kryterium.
+
+Reguły prawne biorą się z istniejącego kodu (app.core.scoring_engine, app.core.deadline_calc,
+app.core.config); ta warstwa ich nie powiela.
+"""
+
+from __future__ import annotations
+
+import json
+from datetime import date, datetime, timedelta, timezone
+from decimal import Decimal
+from functools import lru_cache
+from typing import Any
+
+from app.core.config import PERIODIC_ALLOWED_SCORES, PERIODIC_SCORE_LABELS, settings
+from app.core.deadline_calc import add_months_art_112_kc, calculate_deadlines
+from app.core.scoring_engine import determine_periodic_overall_level, evaluate, round_half_up
+from app.data.repository import DataRepository
+from app.data.schemas import (
+    AssessmentDetail,
+    AssessmentDraftInput,
+    AssessmentEvaluation,
+    AssessmentRecord,
+    AssessmentSummary,
+    CreateAssessmentInput,
+    CreateEmployeeInput,
+    Employee,
+    EmployeeRecord,
+    IndicatorAnswer,
+    JobDescriptionDocument,
+    NewAssessment,
+    NewEmployee,
+    Note,
+    OspAnalysis,
+    ScoreResult,
+    User,
+)
+from app.data.settings import today
+from app.schemas.models import (
+    CriterionScore,
+    DeadlineRequest,
+    EvaluatedPersonData,
+    EvaluationRequest,
+    EvaluationResponse,
+    EvaluationType,
+    EvaluatorPersonData,
+    FormType,
+)
+
+DUE_SOON_DAYS = 30
+
+
+class ServiceError(Exception):
+    """Błąd z kodem HTTP; trasa zamienia go na HTTPException."""
+
+    def __init__(self, status_code: int, detail: str) -> None:
+        super().__init__(detail)
+        self.status_code = status_code
+        self.detail = detail
+
+
+def _now() -> datetime:
+    return datetime.now(timezone.utc).replace(microsecond=0)
+
+
+# --------------------------------------------------------------------------
+# Model kompetencji (ten sam plik co GET /competencies)
+# --------------------------------------------------------------------------
+
+
+@lru_cache(maxsize=1)
+def _competency_model() -> dict[str, Any]:
+    path = settings.COMPETENCY_MODEL_JSON_PATH
+    if path.is_file():
+        return json.loads(path.read_text(encoding="utf-8"))
+    from scripts.parse_excel import build_output_document, build_seed_competencies
+
+    return build_output_document(build_seed_competencies(), source_label="runtime_fallback_seed")
+
+
+def competency_id_of(backend_id: int) -> str:
+    return f"C{backend_id:02d}"
+
+
+def competency_names() -> dict[str, str]:
+    """competency_id ("C01") → nazwa kryterium ze słownika ustawowego."""
+    return {competency_id_of(c["id"]): c["name"] for c in _competency_model()["competencies"]}
+
+
+# --------------------------------------------------------------------------
+# Wskazówka poziomu (POST /calculate-score)
+# --------------------------------------------------------------------------
+
+_LEVEL_BY_LABEL = {label: score for score, label in PERIODIC_SCORE_LABELS.items()}
+
+
+def _validate_levels(answers: list[IndicatorAnswer]) -> None:
+    for a in answers:
+        if a.selected_level is not None and a.selected_level not in PERIODIC_ALLOWED_SCORES:
+            raise ServiceError(
+                422,
+                f"Niedozwolony poziom {a.selected_level} dla wskaźnika {a.indicator_id}. "
+                f"Dozwolone poziomy: {', '.join(str(s) for s in sorted(PERIODIC_ALLOWED_SCORES))}.",
+            )
+
+
+def calculate_score(answers: list[IndicatorAnswer]) -> ScoreResult:
+    """
+    Średnia ze wskaźników JEDNEGO kryterium i sugerowany poziom. „Brak podstaw do oceny”
+    (selected_level = None) nie wchodzi do średniej. Poziom według progów § 11 ust. 1 pkt 2
+    rozporządzenia z 2016 r. (remis na granicy przedziału daje niższy poziom, np. 4,00 → 3).
+    """
+    if not answers:
+        raise ServiceError(422, "Brak odpowiedzi do obliczenia średniej.")
+    _validate_levels(answers)
+    levels = [a.selected_level for a in answers if a.selected_level is not None]
+    if not levels:
+        return ScoreResult(mean=None, suggested_level=None, counted_indicators=0)
+    raw_avg = Decimal(sum(levels)) / Decimal(len(levels))
+    label = determine_periodic_overall_level(raw_avg)
+    return ScoreResult(
+        mean=round_half_up(raw_avg, places=2),
+        suggested_level=_LEVEL_BY_LABEL.get(label) if label else None,
+        counted_indicators=len(levels),
+    )
+
+
+def _suggested_levels(answers: list[IndicatorAnswer]) -> dict[str, int | None]:
+    by_competency: dict[str, list[IndicatorAnswer]] = {}
+    for a in answers:
+        by_competency.setdefault(a.competency_id, []).append(a)
+    return {cid: calculate_score(items).suggested_level for cid, items in by_competency.items()}
+
+
+# --------------------------------------------------------------------------
+# Usługa danych
+# --------------------------------------------------------------------------
+
+
+class DataService:
+    def __init__(self, repo: DataRepository) -> None:
+        self.repo = repo
+
+    # --- użytkownik i uprawnienia ----------------------------------------------------------
+
+    def current_user(self, user_id: str | None) -> User:
+        if not user_id:
+            raise ServiceError(401, "Brak nagłówka X-User-Id (zaloguj się kontem demonstracyjnym).")
+        user = self.repo.get_user(user_id)
+        if user is None:
+            raise ServiceError(401, "Nieznany użytkownik.")
+        return user
+
+    def _employee_for_read(self, user: User, employee_id: str) -> EmployeeRecord:
+        employee = self.repo.get_employee(employee_id)
+        if employee is None:
+            raise ServiceError(404, "Nie znaleziono pracownika.")
+        if user.role != "hr" and employee.supervisor_id != user.id:
+            raise ServiceError(403, "Brak dostępu do pracownika.")
+        return employee
+
+    def _employee_for_write(self, user: User, employee_id: str) -> EmployeeRecord:
+        employee = self._employee_for_read(user, employee_id)
+        if user.role != "supervisor" or employee.supervisor_id != user.id:
+            raise ServiceError(403, "Zmiany wprowadza wyłącznie przełożony pracownika.")
+        return employee
+
+    def _assessment_for(self, user: User, assessment_id: str, write: bool) -> tuple[AssessmentRecord, EmployeeRecord]:
+        record = self.repo.get_assessment(assessment_id)
+        if record is None:
+            raise ServiceError(404, "Nie znaleziono oceny.")
+        try:
+            employee = (self._employee_for_write if write else self._employee_for_read)(user, record.employee_id)
+        except ServiceError as error:
+            if error.status_code == 404:
+                raise ServiceError(404, "Nie znaleziono oceny.") from error
+            raise ServiceError(error.status_code, "Brak dostępu do oceny.") from error
+        return record, employee
+
+    # --- użytkownicy -----------------------------------------------------------------------
+
+    def list_demo_users(self) -> list[User]:
+        return self.repo.list_users()
+
+    def get_user(self, user_id: str) -> User:
+        user = self.repo.get_user(user_id)
+        if user is None:
+            raise ServiceError(404, "Nie znaleziono użytkownika.")
+        return user
+
+    # --- pracownicy ------------------------------------------------------------------------
+
+    def _employee_view(self, record: EmployeeRecord, assessments: list[AssessmentRecord]) -> Employee:
+        own = [a for a in assessments if a.employee_id == record.id]
+        completed = sorted((a for a in own if a.status == "completed" and a.completed_at), key=lambda a: a.completed_at)
+        last = completed[-1] if completed else None
+        open_ = [a for a in own if a.status != "completed"]
+
+        next_due: date | None
+        if open_:
+            next_due = min(a.due_date for a in open_)
+        elif last is not None and last.completed_at is not None:
+            # § 7 rozporządzenia z 2016 r.: kolejna ocena po 24 miesiącach, po negatywnej po 6
+            months = 6 if last.result == "negative" else 24
+            next_due = add_months_art_112_kc(last.completed_at.date(), months)
+        elif record.assessment_kind == "first":
+            deadlines = calculate_deadlines(
+                DeadlineRequest(
+                    evaluation_type=EvaluationType.FIRST_EVALUATION,
+                    data_nawiazania_stosunku_pracy=record.hire_date,
+                    data_zakonczenia_umowy=record.contract_end_date,
+                )
+            )
+            next_due = deadlines.termin_dokonania_oceny_max
+        else:
+            next_due = None
+
+        now = today()
+        if next_due is not None and next_due < now:
+            status = "assessment_overdue"
+        elif next_due is not None and next_due <= now + timedelta(days=DUE_SOON_DAYS):
+            status = "assessment_due_soon"
+        elif any(a.status == "draft" for a in open_):
+            status = "assessment_in_progress"
+        elif record.assessment_kind == "first" and last is None:
+            status = "awaiting_first_assessment"
+        else:
+            status = "up_to_date"
+
+        return Employee(
+            **record.model_dump(),
+            last_assessment_date=last.completed_at.date() if last and last.completed_at else None,
+            last_assessment_result=last.result if last else None,
+            next_assessment_due=next_due,
+            status=status,  # type: ignore[arg-type]
+        )
+
+    def _views(self, records: list[EmployeeRecord]) -> list[Employee]:
+        assessments = self.repo.list_assessments({r.id for r in records})
+        return [self._employee_view(r, assessments) for r in records]
+
+    def list_employees(self, user: User) -> list[Employee]:
+        records = self.repo.list_employees(None if user.role == "hr" else user.id)
+        return sorted(self._views(records), key=lambda e: (e.last_name, e.first_name))
+
+    def get_employee(self, user: User, employee_id: str) -> Employee:
+        return self._views([self._employee_for_read(user, employee_id)])[0]
+
+    def create_employee(self, user: User, data: CreateEmployeeInput) -> Employee:
+        if user.role != "supervisor":
+            raise ServiceError(403, "Pracownika dodaje przełożony.")
+        if data.assessment_kind == "first" and data.form != "first":
+            raise ServiceError(422, "Dla pierwszej oceny arkusz to „first”.")
+        if data.assessment_kind == "periodic" and data.form == "first":
+            raise ServiceError(422, "Dla oceny okresowej arkusz to B albo C.")
+        if data.contract_type == "fixed_term_first" and data.contract_end_date is None:
+            raise ServiceError(422, "Dla umowy na czas określony podaj datę jej zakończenia.")
+        record = self.repo.create_employee(
+            NewEmployee(
+                supervisor_id=user.id,
+                first_name=data.first_name.strip(),
+                last_name=data.last_name.strip(),
+                position_title=data.position_title.strip(),
+                organizational_unit=(data.organizational_unit or user.organizational_unit).strip(),
+                hire_date=data.hire_date,
+                contract_type=data.contract_type,
+                contract_end_date=data.contract_end_date if data.contract_type == "fixed_term_first" else None,
+                assessment_kind=data.assessment_kind,
+                form=data.form,
+            )
+        )
+        if record.assessment_kind == "first":
+            # Pierwsza ocena czeka od razu na liście ocen (status „nierozpoczęta”).
+            view = self._employee_view(record, [])
+            self.repo.create_assessment(
+                NewAssessment(
+                    employee_id=record.id,
+                    supervisor_id=user.id,
+                    kind="first",
+                    form="first",
+                    status="not_started",
+                    started_at=None,
+                    due_date=view.next_assessment_due or today(),
+                )
+            )
+        return self.get_employee(user, record.id)
+
+    # --- notatki ---------------------------------------------------------------------------
+
+    def list_notes(self, user: User, employee_id: str) -> list[Note]:
+        self._employee_for_read(user, employee_id)
+        return self.repo.list_notes(employee_id, user.id)
+
+    def add_note(self, user: User, employee_id: str, text: str) -> Note:
+        self._employee_for_write(user, employee_id)
+        if not text.strip():
+            raise ServiceError(422, "Notatka nie może być pusta.")
+        return self.repo.add_note(employee_id, user.id, text.strip(), _now())
+
+    # --- opisy stanowiska ------------------------------------------------------------------
+
+    def list_job_descriptions(self, user: User, employee_id: str) -> list[JobDescriptionDocument]:
+        self._employee_for_read(user, employee_id)
+        return self.repo.list_job_descriptions(employee_id)
+
+    def attach_job_description(
+        self, user: User, employee_id: str, filename: str, analysis: OspAnalysis | None
+    ) -> JobDescriptionDocument:
+        employee = self._employee_for_write(user, employee_id)
+        doc = self.repo.add_job_description(employee_id, filename, analysis, _now())
+        if analysis is not None and employee.assessment_kind == "periodic":
+            # Potwierdzona analiza ustala arkusz oceny okresowej i nazwę stanowiska.
+            self.repo.update_employee(
+                employee_id, {"form": analysis.suggested_form, "position_title": analysis.position_title}
+            )
+        return doc
+
+    # --- oceny -----------------------------------------------------------------------------
+
+    def _names(self) -> tuple[dict[str, User], dict[str, EmployeeRecord]]:
+        users = {u.id: u for u in self.repo.list_users()}
+        employees = {e.id: e for e in self.repo.list_employees(None)}
+        return users, employees
+
+    def _summary(self, record: AssessmentRecord, users: dict[str, User], employees: dict[str, EmployeeRecord]) -> AssessmentSummary:
+        employee = employees.get(record.employee_id)
+        supervisor = users.get(employee.supervisor_id) if employee else None
+        status = record.status
+        if status == "not_started" and record.due_date < today():
+            status = "overdue"  # type: ignore[assignment]
+        return AssessmentSummary(
+            id=record.id,
+            employee_id=record.employee_id,
+            employee_name=f"{employee.first_name} {employee.last_name}" if employee else "",
+            supervisor_name=f"{supervisor.first_name} {supervisor.last_name}" if supervisor else "",
+            kind=record.kind,
+            form=record.form,
+            status=status,
+            started_at=record.started_at,
+            completed_at=record.completed_at,
+            due_date=record.due_date,
+            result=record.result,
+        )
+
+    def _detail(self, record: AssessmentRecord) -> AssessmentDetail:
+        users, employees = self._names()
+        summary = self._summary(record, users, employees)
+        evaluation = None
+        if record.status == "completed" and record.decisions:
+            evaluation = _to_evaluation(self._evaluate(record, employees.get(record.employee_id), users))
+        return AssessmentDetail(
+            **summary.model_dump(),
+            additional_competency_ids=record.additional_competency_ids,
+            answers=record.answers,
+            decisions=record.decisions,
+            justification_draft=record.justification_draft,
+            last_step=record.last_step,
+            updated_at=record.updated_at,
+            evaluation=evaluation,
+        )
+
+    def list_assessments(
+        self, user: User, employee_id: str | None = None, supervisor_id: str | None = None, status: str | None = None
+    ) -> list[AssessmentSummary]:
+        users, employees = self._names()
+        visible = {e.id for e in employees.values() if user.role == "hr" or e.supervisor_id == user.id}
+        if employee_id:
+            visible &= {employee_id}
+        if supervisor_id:
+            visible &= {e.id for e in employees.values() if e.supervisor_id == supervisor_id}
+        summaries = [self._summary(a, users, employees) for a in self.repo.list_assessments(visible)]
+        if status:
+            summaries = [s for s in summaries if s.status == status]
+        return sorted(summaries, key=lambda s: (s.completed_at is not None, s.due_date), reverse=False)
+
+    def get_assessment(self, user: User, assessment_id: str) -> AssessmentDetail:
+        record, _ = self._assessment_for(user, assessment_id, write=False)
+        return self._detail(record)
+
+    def create_assessment_draft(self, user: User, data: CreateAssessmentInput) -> AssessmentSummary:
+        employee = self._employee_for_write(user, data.employee_id)
+        if employee.form is None:
+            raise ServiceError(409, "Pracownik nie ma ustalonego arkusza oceny (wgraj opis stanowiska).")
+        now = _now()
+        open_ = [
+            a
+            for a in self.repo.list_assessments({employee.id})
+            if a.kind == data.kind and a.status in ("not_started", "draft")
+        ]
+        if open_:
+            # Istniejąca nierozpoczęta (także przeterminowana) ocena zamienia się w szkic.
+            record = open_[0]
+            if record.status == "not_started":
+                record = self.repo.save_assessment(
+                    record.model_copy(update={"status": "draft", "started_at": now, "form": employee.form})
+                )
+        else:
+            view = self._views([employee])[0]
+            record = self.repo.create_assessment(
+                NewAssessment(
+                    employee_id=employee.id,
+                    supervisor_id=employee.supervisor_id,
+                    kind=data.kind,
+                    form=employee.form,
+                    status="draft",
+                    started_at=now,
+                    due_date=view.next_assessment_due or now.date(),
+                )
+            )
+        users, employees = self._names()
+        return self._summary(record, users, employees)
+
+    def save_assessment_draft(self, user: User, assessment_id: str, data: AssessmentDraftInput) -> AssessmentDetail:
+        record, _ = self._assessment_for(user, assessment_id, write=True)
+        if record.status == "completed":
+            raise ServiceError(409, "Ocena jest już zakończona.")
+        _validate_levels(data.answers)
+        for d in data.decisions:
+            if d.selected_level is not None and d.selected_level not in PERIODIC_ALLOWED_SCORES:
+                raise ServiceError(422, f"Niedozwolony poziom {d.selected_level} dla kryterium {d.competency_id}.")
+        updated = record.model_copy(
+            update={
+                "form": data.form,
+                "status": "draft",
+                "started_at": record.started_at or _now(),
+                "additional_competency_ids": data.additional_competency_ids,
+                "answers": data.answers,
+                "decisions": data.decisions,
+                "justification_draft": data.justification_draft,
+                "last_step": data.last_step,
+                "updated_at": _now(),
+                "suggested_levels": _suggested_levels(data.answers),
+            }
+        )
+        return self._detail(self.repo.save_assessment(updated))
+
+    def _evaluation_request(
+        self, record: AssessmentRecord, employee: EmployeeRecord | None, users: dict[str, User]
+    ) -> EvaluationRequest:
+        names = competency_names()
+        first = record.form == "first"
+        supervisor = users.get(employee.supervisor_id) if employee else None
+        return EvaluationRequest(
+            evaluation_type=EvaluationType.FIRST_EVALUATION if first else EvaluationType.PERIODIC_EVALUATION,
+            form_type=FormType.FIRST_EVAL_FORM if first else FormType(f"FORM_{record.form}"),
+            oceniany=EvaluatedPersonData(
+                imie=employee.first_name if employee else "",
+                nazwisko=employee.last_name if employee else "",
+                komorka_organizacyjna=employee.organizational_unit if employee else "",
+                stanowisko_pracy=employee.position_title if employee else "",
+                data_nawiazania_stosunku_pracy=employee.hire_date if employee else None,
+            ),
+            oceniajacy=EvaluatorPersonData(
+                imie=supervisor.first_name if supervisor else "",
+                nazwisko=supervisor.last_name if supervisor else "",
+                komorka_organizacyjna=supervisor.organizational_unit if supervisor else "",
+                stanowisko_pracy=supervisor.job_title if supervisor else "",
+            ),
+            data_sporzadzenia_oceny=record.completed_at.date() if record.completed_at else None,
+            oceny_czastkowe=[
+                CriterionScore(name=names.get(d.competency_id, d.competency_id), score=d.selected_level, is_mandatory=d.is_mandatory)
+                for d in record.decisions
+                if d.selected_level is not None
+            ],
+            uzasadnienie=record.justification_draft.strip() or None,
+        )
+
+    def _evaluate(self, record: AssessmentRecord, employee: EmployeeRecord | None, users: dict[str, User]) -> EvaluationResponse:
+        return evaluate(self._evaluation_request(record, employee, users))
+
+    def complete_assessment(self, user: User, assessment_id: str, data: AssessmentDraftInput) -> AssessmentDetail:
+        record, employee = self._assessment_for(user, assessment_id, write=True)
+        if record.status == "completed":
+            raise ServiceError(409, "Ocena jest już zakończona.")
+        if not data.decisions or any(d.selected_level is None for d in data.decisions):
+            raise ServiceError(422, "Nie wszystkie kryteria mają decyzję.")
+        _validate_levels(data.answers)
+        now = _now()
+        candidate = record.model_copy(
+            update={
+                "form": data.form,
+                "additional_competency_ids": data.additional_competency_ids,
+                "answers": data.answers,
+                "decisions": data.decisions,
+                "justification_draft": data.justification_draft,
+                "last_step": data.last_step,
+                "updated_at": now,
+                "completed_at": now,
+                "suggested_levels": _suggested_levels(data.answers),
+            }
+        )
+        users = {u.id: u for u in self.repo.list_users()}
+        result = self._evaluate(candidate, employee, users)
+        if result.errors:
+            raise ServiceError(422, " ".join(result.errors))
+        if result.uzasadnienie_obowiazkowe and not data.justification_draft.strip():
+            raise ServiceError(422, "Uzasadnienie jest obowiązkowe przy ocenie negatywnej.")
+        saved = self.repo.save_assessment(
+            candidate.model_copy(
+                update={
+                    "status": "completed",
+                    "started_at": record.started_at or now,
+                    "result": "positive" if result.werdykt == "POZYTYWNA" else "negative",
+                    "stored_mean": result.srednia_arytmetyczna,
+                    "stored_overall_level": result.ogolny_poziom,
+                }
+            )
+        )
+        if data.form in ("B", "C") and employee.form != data.form:
+            self.repo.update_employee(employee.id, {"form": data.form})
+        return self._detail(saved)
+
+    def assessment_pdf(self, user: User, assessment_id: str) -> tuple[bytes, str]:
+        from app.services.pdf_generator import generate_evaluation_pdf
+
+        record, employee = self._assessment_for(user, assessment_id, write=False)
+        users = {u.id: u for u in self.repo.list_users()}
+        request = self._evaluation_request(record, employee, users)
+        pdf = generate_evaluation_pdf(request=request, result=evaluate(request))
+        # Nazwa pliku bez polskich znaków (nagłówek Content-Disposition musi być w ASCII).
+        return pdf, f"Arkusz_oceny_{record.id}.pdf"
+
+
+def _to_evaluation(r: EvaluationResponse) -> AssessmentEvaluation:
+    return AssessmentEvaluation(
+        mean=r.srednia_arytmetyczna,
+        overall_level=r.ogolny_poziom,
+        result="positive" if r.werdykt == "POZYTYWNA" else "negative",
+        reasons=r.powody_werdyktu,
+        justification_required=r.uzasadnienie_obowiazkowe,
+        development_criteria=r.iprz_mandatory_criteria,
+        errors=r.errors,
+        warnings=r.warnings,
+    )
