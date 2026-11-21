@@ -5,12 +5,13 @@ import {
   CircleAlert,
   Eraser,
   FileSearch,
+  FlaskConical,
   LoaderCircle,
   MessagesSquare,
   RotateCcw,
   Scale,
 } from 'lucide-react'
-import { askAiAssistant } from '../lib/api'
+import { askAiAssistant, USE_MOCKS } from '../lib/api'
 import { texts } from '../lib/texts'
 import type { AssistantAnswer, AssistantMode } from '../types'
 
@@ -307,6 +308,7 @@ function ExchangeAnswer({
           {t.noDataTitle}
         </p>
         <p className="mt-1 text-sm leading-relaxed text-ink">{t.noDataBody}</p>
+        <MockLabel />
       </div>
     )
   }
@@ -325,6 +327,19 @@ function ExchangeAnswer({
           <blockquote className="mt-1 text-sm text-ink-muted">„{s.excerpt}”</blockquote>
         </figure>
       ))}
+      <MockLabel />
     </div>
+  )
+}
+
+/** Dyskretna etykieta przy odpowiedziach z makiety; znika, gdy VITE_USE_MOCKS=false. */
+function MockLabel() {
+  if (!USE_MOCKS) return null
+  return (
+    <p className="mt-2 inline-flex items-center gap-1 text-xs text-ink-muted" title={texts.assistant.mockLabelTitle}>
+      <FlaskConical aria-hidden className="size-3" />
+      {texts.assistant.mockLabel}
+      <span className="sr-only">: {texts.assistant.mockLabelTitle}</span>
+    </p>
   )
 }
