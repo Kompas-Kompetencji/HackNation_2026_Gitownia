@@ -133,7 +133,7 @@ async function errorMessage(response: Response): Promise<string> {
   } catch {
     /* treść nie jest JSON-em */
   }
-  return text || response.statusText
+  return text
 }
 
 /**
@@ -156,7 +156,7 @@ async function send(path: string, init?: RequestInit): Promise<Response> {
   if (!response.ok) {
     const message = await errorMessage(response)
     if ([500, 502, 503, 504].includes(response.status) && !message.trim()) throw new ApiError(0, NETWORK_ERROR_MESSAGE)
-    throw new ApiError(response.status, message)
+    throw new ApiError(response.status, message || response.statusText)
   }
   return response
 }
@@ -466,7 +466,8 @@ export async function askAiAssistant(question: string, mode: AssistantMode): Pro
     location: s.location ?? '',
     excerpt: s.excerpt ?? '',
   }))
-  const answer = (raw.answer ?? '').replace(INLINE_SOURCE, '').trim()
+  // Panel pokazuje zwykły tekst: bez doklejonego źródła i bez znaczników Markdown (**pogrubienie**).
+  const answer = (raw.answer ?? '').replace(INLINE_SOURCE, '').replace(/\*\*(.+?)\*\*/g, '$1').trim()
   const answered = raw.status === 'answered' && answer.length > 0
   return { mode, status: answered ? 'answered' : 'no_data', answer: answered ? answer : '', sources: answered ? sources : [] }
 }
