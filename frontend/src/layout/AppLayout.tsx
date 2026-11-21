@@ -4,7 +4,7 @@ import { LogOut, PanelRightClose, PanelRightOpen } from 'lucide-react'
 import { homePathFor, useAuth } from '../auth/AuthContext'
 import { texts } from '../lib/texts'
 import { CompassMark } from '../components/CompassMark'
-import { AssistantPanel } from '../assistant/AssistantPanel'
+import { AssistantPanel, type AssistantContext } from '../assistant/AssistantPanel'
 
 const PANEL_KEY = 'kompas.assistant_open'
 
@@ -20,7 +20,16 @@ function readPanelPreference(): boolean {
  * Wspólny układ ekranów po zalogowaniu.
  * withAssistant=true → kolumna główna ok. 70% i prawy panel asystenta ok. 30% (można go ukryć).
  */
-export function AppLayout({ children, withAssistant = false }: { children: ReactNode; withAssistant?: boolean }) {
+export function AppLayout({
+  children,
+  withAssistant = false,
+  assistantContext,
+}: {
+  children: ReactNode
+  withAssistant?: boolean
+  /** Kontekst dla asystenta (np. pracownik otwarty w panelu). */
+  assistantContext?: AssistantContext
+}) {
   const { user, signOut } = useAuth()
   const navigate = useNavigate()
   const [assistantOpen, setAssistantOpen] = useState(readPanelPreference)
@@ -106,7 +115,7 @@ export function AppLayout({ children, withAssistant = false }: { children: React
           <div className={showAssistant ? 'max-w-5xl' : 'mx-auto max-w-6xl'}>{children}</div>
         </main>
         {/* Panel zostaje zamontowany po ukryciu, żeby nie tracić historii rozmowy. */}
-        {withAssistant && <AssistantPanel id="panel-asystenta" hidden={!assistantOpen} />}
+        {withAssistant && <AssistantPanel id="panel-asystenta" hidden={!assistantOpen} context={assistantContext} />}
       </div>
     </div>
   )

@@ -10,6 +10,7 @@ import {
   MessagesSquare,
   RotateCcw,
   Scale,
+  UserRound,
 } from 'lucide-react'
 import { askAiAssistant, USE_MOCKS } from '../lib/api'
 import { texts } from '../lib/texts'
@@ -28,7 +29,21 @@ const MODES: { mode: AssistantMode; icon: typeof Scale }[] = [
 ]
 
 /** Prawy panel asystenta z przełącznikiem trybu. Każdy tryb ma osobną historię pytań. */
-export function AssistantPanel({ id, hidden = false }: { id: string; hidden?: boolean }) {
+/** Kontekst rozmowy: o kim jest rozmowa i gotowe pytania dopasowane do sytuacji. */
+export interface AssistantContext {
+  subject: string
+  suggestions: Record<AssistantMode, readonly string[]>
+}
+
+export function AssistantPanel({
+  id,
+  hidden = false,
+  context,
+}: {
+  id: string
+  hidden?: boolean
+  context?: AssistantContext
+}) {
   const t = texts.assistant
   const [mode, setMode] = useState<AssistantMode>('formal')
   const [history, setHistory] = useState<Record<AssistantMode, Exchange[]>>({ formal: [], interview: [] })
@@ -40,6 +55,7 @@ export function AssistantPanel({ id, hidden = false }: { id: string; hidden?: bo
   const errorId = useId()
 
   const exchanges = history[mode]
+  const suggestions = context?.suggestions[mode] ?? t.suggestions[mode]
   const pending = exchanges.some((e) => e.state === 'pending')
 
   useEffect(() => {
@@ -160,7 +176,7 @@ export function AssistantPanel({ id, hidden = false }: { id: string; hidden?: bo
           <div>
             <p className="text-sm text-ink-muted">{t.emptyState}</p>
             <p className="mt-5 mb-2 text-sm font-medium text-ink">{t.suggestionsLabel}</p>
-            <SuggestionList items={t.suggestions[mode]} disabled={pending} onPick={(s) => void ask(s)} />
+            <SuggestionList items={suggestions} disabled={pending} onPick={(s) => void ask(s)} />
           </div>
         ) : (
           <ol className="space-y-6">
@@ -184,12 +200,18 @@ export function AssistantPanel({ id, hidden = false }: { id: string; hidden?: bo
             {t.suggestionsLabel}
           </summary>
           <div className="mt-2">
-            <SuggestionList items={t.suggestions[mode]} disabled={pending} onPick={(s) => void ask(s)} />
+            <SuggestionList items={suggestions} disabled={pending} onPick={(s) => void ask(s)} />
           </div>
         </details>
       )}
 
       <form onSubmit={handleSubmit} className="border-t border-line px-6 pt-4 pb-5" noValidate>
+        {context && (
+          <p className="mb-3 flex items-center gap-2 rounded-sm bg-sunken px-2.5 py-1.5 text-sm text-ink">
+            <UserRound aria-hidden className="size-4 shrink-0 text-accent" />
+            <span className="truncate">{context.subject}</span>
+          </p>
+        )}
         <label htmlFor={questionId} className="mb-1.5 block text-sm font-medium text-ink">
           {t.questionLabel}
         </label>
