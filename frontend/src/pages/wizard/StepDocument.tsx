@@ -30,11 +30,16 @@ export function StepDocument({
   onChange,
   onBack,
   onNext,
+  labels,
+  saving = false,
 }: {
   value: DocumentData
   onChange: (v: DocumentData) => void
   onBack: () => void
   onNext: () => void
+  /** Własne etykiety przycisków (np. w panelu pracownika: „Anuluj” i „Zapisz nową wersję”). */
+  labels?: { back: string; confirm: string; saving: string }
+  saving?: boolean
 }) {
   const t = texts.wizard.document
   const [fileState, setFileState] = useState<FileState>({ kind: 'idle' })
@@ -86,7 +91,7 @@ export function StepDocument({
 
   function handleSubmit(event: FormEvent) {
     event.preventDefault()
-    if (fileState.kind === 'analyzing') return
+    if (fileState.kind === 'analyzing' || saving) return
     if (!value.file || !value.edited) {
       setMissingFile(true)
       fileInputRef.current?.focus()
@@ -275,13 +280,14 @@ export function StepDocument({
       )}
 
       <div className="flex items-center justify-between border-t border-line pt-6">
-        <Button variant="secondary" onClick={onBack}>
-          <ArrowLeft aria-hidden className="size-4" />
-          {texts.wizard.back}
+        <Button variant="secondary" onClick={onBack} disabled={saving}>
+          {!labels && <ArrowLeft aria-hidden className="size-4" />}
+          {labels?.back ?? texts.wizard.back}
         </Button>
-        <Button type="submit" disabled={busy}>
-          {t.confirm}
-          <ArrowRight aria-hidden className="size-4" />
+        <Button type="submit" disabled={busy || saving}>
+          {saving && <LoaderCircle aria-hidden className="size-4 animate-spin" />}
+          {saving ? labels?.saving : (labels?.confirm ?? t.confirm)}
+          {!labels && <ArrowRight aria-hidden className="size-4" />}
         </Button>
       </div>
     </form>

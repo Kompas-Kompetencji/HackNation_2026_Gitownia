@@ -1,3 +1,5 @@
+import type { EmployeeStatus } from '../types'
+
 /** Wspólne klasy przycisków: jeden wyraźny główny, spokojny drugorzędny. */
 export const buttonClass = {
   primary:
@@ -13,4 +15,23 @@ export function inputClass(invalid: boolean): string {
   return `block w-full rounded-md border bg-surface px-3 py-2.5 text-ink placeholder:text-ink-faint focus-visible:outline-2 focus-visible:outline-offset-0 ${
     invalid ? 'border-danger' : 'border-line-strong'
   }`
+}
+
+export type Tone = 'neutral' | 'accent' | 'warning' | 'danger' | 'positive'
+
+/** Ton koloru statusu pracownika (kolor zawsze razem z tekstem statusu). */
+export const employeeStatusTone: Record<EmployeeStatus, Tone> = {
+  awaiting_first_assessment: 'accent',
+  assessment_in_progress: 'neutral',
+  assessment_due_soon: 'warning',
+  assessment_overdue: 'danger',
+  up_to_date: 'positive',
+}
+
+export const toneClasses: Record<Tone, { box: string; dot: string; border: string; text: string }> = {
+  neutral: { box: 'bg-sunken text-ink', dot: 'bg-ink-muted', border: 'border-line-strong', text: 'text-ink' },
+  accent: { box: 'bg-accent-soft text-accent', dot: 'bg-accent', border: 'border-accent', text: 'text-accent' },
+  warning: { box: 'bg-warning-soft text-warning', dot: 'bg-warning', border: 'border-warning', text: 'text-warning' },
+  danger: { box: 'bg-danger-soft text-danger', dot: 'bg-danger', border: 'border-danger', text: 'text-danger' },
+  positive: { box: 'bg-positive-soft text-positive', dot: 'bg-positive', border: 'border-positive', text: 'text-positive' },
 }

@@ -1,4 +1,4 @@
-import type { ButtonHTMLAttributes, ReactNode } from 'react'
+import type { ComponentProps, ReactNode } from 'react'
 import { Link, type LinkProps } from 'react-router-dom'
 import { CircleAlert } from 'lucide-react'
 import { buttonClass } from './styles'
@@ -7,7 +7,7 @@ export function Button({
   variant = 'primary',
   className = '',
   ...props
-}: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: keyof typeof buttonClass }) {
+}: ComponentProps<'button'> & { variant?: keyof typeof buttonClass }) {
   return <button type="button" {...props} className={`${buttonClass[variant]} ${className}`} />
 }
 
