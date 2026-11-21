@@ -4,7 +4,7 @@ import { LogOut, PanelRightClose, PanelRightOpen } from 'lucide-react'
 import { homePathFor, useAuth } from '../auth/AuthContext'
 import { texts } from '../lib/texts'
 import { CompassMark } from '../components/CompassMark'
-import { AssistantPanel, type AssistantContext } from '../assistant/AssistantPanel'
+import { AssistantPanel, type AssistantContext, type AssistantRequest } from '../assistant/AssistantPanel'
 
 const PANEL_KEY = 'kompas.assistant_open'
 
@@ -24,11 +24,14 @@ export function AppLayout({
   children,
   withAssistant = false,
   assistantContext,
+  assistantRequest,
 }: {
   children: ReactNode
   withAssistant?: boolean
   /** Kontekst dla asystenta (np. pracownik otwarty w panelu). */
   assistantContext?: AssistantContext
+  /** Pytanie wysłane do asystenta z ekranu; panel otwiera się, jeśli był ukryty. */
+  assistantRequest?: AssistantRequest
 }) {
   const { user, signOut } = useAuth()
   const navigate = useNavigate()
@@ -43,6 +46,10 @@ export function AppLayout({
   }, [assistantOpen])
 
   const showAssistant = withAssistant && assistantOpen
+
+  useEffect(() => {
+    if (assistantRequest) setAssistantOpen(true)
+  }, [assistantRequest])
 
   function handleSignOut() {
     signOut()
@@ -110,12 +117,12 @@ export function AppLayout({
         </div>
       </header>
 
-      <div className={`flex-1 ${showAssistant ? 'grid grid-cols-[7fr_3fr]' : ''}`}>
+      <div className={`flex-1 ${showAssistant ? 'grid grid-cols-[minmax(0,7fr)_minmax(0,3fr)]' : ''}`}>
         <main id="tresc" tabIndex={-1} className="min-w-0 px-10 py-10 focus:outline-none">
           <div className={showAssistant ? 'max-w-5xl' : 'mx-auto max-w-6xl'}>{children}</div>
         </main>
         {/* Panel zostaje zamontowany po ukryciu, żeby nie tracić historii rozmowy. */}
-        {withAssistant && <AssistantPanel id="panel-asystenta" hidden={!assistantOpen} context={assistantContext} />}
+        {withAssistant && <AssistantPanel id="panel-asystenta" hidden={!assistantOpen} context={assistantContext} request={assistantRequest} />}
       </div>
     </div>
   )

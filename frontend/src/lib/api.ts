@@ -8,48 +8,56 @@
  * przy spinaniu wystarczy poprawić ścieżki i ewentualnie kształt ciała zapytania.
  */
 import type {
+  AssessmentDetail,
+  AssessmentDraftInput,
+  AssessmentEvaluation,
   AssessmentFilters,
+  AssessmentForm,
   AssessmentSummary,
+  AssessmentTemplate,
   AssistantAnswer,
   AssistantMode,
   CreateAssessmentInput,
   CompetencyModel,
   CreateEmployeeInput,
   Employee,
+  EvaluationInput,
   FirstAssessmentSchedule,
   FirstAssessmentScheduleInput,
   IndicatorAnswer,
   JobDescriptionDocument,
+  Level,
   Note,
   OspAnalysis,
   ScoreResult,
   User,
 } from '../types'
 import {
+  buildMockAssessmentContent,
+  buildSimplePdf,
+  emptyContent,
   mockAnalyzeOsp,
   mockAskAiAssistant,
   mockAssessments,
+  mockAssessmentTemplates,
   mockCalculateScore,
-  mockCompetencyModel,
+  mockCompetencyModelRaw,
   mockEmployees,
+  mockEvaluate,
   mockFirstAssessmentSchedule,
   mockJobDescriptions,
   mockNotes,
   mockUsers,
+  type BackendCompetencyModel,
+  type PdfBlock,
 } from './mocks'
+import { ApiError } from './apiError'
 import { readSessionUserId } from './session'
 
 export const USE_MOCKS = (import.meta.env.VITE_USE_MOCKS ?? 'true') !== 'false'
 export const API_URL = (import.meta.env.VITE_API_URL ?? '/api').replace(/\/$/, '')
 
-/** Błąd zapytania z kodem HTTP, do pokazania w stanie błędu ekranu. */
-export class ApiError extends Error {
-  readonly status: number
-  constructor(status: number, message: string) {
-    super(message)
-    this.status = status
-  }
-}
+export { ApiError }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const userId = readSessionUserId()
@@ -63,6 +71,16 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     throw new ApiError(response.status, await response.text().catch(() => response.statusText))
   }
   return (await response.json()) as T
+}
+
+async function requestBlob(path: string, init?: RequestInit): Promise<Blob> {
+  const userId = readSessionUserId()
+  const headers = new Headers(init?.headers)
+  headers.set('Content-Type', 'application/json')
+  if (userId) headers.set('X-User-Id', userId)
+  const response = await fetch(`${API_URL}${path}`, { ...init, headers })
+  if (!response.ok) throw new ApiError(response.status, await response.text().catch(() => response.statusText))
+  return response.blob()
 }
 
 /** Opóźnienie makiet, żeby stany ładowania były widoczne podczas pracy nad ekranami. */
@@ -87,9 +105,37 @@ function mockCall<T>(produce: () => T, ms = 350): Promise<T> {
 /* Uzgodnione z backendem                                              */
 /* ------------------------------------------------------------------ */
 
+const LEVEL_KEYS: Level[] = [1, 3, 5, 7, 9]
+
+/** Odpowiedź backendu (GET /competencies) → kontrakt frontendu. Id 1–14 → "C01"–"C14". */
+function mapCompetencyModel(raw: BackendCompetencyModel): CompetencyModel {
+  return {
+    version: raw.version,
+    competencies: raw.competencies.map((c) => {
+      const competency_id = `C${String(c.id).padStart(2, '0')}`
+      return {
+        competency_id,
+        name: c.name,
+        definition: null,
+        indicators: c.indicators.map((i) => ({
+          indicator_id: i.id,
+          competency_id,
+          description: i.indicator,
+          level_descriptions: Object.fromEntries(
+            LEVEL_KEYS.filter((l) => i.levels[String(l)]).map((l) => [l, i.levels[String(l)]]),
+          ),
+        })),
+      }
+    }),
+  }
+}
+
+const mockModel = mapCompetencyModel(mockCompetencyModelRaw)
+const mockNames = Object.fromEntries(mockModel.competencies.map((c) => [c.competency_id, c.name]))
+
 export async function getCompetencies(): Promise<CompetencyModel> {
-  if (USE_MOCKS) return mockDelay(mockCompetencyModel)
-  return request<CompetencyModel>('/competencies')
+  if (USE_MOCKS) return mockDelay(mockModel)
+  return mapCompetencyModel(await request<BackendCompetencyModel>('/competencies'))
 }
 
 /** Analiza pliku z opisem stanowiska pracy (OSP). */
@@ -100,9 +146,57 @@ export async function analyzeOsp(file: File): Promise<OspAnalysis> {
   return request<OspAnalysis>('/analyze-osp', { method: 'POST', body })
 }
 
+/**
+ * Wskazówka poziomu dla JEDNEGO kryterium: średnia ze wskaźników i sugerowany poziom.
+ * Wskaźniki z „brak podstaw do oceny" (null) nie wchodzą do średniej. ApiError 422 = błąd walidacji.
+ * Trasa do dodania w backendzie (propozycja: POST /calculate-score).
+ */
 export async function calculateScore(answers: IndicatorAnswer[]): Promise<ScoreResult> {
-  if (USE_MOCKS) return mockDelay(mockCalculateScore(answers), 250)
+  if (USE_MOCKS) return mockCall(() => mockCalculateScore(answers), 250)
   return request<ScoreResult>('/calculate-score', { method: 'POST', body: JSON.stringify({ answers }) })
+}
+
+interface BackendEvaluationResponse {
+  srednia_arytmetyczna: number
+  ogolny_poziom: string | null
+  werdykt: 'POZYTYWNA' | 'NEGATYWNA'
+  powody_werdyktu: string[]
+  iprz_mandatory_criteria: string[]
+  uzasadnienie_obowiazkowe: boolean
+  errors: string[]
+  warnings: string[]
+}
+
+/**
+ * Wynik całej oceny okresowej z backendu (POST /evaluations/evaluate):
+ * średnia, ogólny poziom, ocena pozytywna lub negatywna z powodami. Frontend niczego nie liczy.
+ */
+export async function evaluateAssessment(input: EvaluationInput): Promise<AssessmentEvaluation> {
+  if (USE_MOCKS) return mockCall(() => mockEvaluate(input, mockNames), 400)
+  const names = Object.fromEntries((await getCompetencies()).competencies.map((c) => [c.competency_id, c.name]))
+  const response = await request<BackendEvaluationResponse>('/evaluations/evaluate', {
+    method: 'POST',
+    body: JSON.stringify({
+      evaluation_type: 'PERIODIC_EVALUATION',
+      form_type: input.form === 'B' ? 'FORM_B' : 'FORM_C',
+      oceny_czastkowe: input.decisions.map((d) => ({
+        name: names[d.competency_id],
+        score: d.selected_level,
+        is_mandatory: d.is_mandatory,
+      })),
+      uzasadnienie: input.justification_draft || null,
+    }),
+  })
+  return {
+    mean: response.srednia_arytmetyczna,
+    overall_level: response.ogolny_poziom,
+    result: response.werdykt === 'POZYTYWNA' ? 'positive' : 'negative',
+    reasons: response.powody_werdyktu,
+    justification_required: response.uzasadnienie_obowiazkowe,
+    development_criteria: response.iprz_mandatory_criteria,
+    errors: response.errors,
+    warnings: response.warnings,
+  }
 }
 
 export async function askAiAssistant(question: string, mode: AssistantMode): Promise<AssistantAnswer> {
@@ -119,6 +213,11 @@ const employees = structuredClone(mockEmployees)
 const notes = structuredClone(mockNotes)
 const jobDescriptions = structuredClone(mockJobDescriptions)
 const assessments = structuredClone(mockAssessments)
+const assessmentContent = buildMockAssessmentContent(mockNames)
+
+function contentOf(id: string) {
+  return (assessmentContent[id] ??= emptyContent())
+}
 
 function currentUser(): User | undefined {
   const id = readSessionUserId()
@@ -299,18 +398,18 @@ export async function listAssessments(filters: AssessmentFilters = {}): Promise<
   return request<AssessmentSummary[]>(`/assessments${params.size ? `?${params}` : ''}`)
 }
 
-/** Jedna ocena (na razie tylko podsumowanie; pełny formularz w etapie 4). */
-export async function getAssessment(id: string): Promise<AssessmentSummary | null> {
+/** Pełna ocena (szkic albo zakończona). null = nie istnieje; ApiError 403 = ocena pracownika innego przełożonego. */
+export async function getAssessment(id: string): Promise<AssessmentDetail | null> {
   if (USE_MOCKS) {
     return mockCall(() => {
       const assessment = assessments.find((a) => a.id === id)
       if (!assessment) return null
       if (!ownsEmployee(assessment.employee_id)) throw new ApiError(403, 'Brak dostępu do oceny')
-      return assessment
+      return { ...assessment, ...contentOf(id) }
     })
   }
   try {
-    return await request<AssessmentSummary>(`/assessments/${encodeURIComponent(id)}`)
+    return await request<AssessmentDetail>(`/assessments/${encodeURIComponent(id)}`)
   } catch (error) {
     if (error instanceof ApiError && error.status === 404) return null
     throw error
@@ -355,4 +454,142 @@ export async function createAssessmentDraft(input: CreateAssessmentInput): Promi
     }, 500)
   }
   return request<AssessmentSummary>('/assessments', { method: 'POST', body: JSON.stringify(input) })
+}
+
+/**
+ * Szablon arkusza oceny okresowej: kryteria obowiązkowe i limit kryteriów dodatkowych.
+ * Frontend nie zna tych reguł; zwraca je backend (propozycja: GET /assessment-templates/{form}).
+ */
+export async function getAssessmentTemplate(form: AssessmentForm): Promise<AssessmentTemplate> {
+  if (USE_MOCKS) return mockDelay(mockAssessmentTemplates[form], 200)
+  return request<AssessmentTemplate>(`/assessment-templates/${form}`)
+}
+
+/** Zapisuje wersję roboczą oceny (konfiguracja, odpowiedzi, decyzje, uzasadnienie). */
+export async function saveAssessmentDraft(id: string, input: AssessmentDraftInput): Promise<AssessmentDetail> {
+  if (USE_MOCKS) {
+    return mockCall(() => {
+      const assessment = assessments.find((a) => a.id === id)
+      if (!assessment || !ownsEmployee(assessment.employee_id)) throw new ApiError(403, 'Brak dostępu do oceny')
+      if (assessment.status === 'completed') throw new ApiError(409, 'Ocena jest już zakończona')
+      const { form, ...content } = input
+      assessment.form = form
+      Object.assign(contentOf(id), structuredClone(content), { updated_at: new Date().toISOString() })
+      return { ...assessment, ...contentOf(id) }
+    }, 300)
+  }
+  return request<AssessmentDetail>(`/assessments/${encodeURIComponent(id)}/draft`, {
+    method: 'PUT',
+    body: JSON.stringify(input),
+  })
+}
+
+/** Dodaje miesiące do daty "RRRR-MM-DD" (tylko makieta; termin wylicza backend). */
+function mockAddMonths(iso: string, months: number): string {
+  const d = new Date(`${iso.slice(0, 10)}T12:00:00Z`)
+  d.setUTCMonth(d.getUTCMonth() + months)
+  return d.toISOString().slice(0, 10)
+}
+
+/**
+ * Kończy ocenę: backend zapisuje arkusz, wylicza wynik, zmienia status oceny i pracownika
+ * oraz wyznacza termin następnej oceny.
+ */
+export async function completeAssessment(id: string, input: AssessmentDraftInput): Promise<AssessmentDetail> {
+  if (USE_MOCKS) {
+    return mockCall(() => {
+      const assessment = assessments.find((a) => a.id === id)
+      if (!assessment || !ownsEmployee(assessment.employee_id)) throw new ApiError(403, 'Brak dostępu do oceny')
+      const decisions = input.decisions.flatMap((d) => (d.selected_level === null ? [] : [{ ...d, selected_level: d.selected_level }]))
+      if (decisions.length !== input.decisions.length) throw new ApiError(422, 'Nie wszystkie kryteria mają decyzję.')
+      const evaluation = mockEvaluate({ form: input.form, justification_draft: input.justification_draft, decisions }, mockNames)
+      if (evaluation.justification_required && !input.justification_draft.trim()) {
+        throw new ApiError(422, 'Uzasadnienie jest obowiązkowe przy ocenie negatywnej.')
+      }
+      const now = new Date().toISOString()
+      const { form, ...content } = input
+      Object.assign(assessment, { form, status: 'completed', completed_at: now, result: evaluation.result })
+      Object.assign(contentOf(id), structuredClone(content), { updated_at: now, evaluation })
+      const employee = employees.find((e) => e.id === assessment.employee_id)
+      if (employee) {
+        // Makieta: po ocenie negatywnej kolejna po 6 miesiącach, po pozytywnej po 24 (§ 7 rozporządzenia z 2016 r.).
+        Object.assign(employee, {
+          last_assessment_date: now.slice(0, 10),
+          last_assessment_result: evaluation.result,
+          next_assessment_due: mockAddMonths(now, evaluation.result === 'negative' ? 6 : 24),
+          status: 'up_to_date',
+          form,
+        })
+      }
+      return { ...assessment, ...contentOf(id) }
+    }, 700)
+  }
+  return request<AssessmentDetail>(`/assessments/${encodeURIComponent(id)}/complete`, {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+}
+
+/**
+ * Arkusz oceny w formacie PDF. Docelowo generuje go backend (POST /evaluations/pdf);
+ * makieta buduje w przeglądarce prosty dokument oznaczony jako przykład.
+ */
+export async function exportAssessmentPdf(id: string): Promise<Blob> {
+  if (USE_MOCKS) {
+    return mockCall(() => {
+      const assessment = assessments.find((a) => a.id === id)
+      if (!assessment || !ownsEmployee(assessment.employee_id)) throw new ApiError(403, 'Brak dostępu do oceny')
+      return mockAssessmentPdf({ ...assessment, ...contentOf(id) })
+    }, 500)
+  }
+  return requestBlob(`/assessments/${encodeURIComponent(id)}/pdf`)
+}
+
+const MOCK_LEVEL_LABELS: Record<Level, string> = {
+  1: 'znacznie poniżej oczekiwań',
+  3: 'poniżej oczekiwań',
+  5: 'na poziomie oczekiwań',
+  7: 'powyżej oczekiwań',
+  9: 'znacznie powyżej oczekiwań',
+}
+
+function mockAssessmentPdf(a: AssessmentDetail): Blob {
+  const employee = employees.find((e) => e.id === a.employee_id)
+  const formLabel = a.form === 'B' ? 'Arkusz B' : a.form === 'C' ? 'Arkusz C' : 'Arkusz pierwszej oceny'
+  const blocks: PdfBlock[] = [
+    { text: 'DOKUMENT PRZYKŁADOWY — wygenerowany z makiety, nie jest arkuszem urzędowym', size: 8, bold: true },
+    { text: `Ocena okresowa — ${formLabel}`, size: 18, bold: true, gap: 12 },
+    {
+      text: `Oceniany: ${a.employee_name}${employee ? `, ${employee.position_title}, ${employee.organizational_unit}` : ''}`,
+      gap: 10,
+    },
+    { text: `Oceniający: ${a.supervisor_name}` },
+    {
+      text: `Status: ${a.status === 'completed' ? 'zakończona' : 'wersja robocza'}${a.completed_at ? `, data sporządzenia ${a.completed_at.slice(0, 10)}` : ''}`,
+    },
+    { text: 'Kryteria oceny i przyznane poziomy', size: 12, bold: true, gap: 16 },
+  ]
+  for (const mandatory of [true, false]) {
+    const list = a.decisions.filter((d) => d.is_mandatory === mandatory)
+    if (!list.length) continue
+    blocks.push({ text: mandatory ? 'Kryteria obowiązkowe' : 'Kryteria dodatkowe', bold: true, gap: 8 })
+    for (const d of list) {
+      const level = d.selected_level ? `${d.selected_level} pkt — ${MOCK_LEVEL_LABELS[d.selected_level]}` : 'brak decyzji'
+      blocks.push({ text: `${mockNames[d.competency_id] ?? d.competency_id}: ${level}`, indent: 12 })
+      if (d.decision_note) blocks.push({ text: `Uwaga oceniającego: ${d.decision_note}`, size: 9, indent: 24 })
+    }
+  }
+  if (a.evaluation) {
+    blocks.push(
+      { text: 'Wynik oceny', size: 12, bold: true, gap: 16 },
+      { text: `Średnia: ${a.evaluation.mean.toFixed(2).replace('.', ',')} pkt; ogólny poziom: ${a.evaluation.overall_level ?? '—'}` },
+      { text: `Ocena: ${a.evaluation.result === 'positive' ? 'POZYTYWNA' : 'NEGATYWNA'}`, bold: true },
+      ...a.evaluation.reasons.map((r) => ({ text: r, size: 9, indent: 12 })),
+    )
+  }
+  if (a.justification_draft.trim()) {
+    blocks.push({ text: 'Uzasadnienie', size: 12, bold: true, gap: 16 }, { text: a.justification_draft })
+  }
+  blocks.push({ text: 'Podpis oceniającego: ................................................', gap: 40 })
+  return buildSimplePdf(blocks, 'Kompas Kompetencji · dokument przykładowy z makiety')
 }

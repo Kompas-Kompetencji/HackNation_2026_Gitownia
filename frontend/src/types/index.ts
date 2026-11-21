@@ -24,6 +24,17 @@
  *     nierozpoczęta ocena tego rodzaju, backend zamienia ją w szkic zamiast tworzyć nową.
  * 12. Typy z sekcji „TYLKO FRONTEND" (pracownicy, notatki, opisy stanowiska, lista ocen,
  *     użytkownicy) to propozycja: backend ich jeszcze nie ma.
+ *
+ * ZAŁOŻENIA ETAPU 4 (formularz oceny okresowej; backend: gałąź feature/backend-m1-rules-engine):
+ * 13. Model kompetencji pochodzi z backendu (competency_model.json z Model_kompetencji.xlsx).
+ *     Backend zwraca id jako liczbę 1–14 i wskaźniki "C01_I01"; api.ts mapuje je na competency_id "C01".
+ * 14. calculateScore liczy JEDNO kryterium: przyjmuje odpowiedzi jego wskaźników i zwraca
+ *     { mean, suggested_level, counted_indicators }. Backend nie ma jeszcze tej trasy (do dodania).
+ *     Błąd walidacji = HTTP 422 z komunikatem w treści odpowiedzi.
+ * 15. „Brak podstaw do oceny" = selected_level: null; wskaźnik bez odpowiedzi nie ma wpisu w answers.
+ * 16. Wynik całej oceny (średnia, ogólny poziom, pozytywna/negatywna, powody) liczy backend
+ *     (POST /evaluations/evaluate); api.ts mapuje nazwy pól z polskich na angielskie.
+ * 17. Kryteria obowiązkowe arkuszy B i C zwraca getAssessmentTemplate (frontend ich nie zna).
  */
 
 /* ------------------------------------------------------------------ */
@@ -46,6 +57,7 @@ export type AssessmentForm = 'B' | 'C'
 export type EmployeeForm = AssessmentForm | 'first'
 
 export interface BehavioralIndicator {
+  /** Identyfikator z modelu backendu, np. "C01_I02". */
   indicator_id: string
   competency_id: string
   /** Treść wskaźnika behawioralnego. */
@@ -55,11 +67,11 @@ export interface BehavioralIndicator {
 }
 
 export interface Competency {
+  /** Identyfikator tekstowy, np. "C01" (backend: liczba 1–14, mapowana w api.ts). */
   competency_id: string
   name: string
-  definition: string
-  /** Na których arkuszach występuje kompetencja. */
-  forms: AssessmentForm[]
+  /** Opis kompetencji; model z Model_kompetencji.xlsx go nie zawiera (null). */
+  definition: string | null
   indicators: BehavioralIndicator[]
 }
 
@@ -106,19 +118,51 @@ export interface IndicatorAnswer {
 
 export type AssessmentResult = 'positive' | 'negative'
 
-export interface CompetencyScore {
-  competency_id: string
-  average: number | null
+/**
+ * Odpowiedź calculateScore(answers) dla wskaźników JEDNEGO kryterium.
+ * Wskaźniki z „brak podstaw do oceny" (selected_level: null) nie wchodzą do średniej.
+ * mean = null, gdy żaden wskaźnik nie ma poziomu. Zaokrąglenie do 1/3/5/7/9 robi backend.
+ */
+export interface ScoreResult {
+  mean: number | null
   suggested_level: Level | null
+  /** Liczba wskaźników, które weszły do średniej. */
+  counted_indicators: number
 }
 
-/** Odpowiedź calculateScore(answers). */
-export interface ScoreResult {
-  average: number | null
-  suggested_level: Level | null
-  result: AssessmentResult | null
-  competency_scores: CompetencyScore[]
-  justification_draft: string | null
+/** Decyzja przełożonego dla jednego kryterium (to ona trafia do arkusza, nie sugestia). */
+export interface CriterionDecision {
+  competency_id: string
+  is_mandatory: boolean
+  /** Poziom wybrany przez przełożonego; null = jeszcze nie wybrano. Nigdy nie wypełnia się sam. */
+  selected_level: Level | null
+  /** Krótkie uzasadnienie, gdy decyzja różni się od sugestii (opcjonalne). */
+  decision_note: string
+}
+
+/** Wejście evaluateAssessment: decyzje do wyliczenia wyniku oceny przez backend. */
+export interface EvaluationInput {
+  form: AssessmentForm
+  decisions: Array<Pick<CriterionDecision, 'competency_id' | 'is_mandatory'> & { selected_level: Level }>
+  justification_draft: string
+}
+
+/**
+ * Wynik oceny wyliczony przez backend (POST /evaluations/evaluate, EvaluationResponse):
+ * srednia_arytmetyczna → mean, ogolny_poziom → overall_level, werdykt → result,
+ * powody_werdyktu → reasons, uzasadnienie_obowiazkowe → justification_required.
+ */
+export interface AssessmentEvaluation {
+  mean: number
+  /** Ogólny poziom spełniania kryteriów, np. "na poziomie oczekiwań". */
+  overall_level: string | null
+  result: AssessmentResult
+  reasons: string[]
+  justification_required: boolean
+  /** Kryteria ocenione poniżej oczekiwań (do wniosków rozwojowych). */
+  development_criteria: string[]
+  errors: string[]
+  warnings: string[]
 }
 
 /** "formal" = asystent formalny, "interview" = asystent rozmowy. */
@@ -257,6 +301,37 @@ export interface AssessmentSummary {
   due_date: string
   result: AssessmentResult | null
 }
+
+/** Odpowiedź getAssessmentTemplate(form): które kryteria są obowiązkowe dla arkusza. */
+export interface AssessmentTemplate {
+  form: AssessmentForm
+  mandatory_competency_ids: string[]
+  max_additional: number
+}
+
+/**
+ * Pełna ocena okresowa (szkic lub zakończona). Rozszerza wiersz listy o treść arkusza.
+ * answers zawiera tylko wskaźniki, na które przełożony już odpowiedział
+ * (brak wpisu = jeszcze bez odpowiedzi, selected_level: null = brak podstaw do oceny).
+ */
+export interface AssessmentDetail extends AssessmentSummary {
+  /** Kryteria dodatkowe; null = konfiguracja jeszcze nie zatwierdzona (podpowiedź z opisu stanowiska). */
+  additional_competency_ids: string[] | null
+  answers: IndicatorAnswer[]
+  decisions: CriterionDecision[]
+  justification_draft: string
+  /** Ostatni otwarty krok formularza, żeby powrót do szkicu wracał w to samo miejsce. */
+  last_step: string | null
+  updated_at: string | null
+  /** Wynik zapisany przy zakończeniu oceny (widok tylko do odczytu). */
+  evaluation: AssessmentEvaluation | null
+}
+
+/** Wejście saveAssessmentDraft: zmieniane pola szkicu. */
+export type AssessmentDraftInput = Pick<
+  AssessmentDetail,
+  'additional_competency_ids' | 'answers' | 'decisions' | 'justification_draft' | 'last_step'
+> & { form: AssessmentForm }
 
 /** Wejście createAssessmentDraft. Arkusz backend bierze z pracownika (form). */
 export interface CreateAssessmentInput {

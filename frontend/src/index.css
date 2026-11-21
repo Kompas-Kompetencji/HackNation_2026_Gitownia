@@ -55,6 +55,27 @@
   }
 }
 
+/* Okno modalne: wejście ze skali 0,97 i przezroczystości, od środka (modal nie ma wyzwalacza). */
+.dialog[open] {
+  animation: dialog-in 180ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+.dialog[open]::backdrop {
+  animation: backdrop-in 180ms ease-out;
+}
+
+@keyframes dialog-in {
+  from {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+}
+
+@keyframes backdrop-in {
+  from {
+    opacity: 0;
+  }
+}
+
 @layer base {
   html {
     min-width: 1280px;

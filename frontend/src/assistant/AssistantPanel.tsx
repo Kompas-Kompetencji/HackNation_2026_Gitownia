@@ -19,6 +19,8 @@ import type { AssistantAnswer, AssistantMode } from '../types'
 interface Exchange {
   id: string
   question: string
+  /** Krótka treść pokazywana zamiast pełnego pytania z kontekstem. */
+  label?: string
   state: 'pending' | 'done' | 'error'
   answer?: AssistantAnswer
 }
@@ -28,23 +30,38 @@ const MODES: { mode: AssistantMode; icon: typeof Scale }[] = [
   { mode: 'interview', icon: MessagesSquare },
 ]
 
+/** Gotowe pytanie: sam tekst albo krótka etykieta i pełne pytanie z kontekstem w treści. */
+export type AssistantSuggestion = string | { label: string; question: string }
+
 /** Kontekst panelu: który pracownik jest otwarty i gotowe pytania dopasowane do jego sytuacji. */
 export interface AssistantContext {
   subject: string
   /** Wyjaśnienie, czego asystent nie wie (np. że nie dostaje danych pracownika). */
   note?: string
-  suggestions: Record<AssistantMode, readonly string[]>
+  suggestions: Record<AssistantMode, readonly AssistantSuggestion[]>
 }
+
+/** Pytanie wysłane z ekranu (np. przycisk „Przygotuj rozmowę oceniającą"). Nowe id = nowe pytanie. */
+export interface AssistantRequest {
+  id: string
+  mode: AssistantMode
+  label: string
+  question: string
+}
+
+const asPair = (s: AssistantSuggestion) => (typeof s === 'string' ? { label: s, question: s } : s)
 
 /** Prawy panel asystenta z przełącznikiem trybu. Każdy tryb ma osobną historię pytań. */
 export function AssistantPanel({
   id,
   hidden = false,
   context,
+  request,
 }: {
   id: string
   hidden?: boolean
   context?: AssistantContext
+  request?: AssistantRequest
 }) {
   const t = texts.assistant
   const [mode, setMode] = useState<AssistantMode>('formal')
@@ -64,18 +81,30 @@ export function AssistantPanel({
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight })
   }, [exchanges])
 
-  async function ask(text: string) {
+  const handledRequest = useRef<string | null>(null)
+  useEffect(() => {
+    if (!request || handledRequest.current === request.id) return
+    handledRequest.current = request.id
+    setMode(request.mode)
+    void ask(request.question, request.label, request.mode)
+    // ask zależy od stanu panelu; pytanie z ekranu wysyłamy tylko raz dla danego id.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [request])
+
+  async function ask(text: string, label?: string, askedMode: AssistantMode = mode) {
     const trimmed = text.trim()
     if (!trimmed) {
       setFieldError(true)
       textareaRef.current?.focus()
       return
     }
-    const askedMode = mode
     const exchangeId = crypto.randomUUID()
     setFieldError(false)
-    setQuestion('')
-    setHistory((h) => ({ ...h, [askedMode]: [...h[askedMode], { id: exchangeId, question: trimmed, state: 'pending' }] }))
+    if (!label) setQuestion('')
+    setHistory((h) => ({
+      ...h,
+      [askedMode]: [...h[askedMode], { id: exchangeId, question: trimmed, label, state: 'pending' }],
+    }))
 
     try {
       const answer = await askAiAssistant(trimmed, askedMode)
@@ -93,7 +122,7 @@ export function AssistantPanel({
 
   function retry(exchange: Exchange) {
     setHistory((h) => ({ ...h, [mode]: h[mode].filter((e) => e.id !== exchange.id) }))
-    void ask(exchange.question)
+    void ask(exchange.question, exchange.label)
   }
 
   function clearConversation() {
@@ -178,14 +207,14 @@ export function AssistantPanel({
           <div>
             <p className="text-sm text-ink-muted">{t.emptyState}</p>
             <p className="mt-5 mb-2 text-sm font-medium text-ink">{t.suggestionsLabel}</p>
-            <SuggestionList items={suggestions} disabled={pending} onPick={(s) => void ask(s)} />
+            <SuggestionList items={suggestions} disabled={pending} onPick={(s) => void ask(s.question, s.label)} />
           </div>
         ) : (
           <ol className="space-y-6">
             {exchanges.map((e) => (
               <li key={e.id}>
                 <p className="text-xs font-medium text-ink-muted">{t.you}</p>
-                <p className="mt-0.5 font-medium text-ink">{e.question}</p>
+                <p className="mt-0.5 font-medium text-ink">{e.label ?? e.question}</p>
                 <div className="mt-3">
                   <ExchangeAnswer exchange={e} onRetry={() => retry(e)} retryDisabled={pending} />
                 </div>
@@ -202,7 +231,7 @@ export function AssistantPanel({
             {t.suggestionsLabel}
           </summary>
           <div className="mt-2">
-            <SuggestionList items={suggestions} disabled={pending} onPick={(s) => void ask(s)} />
+            <SuggestionList items={suggestions} disabled={pending} onPick={(s) => void ask(s.question, s.label)} />
           </div>
         </details>
       )}
@@ -264,21 +293,21 @@ function SuggestionList({
   disabled,
   onPick,
 }: {
-  items: readonly string[]
+  items: readonly AssistantSuggestion[]
   disabled: boolean
-  onPick: (s: string) => void
+  onPick: (s: { label: string; question: string }) => void
 }) {
   return (
     <ul className="space-y-1.5">
-      {items.map((s) => (
-        <li key={s}>
+      {items.map(asPair).map((s) => (
+        <li key={s.label}>
           <button
             type="button"
             onClick={() => onPick(s)}
             disabled={disabled}
             className="w-full rounded-md border border-line px-3 py-2 text-left text-sm text-ink transition-colors duration-150 hover:border-accent hover:bg-accent-soft disabled:cursor-wait disabled:opacity-60"
           >
-            {s}
+            {s.label}
           </button>
         </li>
       ))}
@@ -342,7 +371,7 @@ function ExchangeAnswer({
 
   return (
     <div>
-      <p className="text-[0.9375rem] leading-relaxed text-ink">{answer.answer}</p>
+      <p className="text-[0.9375rem] leading-relaxed whitespace-pre-line text-ink">{answer.answer}</p>
       {answer.sources.map((s) => (
         <figure key={`${s.document_title}-${s.location}`} className="mt-3 border-l-2 border-accent bg-accent-soft/60 py-2 pr-3 pl-3">
           <figcaption className="flex items-start gap-2 text-xs font-medium text-accent">

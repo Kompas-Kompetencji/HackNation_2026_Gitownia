@@ -1,4 +1,14 @@
-import type { AssessmentResult, AssessmentSummary, EmployeeForm } from '../../types'
+import type {
+  AssessmentDetail,
+  AssessmentForm,
+  AssessmentResult,
+  AssessmentSummary,
+  CriterionDecision,
+  EmployeeForm,
+  Level,
+} from '../../types'
+import { mockEvaluate } from './score'
+import { mockAssessmentTemplates } from './templates'
 
 const SUP1 = 'Halina Zawadzka-Nowicka'
 const SUP2 = 'Tomasz Kędzierski'
@@ -85,3 +95,69 @@ export const mockAssessments: AssessmentSummary[] = [
     result: null,
   },
 ]
+
+type Content = Omit<AssessmentDetail, keyof AssessmentSummary>
+
+export function emptyContent(): Content {
+  return {
+    additional_competency_ids: null,
+    answers: [],
+    decisions: [],
+    justification_draft: '',
+    last_step: null,
+    updated_at: null,
+    evaluation: null,
+  }
+}
+
+/** Treść zakończonej oceny z historii: same decyzje (oceny sprzed wdrożenia nie mają odpowiedzi do wskaźników). */
+function history(
+  form: AssessmentForm,
+  additional: Record<string, Level>,
+  mandatoryLevels: Level[],
+  justification: string,
+  names: Record<string, string>,
+): Content {
+  const mandatory = mockAssessmentTemplates[form].mandatory_competency_ids
+  const decisions: CriterionDecision[] = [
+    ...mandatory.map((competency_id, i) => ({
+      competency_id,
+      is_mandatory: true,
+      selected_level: mandatoryLevels[i],
+      decision_note: '',
+    })),
+    ...Object.entries(additional).map(([competency_id, selected_level]) => ({
+      competency_id,
+      is_mandatory: false,
+      selected_level,
+      decision_note: '',
+    })),
+  ]
+  return {
+    ...emptyContent(),
+    additional_competency_ids: Object.keys(additional),
+    decisions,
+    justification_draft: justification,
+    evaluation: mockEvaluate(
+      { form, justification_draft: justification, decisions: decisions.map((d) => ({ ...d, selected_level: d.selected_level! })) },
+      names,
+    ),
+  }
+}
+
+/** Treść ocen (szkice i historia). Oceny bez wpisu mają pustą treść. */
+export function buildMockAssessmentContent(names: Record<string, string>): Record<string, Content> {
+  return {
+    'as-101': history('C', { C10: 7, C07: 5 }, [5, 7, 5, 7, 5], '', names),
+    'as-102': history(
+      'C',
+      { C10: 5 },
+      [3, 1, 3, 5, 3],
+      'W okresie oceny siedem z dwudziestu odpowiedzi na skargi zostało wysłanych po terminie ustawowym, bez wcześniejszej informacji o ryzyku opóźnienia. Pracownica nie skorzystała z zaplanowanego szkolenia z postępowania administracyjnego.',
+      names,
+    ),
+    'as-002': history('C', { C07: 9, C08: 7, C09: 5 }, [7, 7, 5, 5, 7], '', names),
+    'as-201': history('C', { C07: 7 }, [7, 5, 5, 5, 5], '', names),
+    'as-301': history('B', { C10: 7, C11: 7 }, [5, 7, 7, 5, 5], '', names),
+  }
+}
