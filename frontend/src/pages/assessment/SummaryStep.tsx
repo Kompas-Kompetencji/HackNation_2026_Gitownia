@@ -43,6 +43,7 @@ export function SummaryStep({
   const [suggestions, setSuggestions] = useState<Record<string, Level | null>>({})
   const [evalState, setEvalState] = useState<EvalState>({ kind: 'incomplete' })
   const [attempted, setAttempted] = useState(false)
+  const [attemptId, setAttemptId] = useState(0)
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [completeError, setCompleteError] = useState(false)
   const [evalAttempt, setEvalAttempt] = useState(0)
@@ -124,11 +125,16 @@ export function SummaryStep({
     ...(missing.length === 0 && evalState.kind !== 'ready' ? [{ text: t.issues.resultPending }] : []),
   ]
 
+  // Po nieudanej próbie zakończenia fokus przechodzi na listę braków (po jej wyrenderowaniu).
+  useEffect(() => {
+    if (attemptId > 0) issuesRef.current?.focus()
+  }, [attemptId])
+
   function handleComplete() {
     setAttempted(true)
     setCompleteError(false)
     if (issues.length > 0) {
-      requestAnimationFrame(() => issuesRef.current?.focus())
+      setAttemptId((n) => n + 1)
       return
     }
     setConfirmOpen(true)
