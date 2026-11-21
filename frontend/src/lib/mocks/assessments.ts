@@ -81,7 +81,7 @@ export const mockAssessments: AssessmentSummary[] = [
     status: 'not_started',
     started_at: null,
     completed_at: null,
-    due_date: '2026-12-15',
+    due_date: '2027-11-14',
     result: null,
   },
 ]
