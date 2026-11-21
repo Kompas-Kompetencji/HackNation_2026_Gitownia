@@ -33,9 +33,9 @@ export const texts = {
     chooseAccount: 'Wybierz konto, aby się zalogować.',
     demoNotice: 'Wersja demonstracyjna: dane osobowe są fikcyjne, logowanie nie wymaga hasła.',
     mockNotice: 'Dane przykładowe (makiety) są włączone.',
-    supervisorScope: (count: number) =>
-      count === 1 ? 'Ocenia 1 pracownika' : `Ocenia ${count} pracowników`,
-    hrScope: 'Statusy i terminy wszystkich ocen',
+    claim: 'Ocena oparta na zachowaniach, nie na wrażeniach.',
+    claimBody:
+      'Arkusz, wskaźniki behawioralne i przepisy w jednym miejscu. Aplikacja podpowiada, decyzję podejmuje przełożony.',
   },
 
   nav: {
