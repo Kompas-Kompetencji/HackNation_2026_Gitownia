@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react'
-import { NavLink, useNavigate } from 'react-router-dom'
+import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { LogOut, PanelRightClose, PanelRightOpen } from 'lucide-react'
 import { homePathFor, useAuth } from '../auth/AuthContext'
 import { texts } from '../lib/texts'
@@ -46,6 +46,12 @@ export function AppLayout({
   }, [assistantOpen])
 
   const showAssistant = withAssistant && assistantOpen
+  const { pathname } = useLocation()
+
+  // Nowa strona zaczyna się od góry (router nie przewija sam).
+  useEffect(() => {
+    window.scrollTo({ top: 0 })
+  }, [pathname])
 
   useEffect(() => {
     if (assistantRequest) setAssistantOpen(true)

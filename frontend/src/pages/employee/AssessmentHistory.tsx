@@ -1,4 +1,5 @@
-import { History, LoaderCircle } from 'lucide-react'
+import { ChevronRight, History, LoaderCircle } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import { Alert, Button } from '../../components/ui'
 import type { SectionState } from './sectionState'
 import { ResultBadge } from '../../components/StatusBadge'
@@ -58,10 +59,20 @@ export function AssessmentHistory({
                 <th scope="col" className="px-5 py-2.5 font-medium">{t.columns.result}</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-line">
+            <tbody className="divide-y divide-line [&>tr]:relative">
               {completed.map((a) => (
-                <tr key={a.id}>
-                  <td className="px-5 py-3 text-ink">{t.kind[a.kind]}</td>
+                <tr key={a.id} className="group transition-colors duration-150 hover:bg-sunken/60">
+                  <td className="px-5 py-3 text-ink">
+                    {/* Link w pierwszej komórce otwiera ocenę; ::after rozciąga obszar kliknięcia na cały wiersz. */}
+                    <Link
+                      to={`/przelozony/oceny/${a.id}`}
+                      aria-label={t.open(t.kind[a.kind], formatDate(a.completed_at!))}
+                      className="inline-flex items-center gap-1 font-medium text-accent underline-offset-2 group-hover:underline after:absolute after:inset-0"
+                    >
+                      {t.kind[a.kind]}
+                      <ChevronRight aria-hidden className="size-4" />
+                    </Link>
+                  </td>
                   <td className="px-5 py-3 text-ink-muted">{texts.forms[a.form]}</td>
                   <td className="px-5 py-3 text-ink tabular-nums">{formatDate(a.completed_at!)}</td>
                   <td className="px-5 py-3">{a.result && <ResultBadge result={a.result} />}</td>

@@ -254,6 +254,7 @@ export const texts = {
       columns: { kind: 'Rodzaj oceny', form: 'Arkusz', date: 'Data zakończenia', result: 'Wynik' },
       result: { positive: 'Pozytywna', negative: 'Negatywna' },
       loadError: 'Nie udało się wczytać historii ocen.',
+      open: (kind: string, date: string) => `${kind} zakończona ${date}: otwórz wyniki`,
     },
     document: {
       title: 'Opis stanowiska pracy',
@@ -517,6 +518,7 @@ export const texts = {
       completed: 'Data zakończenia',
       result: 'Wynik',
       decisions: 'Decyzje dla kryteriów',
+      level: 'Przyznany poziom',
       justification: 'Uzasadnienie',
       noJustification: 'Bez uzasadnienia (ocena pozytywna).',
       noDetails: 'Szczegóły tej oceny nie są dostępne w systemie. Widać tylko wynik z historii.',

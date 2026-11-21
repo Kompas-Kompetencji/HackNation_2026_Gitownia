@@ -26,10 +26,12 @@ export function DecisionsTable({
   rows,
   onEdit,
   showSuggestion = true,
+  decisionLabel = t.table.decision,
 }: {
   rows: DecisionRow[]
   onEdit?: (step: string) => void
   showSuggestion?: boolean
+  decisionLabel?: string
 }) {
   const c = t.table
   return (
@@ -40,7 +42,7 @@ export function DecisionsTable({
           <tr>
             <th scope="col" className="px-4 py-2.5 font-medium">{c.criterion}</th>
             {showSuggestion && <th scope="col" className="px-4 py-2.5 font-medium">{c.suggested}</th>}
-            <th scope="col" className="px-4 py-2.5 font-medium">{c.decision}</th>
+            <th scope="col" className="px-4 py-2.5 font-medium">{decisionLabel}</th>
             {onEdit && (
               <th scope="col" className="px-4 py-2.5 font-medium">
                 <span className="sr-only">{c.editShort}</span>
