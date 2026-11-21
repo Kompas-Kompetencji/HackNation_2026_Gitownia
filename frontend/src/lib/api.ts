@@ -10,7 +10,8 @@
  *  VITE_API_URL         → adres backendu widziany z przeglądarki. Domyślnie "/api/v1":
  *                         w trybie deweloperskim proxy Vite przekazuje /api do BACKEND_PROXY_TARGET.
  *
- * Backend (FastAPI, gałąź feature/wspolne-klejenie, katalog backend/) ma trasy pod /api/v1.
+ * Backend (FastAPI, gałąź backend-dane odcięta od feature/wspolne-klejenie, katalog backend/)
+ * ma trasy pod /api/v1, także dane (pracownicy, notatki, opisy stanowiska, oceny).
  * Różnice między jego odpowiedziami a kontraktem z src/types są wyrównywane w adapterach
  * poniżej (funkcje from*), komponenty widzą wyłącznie typy z src/types.
  */
@@ -63,7 +64,7 @@ import { readSessionUserId } from './session'
 
 /** Funkcje api.ts, które da się osobno przełączyć na backend (VITE_REAL_API). */
 export const API_FUNCTIONS = [
-  // Backend już je obsługuje (przez adaptery poniżej):
+  // Wszystkie mają trasy w backendzie (gałąź backend-dane, /api/v1):
   'getCompetencies',
   'analyzeOsp',
   'calculateScore',
@@ -72,7 +73,7 @@ export const API_FUNCTIONS = [
   'exportAssessmentPdf',
   'getAssessmentTemplate',
   'getFirstAssessmentSchedule',
-  // Backend ich jeszcze nie ma (docs/prosby-dla-kolegi.md); przełączenie da błąd 404:
+  // Dane (użytkownicy, pracownicy, notatki, opisy stanowiska, oceny); użytkownik z nagłówka X-User-Id:
   'listDemoUsers',
   'getUser',
   'listEmployees',
@@ -91,8 +92,11 @@ export const API_FUNCTIONS = [
 
 export type ApiFunctionName = (typeof API_FUNCTIONS)[number]
 
-/** Funkcje, które backend ma; "*" w VITE_REAL_API włącza tylko je. */
-const BACKEND_READY: ApiFunctionName[] = API_FUNCTIONS.slice(0, 8)
+/**
+ * Funkcje, które backend ma; "*" w VITE_REAL_API włącza tylko je. Od gałęzi backend-dane są to
+ * wszystkie funkcje (backend z feature/wspolne-klejenie bez tej gałęzi obsługuje tylko pierwsze 8).
+ */
+const BACKEND_READY: ApiFunctionName[] = [...API_FUNCTIONS]
 
 const ALL_MOCKS = (import.meta.env.VITE_USE_MOCKS ?? 'true') !== 'false'
 
@@ -370,38 +374,13 @@ interface BackendCriterionScore {
 
 /**
  * Wskazówka poziomu dla JEDNEGO kryterium: średnia ze wskaźników i sugerowany poziom.
- * Wskaźniki z „brak podstaw do oceny" (null) nie wchodzą do średniej. ApiError 422 = błąd walidacji.
- *
- * Backend nie ma jeszcze osobnej trasy (prośba: POST /calculate-score). Do tego czasu adapter
- * korzysta z POST /evaluations/evaluate: każdy oceniony wskaźnik idzie jako ocena cząstkowa,
- * średnią i poziom (§ 11 ust. 1 pkt 2) liczy backend. Błędy o kryteriach obowiązkowych
- * w tej odpowiedzi dotyczą całego arkusza i są pomijane; liczy się tylko błąd skali.
+ * Backend: POST /calculate-score {answers} → {mean, suggested_level, counted_indicators}.
+ * Wskaźniki z „brak podstaw do oceny" (null) nie wchodzą do średniej; poziom według progów
+ * § 11 ust. 1 pkt 2 (remis na granicy daje niższy poziom). ApiError 422 = błąd walidacji.
  */
 export async function calculateScore(answers: IndicatorAnswer[]): Promise<ScoreResult> {
   if (usesMock('calculateScore')) return mockCall(() => mockCalculateScore(answers), 250)
-  if (answers.length === 0) throw new ApiError(422, 'Brak odpowiedzi do obliczenia średniej.')
-  const rated = answers.filter((a) => a.selected_level !== null)
-  if (rated.length === 0) return { mean: null, suggested_level: null, counted_indicators: 0 }
-
-  const [response, model] = await Promise.all([
-    request<BackendEvaluationResponse>(
-      '/evaluations/evaluate',
-      postJson({
-        evaluation_type: 'PERIODIC_EVALUATION',
-        form_type: 'FORM_C',
-        oceny_czastkowe: rated.map<BackendCriterionScore>((a) => ({ name: a.indicator_id, score: a.selected_level!, is_mandatory: false })),
-      }),
-    ),
-    backendModel(),
-  ])
-  const scaleError = response.errors.find((e) => e.startsWith('Niedozwolona ocena'))
-  if (scaleError) throw new ApiError(422, scaleError)
-  const levelByLabel = new Map((model.rating_scale ?? []).map((s) => [s.label, s.score as Level]))
-  return {
-    mean: response.srednia_arytmetyczna,
-    suggested_level: (response.ogolny_poziom && levelByLabel.get(response.ogolny_poziom)) || null,
-    counted_indicators: rated.length,
-  }
+  return request<ScoreResult>('/calculate-score', postJson({ answers }))
 }
 
 function fromBackendEvaluation(response: BackendEvaluationResponse): AssessmentEvaluation {
@@ -506,10 +485,10 @@ export async function getFirstAssessmentSchedule(input: FirstAssessmentScheduleI
 }
 
 /* ------------------------------------------------------------------ */
-/* TYLKO FRONTEND, DO USTALENIA Z BACKENDEM                            */
+/* Dane: pracownicy, notatki, opisy stanowiska, oceny (backend-dane)    */
 /* ------------------------------------------------------------------ */
 
-// Kopie robocze makiet, żeby dodawanie pracowników i notatek działało do odświeżenia strony.
+// Tryb makiet: kopie robocze, żeby dodawanie pracowników i notatek działało do odświeżenia strony.
 const employees = structuredClone(mockEmployees)
 const notes = structuredClone(mockNotes)
 const jobDescriptions = structuredClone(mockJobDescriptions)
@@ -817,46 +796,8 @@ export async function completeAssessment(id: string, input: AssessmentDraftInput
 }
 
 /**
- * Ciało POST /evaluations/pdf (EvaluationRequest) z oceny, pracownika i oceniającego.
- * Backend nie przechowuje ocen, więc dostaje cały stan arkusza; dane pochodzą z funkcji
- * getAssessment/getEmployee/getUser (makiety albo backend, zależnie od trybu).
- */
-async function toPdfRequest(detail: AssessmentDetail) {
-  const [employee, evaluator, names] = await Promise.all([
-    getEmployee(detail.employee_id),
-    (async () => {
-      const userId = readSessionUserId()
-      return userId ? getUser(userId) : null
-    })(),
-    competencyNames(),
-  ])
-  const first = detail.form === 'first'
-  const date = (iso: string | null | undefined) => (iso ? iso.slice(0, 10) : null)
-  return {
-    evaluation_type: first ? 'FIRST_EVALUATION' : 'PERIODIC_EVALUATION',
-    form_type: first ? 'FIRST_EVAL_FORM' : `FORM_${detail.form}`,
-    oceniany: {
-      imie: employee?.first_name ?? '',
-      nazwisko: employee?.last_name ?? '',
-      komorka_organizacyjna: employee?.organizational_unit ?? '',
-      stanowisko_pracy: employee?.position_title ?? '',
-      data_nawiazania_stosunku_pracy: employee?.hire_date ?? null,
-    },
-    oceniajacy: {
-      imie: evaluator?.first_name ?? '',
-      nazwisko: evaluator?.last_name ?? '',
-      komorka_organizacyjna: evaluator?.organizational_unit ?? '',
-      stanowisko_pracy: evaluator?.job_title ?? '',
-    },
-    data_sporzadzenia_oceny: date(detail.completed_at),
-    oceny_czastkowe: toCriterionScores(detail.decisions, names),
-    uzasadnienie: detail.justification_draft.trim() || null,
-  }
-}
-
-/**
- * Arkusz oceny w formacie PDF. Backend: POST /evaluations/pdf (pełny stan arkusza w ciele).
- * Makieta buduje w przeglądarce prosty dokument oznaczony jako przykład.
+ * Arkusz oceny w formacie PDF. Backend: GET /assessments/{id}/pdf (składa arkusz z zapisanej
+ * oceny, pracownika i oceniającego). Makieta buduje w przeglądarce prosty dokument przykładowy.
  */
 export async function exportAssessmentPdf(id: string): Promise<Blob> {
   if (usesMock('exportAssessmentPdf')) {
@@ -867,9 +808,7 @@ export async function exportAssessmentPdf(id: string): Promise<Blob> {
     }, 300)
     return mockAssessmentPdf(detail)
   }
-  const detail = await getAssessment(id)
-  if (!detail) throw new ApiError(404, 'Nie znaleziono oceny')
-  return requestBlob('/evaluations/pdf', postJson(await toPdfRequest(detail)))
+  return requestBlob(`/assessments/${encodeURIComponent(id)}/pdf`)
 }
 
 const MOCK_LEVEL_LABELS: Record<Level, string> = {
