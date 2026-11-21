@@ -1,19 +1,23 @@
 # Spięcie frontendu z backendem
 
-Stan na 21 listopada 2026. Backend: gałąź `feature/wspolne-klejenie` (commit `7df87ca`), FastAPI,
-trasy pod `/api/v1`, bez bazy danych. Na `main` kodu backendu nie ma (pusty odnośnik do podmodułu).
+Stan na 21 listopada 2026 (aktualizacja: przełączenie na gałąź `backend-dane`).
+Backend: gałąź `backend-dane` (odcięta od `feature/wspolne-klejenie`), FastAPI, trasy pod `/api/v1`,
+dane w pamięci procesu (domyślnie) albo w Supabase (`DATA_BACKEND=supabase`). Na `main` kodu
+backendu nadal nie ma (pusty odnośnik do podmodułu).
 Prośby o zmiany po stronie backendu: [prosby-dla-kolegi.md](prosby-dla-kolegi.md).
 
-## Uruchomienie trybu mieszanego
+## Uruchomienie z prawdziwym API
 
 ```
-# backend (katalog backend/ z gałęzi feature/wspolne-klejenie)
+# backend: osobny katalog roboczy z gałęzią backend-dane
+git worktree add ../HackNation_2026_Gitownia-backend-dane backend-dane
+cd ../HackNation_2026_Gitownia-backend-dane/backend
 python -m venv .venv && .venv\Scripts\pip install -r requirements.txt
-.venv\Scripts\python -m uvicorn app.main:app --port 8000
+.venv\Scripts\python -m uvicorn app.main:app --port 8000     # bez --reload: dane pamięciowe znikają przy restarcie
 
-# frontend
+# frontend (gałąź maxxw28)
 cd frontend
-npm run dev:mixed      # .env.mixed: makiety + funkcje z VITE_REAL_API na backendzie
+npm run dev:mixed      # .env.mixed: VITE_REAL_API=* (wszystkie funkcje na backendzie)
 ```
 
 Zmienne (`frontend/.env.*`):
@@ -21,33 +25,45 @@ Zmienne (`frontend/.env.*`):
 | Zmienna | Znaczenie |
 |---|---|
 | `VITE_USE_MOCKS` | `false` = wszystkie funkcje z backendu; `true` = makiety poza `VITE_REAL_API` |
-| `VITE_REAL_API` | lista funkcji `api.ts` na prawdziwym API, po przecinku; `*` = wszystkie gotowe w backendzie |
+| `VITE_REAL_API` | lista funkcji `api.ts` na prawdziwym API, po przecinku; `*` = wszystkie (z `backend-dane` to cała lista) |
 | `VITE_API_URL` | adres backendu z przeglądarki, domyślnie `/api/v1` (proxy Vite, bez CORS) |
 | `BACKEND_PROXY_TARGET` | dokąd proxy Vite przekazuje `/api` (domyślnie `http://localhost:8000`) |
 
+Każde zapytanie niesie nagłówek `X-User-Id` z sesji demonstracyjnej (`sessionStorage`).
 Błąd sieci (backend wyłączony, proxy zwraca pusty 500/502) → `ApiError` ze `status: 0`; ekrany
-pokazują swój komunikat i „Spróbuj ponownie” (bez zmian w komponentach).
+pokazują swój komunikat i „Spróbuj ponownie”.
 
-W trybie mieszanym flaga `USE_MOCKS` (etykiety „dane przykładowe” w komponentach) jest `false`,
-więc etykiety znikają także przy funkcjach, które nadal są na makietach (np. logowanie).
+Przy `VITE_REAL_API` niepustym flaga `USE_MOCKS` (etykiety „dane przykładowe”) jest `false`.
+Przy `*` to poprawne, bo żadna funkcja nie zostaje na makietach.
+
+`.env.development` (zwykłe `npm run dev`) nadal działa w całości na makietach, bez backendu.
 
 ## Funkcje `api.ts` → backend
 
-| Funkcja `api.ts` | Trasa backendu | Stan |
+Wszystkie funkcje `api.ts` mają trasę w backendzie; makiet przy `VITE_REAL_API=*` nie używa żadna.
+
+| Funkcja `api.ts` | Trasa backendu | Uwagi |
 |---|---|---|
-| `getCompetencies()` | `GET /competencies` | podłączona, adapter id 1–14 → `C01`–`C14` |
-| `getAssessmentTemplate(form)` | `GET /competencies?form_type=FORM_B\|FORM_C` | podłączona, limit dodatkowych na sztywno (3) |
-| `analyzeOsp(file)` | `POST /osp/parse` (multipart `file`) | podłączona, adapter pól po polsku |
-| `calculateScore(answers)` | brak; obejście przez `POST /evaluations/evaluate` | podłączona tymczasowo |
-| `evaluateAssessment(input)` | `POST /evaluations/evaluate` | podłączona |
-| `askAiAssistant(question, mode)` | `POST /ai-assistant` (most zgodności) | podłączona |
-| `exportAssessmentPdf(id)` | `POST /evaluations/pdf` (pełny `EvaluationRequest`) | podłączona |
-| `getFirstAssessmentSchedule(input)` | `POST /deadlines/calculate` | podłączona |
-| `listDemoUsers`, `getUser` | brak | makieta |
-| `listEmployees`, `getEmployee`, `createEmployee` | brak | makieta |
-| `listNotes`, `addNote` | brak | makieta |
-| `listJobDescriptions`, `attachJobDescription` | brak | makieta |
-| `listAssessments`, `getAssessment`, `createAssessmentDraft`, `saveAssessmentDraft`, `completeAssessment` | brak | makieta |
+| `getCompetencies()` | `GET /competencies` | adapter id 1–14 → `C01`–`C14` |
+| `getAssessmentTemplate(form)` | `GET /competencies?form_type=FORM_B\|FORM_C` | limit dodatkowych na sztywno (3) |
+| `analyzeOsp(file)` | `POST /osp/parse` (multipart `file`) | adapter pól po polsku |
+| `calculateScore(answers)` | `POST /calculate-score` | bez adaptera (obejście przez `/evaluations/evaluate` usunięte) |
+| `evaluateAssessment(input)` | `POST /evaluations/evaluate` | adapter pól po polsku |
+| `askAiAssistant(question, mode)` | `POST /ai-assistant` (most zgodności) | adapter usuwa „(Podstawa: …)” i `**` |
+| `exportAssessmentPdf(id)` | `GET /assessments/{id}/pdf` | backend składa arkusz z zapisanej oceny |
+| `getFirstAssessmentSchedule(input)` | `POST /deadlines/calculate` | adapter pól po polsku |
+| `listDemoUsers()`, `getUser(id)` | `GET /auth/demo-users`, `GET /users/{id}` | bez adaptera |
+| `listEmployees()`, `getEmployee(id)`, `createEmployee(data)` | `GET /employees`, `GET /employees/{id}`, `POST /employees` | bez adaptera; 404 → `null`, 403 → `ApiError` |
+| `listNotes(id)`, `addNote(id, text)` | `GET/POST /employees/{id}/notes` | bez adaptera |
+| `listJobDescriptions(id)`, `attachJobDescription(id, file, analysis?)` | `GET/POST /employees/{id}/job-descriptions` | multipart `file` + `confirmed_analysis` (JSON) |
+| `listAssessments(filters)` | `GET /assessments?employee_id=&supervisor_id=&status=` | bez adaptera |
+| `getAssessment(id)` | `GET /assessments/{id}` | 404 → `null`, 403 → `ApiError` |
+| `createAssessmentDraft(input)` | `POST /assessments` | istniejący szkic albo nierozpoczęta ocena zamiast nowej |
+| `saveAssessmentDraft(id, input)` | `PUT /assessments/{id}/draft` | 409, gdy zakończona |
+| `completeAssessment(id, input)` | `POST /assessments/{id}/complete` | 422 przy brakach; wynik w `evaluation` |
+
+Trasy danych backend zwraca w kształcie `frontend/src/types/index.ts` (snake_case, identyfikatory
+tekstowe, daty `RRRR-MM-DD`, czas `…Z`), więc nie potrzebują adapterów.
 
 Nieużywane przez frontend: `GET /health`, `POST /ai/formal-chat`, `POST /ai/coaching-assistant`
 (pełniejsze kontrakty asystentów z `form_state` i `form_patches`).
@@ -80,13 +96,10 @@ Nieużywane przez frontend: `GET /health`, `POST /ai/formal-chat`, `POST /ai/coa
 
 ### `calculateScore` (`ScoreResult`)
 
-| Frontend | Backend (obejście `/evaluations/evaluate`) | Różnica |
-|---|---|---|
-| `mean` | `srednia_arytmetyczna` | zgodne (2 miejsca po przecinku) |
-| `suggested_level` | `ogolny_poziom` (etykieta) → poziom z `rating_scale` | **remisy w dół**: średnia 2/4/6/8 → 1/3/5/7 (makieta: w górę) |
-| `counted_indicators` | brak | liczone w adapterze (liczba wskaźników z poziomem) |
-| 422 przy złym poziomie | 200 z `errors: ["Niedozwolona ocena…"]` | adapter zamienia na `ApiError(422)` |
-| „brak podstaw” = `selected_level: null` | brak pojęcia na poziomie wskaźnika | wskaźniki z `null` nie są wysyłane; same `null` → wynik pusty bez zapytania |
+Zgodne 1:1 z `POST /calculate-score`: `{answers}` → `{mean, suggested_level, counted_indicators}`,
+„brak podstaw” = `selected_level: null` (nie wchodzi do średniej), błąd skali i pusta lista → 422
+z `detail` po polsku. Różnica względem makiety: remis na granicy przedziału daje niższy poziom
+(średnia 4,00 → 3; makieta dawała 5). Tak zostaje (decyzja: wskazówka według § 11 ust. 1 pkt 2).
 
 ### `evaluateAssessment` (`AssessmentEvaluation` ← `EvaluationResponse`)
 
@@ -114,12 +127,9 @@ stałe źródło w trybie `interview`.
 
 ### `exportAssessmentPdf`
 
-Frontend: `exportAssessmentPdf(id)` → `Blob`. Backend nie zna ocen, więc adapter składa
-`EvaluationRequest` z `getAssessment(id)`, `getEmployee`, `getUser` (oceniający z sesji) i nazw kryteriów:
-`oceniany.{imie, nazwisko, komorka_organizacyjna, stanowisko_pracy, data_nawiazania_stosunku_pracy}`,
-`oceniajacy.{imie, nazwisko, komorka_organizacyjna, stanowisko_pracy}`, `data_sporzadzenia_oceny`
-(= `completed_at`), `oceny_czastkowe`, `uzasadnienie`. Nie wysyłamy: dat rozmów, okresu oceny,
-wniosków IPRZ, poprzedniej oceny (frontend ich nie zbiera), więc te pola arkusza są puste.
+`GET /assessments/{id}/pdf` → `application/pdf`. Backend sam składa `EvaluationRequest` z zapisanej
+oceny, pracownika i przełożonego. Nadal puste w arkuszu: daty rozmów, okres oceny, wnioski IPRZ,
+poprzednia ocena (ani frontend, ani backend ich nie zbierają).
 
 ### `getFirstAssessmentSchedule` (`FirstAssessmentSchedule` ← `DeadlineResponse`)
 
@@ -131,7 +141,46 @@ wniosków IPRZ, poprzedniej oceny (frontend ich nie zbiera), więc te pola arkus
 | `first_assessment_period_end` | `termin_dokonania_oceny_max` |
 | `contract_type` | nieużywane przez backend |
 
-## Ścieżka oceny okresowej na prawdziwych odpowiedziach (21.11.2026)
+## Pełna ścieżka na prawdziwym API (backend-dane, 21.11.2026)
+
+Tryb `npm run dev:mixed` (`VITE_REAL_API=*`), backend `backend-dane` lokalnie w wersji pamięciowej,
+bez Supabase. Żadna funkcja nie korzystała z makiet.
+
+| Krok | Trasy | Wynik |
+|---|---|---|
+| Logowanie jako przełożona (sup-001) | `GET /auth/demo-users` | działa |
+| Lista pracowników | `GET /employees` | działa: 3 pracowników, statusy i terminy z backendu (termin minął 14.10.2026, wkrótce 9.12.2026, aktualna 20.05.2027) |
+| Dodanie pracownika, pierwsza ocena (Anna Testowa, umowa do 1.11.2027) | `POST /deadlines/calculate`, `POST /employees` | działa: rozmowa wstępna do 23.11.2026, ocena 2.07–1.10.2027; po utworzeniu panel pracownika, status „Czeka na pierwszą ocenę”, nierozpoczęta pierwsza ocena na liście |
+| Panel pracownika | `GET /employees/{id}`, `/notes`, `/job-descriptions`, `/assessments?employee_id=` | działa |
+| Notatka | `POST /employees/{id}/notes` | działa, widoczna od razu i po odświeżeniu |
+| Szkic oceny okresowej (Joanna Pietrzyk, arkusz C) | `GET /assessments/as-001`, `POST /calculate-score` (24 razy), `PUT /assessments/as-001/draft` (8 razy) | działa: wskazówki z backendu (np. 7 + „brak podstaw” → 7,0, poziom 7) |
+| Odświeżenie strony w trakcie szkicu | `GET /assessments/as-001` | dane zostają: 28 odpowiedzi, 8 decyzji, 3 kryteria dodatkowe, powrót do ostatniego kroku |
+| Podsumowanie i zakończenie | `POST /evaluations/evaluate`, `POST /assessments/as-001/complete` | działa: pozytywna, średnia 5,25; następna ocena 21.11.2028, status „Ocena aktualna” |
+| Odświeżenie po zakończeniu | `GET /employees/emp-001` | dane zostają: ostatnia ocena 21.11.2026, pozytywna; nowy pracownik i notatka nadal są |
+| Widok historii (zakończona ocena) | `GET /assessments/as-001` | działa: widok tylko do odczytu z wynikiem z backendu |
+| Pobranie PDF | `GET /assessments/as-001/pdf` | działa: `application/pdf`, 145 KB |
+| Przełożony 2 (sup-002) otwiera pracownicę przełożonego 1 | `GET /employees/emp-001` → 403 | ekran „Brak dostępu”; `/assessments/as-001`, `/notes`, `/pdf` też 403; lista ma tylko jego pracownika |
+| Kadry (hr-001) | `GET /employees`, `GET /assessments` | API: 5 pracowników i 11 ocen obu przełożonych; dodanie notatki → 403. Ekran kadr we frontendzie to jeszcze zaślepka (etap 6), więc tylko przez API |
+
+Dane wersji pamięciowej trwają do restartu backendu (odświeżenie strony ich nie kasuje).
+
+### Co się jeszcze nie zgadza
+
+1. **Kadry dostają pełną treść oceny** (`GET /assessments/{id}` → 200 z odpowiedziami i decyzjami),
+   a wymagania mówią „bez szczegółów ocen”. Prośba do backendu (punkt 9 w prośbach).
+2. **Wskazówka przy remisie** daje niższy poziom niż makieta (4,00 → 3). Zgodne z decyzją; makieta
+   frontendu nadal zaokrągla w górę, więc tryb makiet i tryb z API różnią się w tym miejscu.
+3. **Nowy pracownik z kreatora pierwszej oceny** dostaje komórkę przełożonego („Departament Spraw
+   Obywatelskich”), bo kreator wysyła `organizational_unit: null`. Tak samo robiła makieta.
+4. Niezmienione od poprzedniego przejścia: nazwa stanowiska i kryteria dodatkowe z `/osp/parse`,
+   ucięte odpowiedzi asystenta formalnego, asystent rozmowy bez stanu oceny, kropka w liczbach
+   w `powody_werdyktu` („5.25 pkt”).
+5. Ekran kadr nie jest jeszcze zbudowany we frontendzie (etap 6), więc widok kadr sprawdziłem tylko
+   przez API.
+6. Supabase (`DATA_BACKEND=supabase`) nie był sprawdzany z frontendem: wymaga uruchomienia
+   `supabase/schema-additions.sql` na prawdziwej bazie.
+
+## Wcześniejsze przejście (feature/wspolne-klejenie, dane na makietach)
 
 Tryb `npm run dev:mixed`, przełożona sup-001, pracownica Joanna Pietrzyk (arkusz C), backend lokalnie.
 
