@@ -10,9 +10,16 @@ import raw from './data/competency_model.json'
 
 export interface BackendCompetencyModel {
   version: string
+  /** Skala ocen z etykietami (GET /competencies); w kopii makiety może jej nie być. */
+  rating_scale?: Array<{ score: number; key: string; label: string }>
   competencies: Array<{
     id: number
     name: string
+    mandatory_for_B?: boolean
+    mandatory_for_C?: boolean
+    mandatory_for_first_eval?: boolean
+    /** Tylko przy GET /competencies?form_type=FORM_B|FORM_C|FIRST_EVAL_FORM. */
+    is_mandatory_for_selected_form?: boolean
     indicators: Array<{ id: string; indicator: string; levels: Record<string, string> }>
   }>
 }
