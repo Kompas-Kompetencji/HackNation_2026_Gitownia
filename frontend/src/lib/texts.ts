@@ -661,8 +661,13 @@ export const texts = {
       blocked: 'Oceń przynajmniej jeden wskaźnik: na tej podstawie wystawiasz ocenę tego elementu.',
       decisionLegend: 'Twoja decyzja: ocena elementu',
       hintScale: (level: number) => `${level} pkt w skali pierwszej oceny`,
-      hintFrom: (level: number) => `wskaźniki wskazują ${level} pkt w skali 1–9`,
       hintDisclaimer: 'To tylko wskazówka przeliczona na skalę 3, 5, 7. Ocenę elementu wybierasz Ty, a wynik oceny liczy system.',
+      scaleGroups: {
+        3: 'Poniżej oczekiwań (3 punkty)',
+        5: 'Na poziomie oczekiwań (5 punktów)',
+        7: 'Powyżej oczekiwań (7 punktów)',
+      },
+      levelDescription: (label: string) => `Opis zachowania „${label}”`,
     },
     summary: {
       lead: 'Sprawdź decyzje i dane pierwszej oceny. Wynik wylicza system z czterech warunków: egzamin, sprawozdanie w terminie, najwyżej jedna ocena 3 pkt i średnia co najmniej 5 pkt.',

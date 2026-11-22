@@ -90,6 +90,7 @@ export function CriterionStep({
               notes={notes}
               onAnswer={(patch) => onAnswer(indicator, patch)}
               onFocus={() => onActiveIndicator(indicator)}
+              variant={variant}
             />
           </li>
         ))}
@@ -159,6 +160,75 @@ function isLastAssessable(state: AnyFormState, indicators: BehavioralIndicator[]
   return others.length === 0 || others.every((i) => state.answers[i.indicator_id]?.selected_level === null)
 }
 
+/**
+ * Pierwsza ocena: pięć opisów zachowań z modelu kompetencji pogrupowanych pod trzema poziomami arkusza
+ * (3, 5, 7 punktów), bez liczb przy opisach. Zapisywane wartości odpowiedzi pozostają bez zmian (1–9).
+ */
+function FirstScaleOptions({
+  indicator,
+  name,
+  uid,
+  level,
+  onPick,
+}: {
+  indicator: BehavioralIndicator
+  name: string
+  uid: string
+  level: Level | null | undefined
+  onPick: (l: Level) => void
+}) {
+  return (
+    <div className="grid grid-cols-[2fr_1fr_2fr] gap-3">
+      {FIRST_SCALE_GROUPS.map((group) => (
+        <div key={group.points} role="group" aria-labelledby={`${uid}-grupa-${group.points}`}>
+          <p id={`${uid}-grupa-${group.points}`} className="mb-1.5 text-xs font-semibold text-ink-muted">
+            {tf.scaleGroups[group.points]}
+          </p>
+          <div className={`grid gap-1.5 ${group.levels.length === 2 ? 'grid-cols-2' : 'grid-cols-1'}`}>
+            {group.levels.map((l) => {
+              const checked = level === l
+              return (
+                <label key={l} className="block h-full">
+                  <input
+                    type="radio"
+                    name={name}
+                    value={l}
+                    checked={checked}
+                    onChange={() => onPick(l)}
+                    aria-describedby={indicator.level_descriptions?.[l] ? `${uid}-opis-${l}` : undefined}
+                    className="peer sr-only"
+                  />
+                  <span
+                    className={`${optionClass} justify-center py-2.5 ${
+                      checked
+                        ? 'border-accent bg-accent text-accent-ink'
+                        : 'border-line-strong bg-surface text-ink hover:border-accent hover:bg-accent-soft'
+                    }`}
+                  >
+                    <span className="text-sm leading-tight font-medium first-letter:uppercase">{texts.assessment.levels[l]}</span>
+                  </span>
+                  {indicator.level_descriptions?.[l] && (
+                    <span id={`${uid}-opis-${l}`} hidden>
+                      {indicator.level_descriptions[l]}
+                    </span>
+                  )}
+                </label>
+              )
+            })}
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+/** Grupy opisów zachowań zgodne z arkuszem pierwszej oceny. */
+const FIRST_SCALE_GROUPS: { points: 3 | 5 | 7; levels: Level[] }[] = [
+  { points: 3, levels: [1, 3] },
+  { points: 5, levels: [5] },
+  { points: 7, levels: [7, 9] },
+]
+
 function IndicatorCard({
   indicator,
   position,
@@ -168,6 +238,7 @@ function IndicatorCard({
   notes,
   onAnswer,
   onFocus,
+  variant,
 }: {
   indicator: BehavioralIndicator
   position: number
@@ -177,6 +248,7 @@ function IndicatorCard({
   notes: SectionState<Note[]>
   onAnswer: (patch: Partial<Pick<LocalAnswer, 'selected_level' | 'star_note'>>) => void
   onFocus: () => void
+  variant: CriterionVariant
 }) {
   const uid = useId()
   const level = answer?.selected_level
@@ -216,6 +288,9 @@ function IndicatorCard({
       </p>
 
       <div role="radiogroup" aria-label={t.levelLegend} className="mt-4">
+        {variant === 'first' ? (
+          <FirstScaleOptions indicator={indicator} name={name} uid={uid} level={level} onPick={(l) => onAnswer({ selected_level: l })} />
+        ) : (
         <div className="grid grid-cols-5 gap-1.5">
           {LEVELS.map((l) => {
             const checked = level === l
@@ -251,6 +326,7 @@ function IndicatorCard({
             )
           })}
         </div>
+        )}
         <label className={`mt-1.5 inline-block ${noBasisLocked ? 'cursor-not-allowed' : ''}`}>
           <input
             type="radio"
@@ -289,7 +365,9 @@ function IndicatorCard({
         {level === null && t.noBasisSelected}
         {level != null && indicator.level_descriptions?.[level] && (
           <>
-            <span className="font-medium text-ink">{t.levelDescription(level)}: </span>
+            <span className="font-medium text-ink">
+              {variant === 'first' ? tf.levelDescription(texts.assessment.levels[level as Level]) : t.levelDescription(level)}:{' '}
+            </span>
             {indicator.level_descriptions[level]}
           </>
         )}
@@ -447,14 +525,16 @@ function ScoreHintView({
               <p className="text-sm text-ink-muted">{h.noMean}</p>
             ) : (
               <>
-                <p className="shrink-0 text-ink">
-                  <span className="font-semibold tabular-nums">{h.mean(formatOneDecimal(result.mean))}</span>
-                </p>
+                {/* Pierwsza ocena: bez średniej w skali 1–9, przy wskaźnikach nie pokazujemy liczb. */}
+                {variant !== 'first' && (
+                  <p className="shrink-0 text-ink">
+                    <span className="font-semibold tabular-nums">{h.mean(formatOneDecimal(result.mean))}</span>
+                  </p>
+                )}
                 {variant === 'first' && result.suggested_level && (
                   <p className="text-ink">
                     {h.suggested}:{' '}
-                    <span className="font-semibold tabular-nums">{tf.hintScale(toFirstScaleHint(result.suggested_level)!)}</span>{' '}
-                    <span className="text-ink-muted">({tf.hintFrom(result.suggested_level)})</span>
+                    <span className="font-semibold tabular-nums">{tf.hintScale(toFirstScaleHint(result.suggested_level)!)}</span>
                   </p>
                 )}
                 {variant !== 'first' && result.suggested_level && (
