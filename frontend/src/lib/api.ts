@@ -32,6 +32,7 @@ import type {
   Employee,
   EvaluationInput,
   FirstAssessmentSchedule,
+  FirstEvaluationInput,
   FirstAssessmentScheduleInput,
   IndicatorAnswer,
   JobDescriptionDocument,
@@ -53,6 +54,7 @@ import {
   mockCompetencyModelRaw,
   mockEmployees,
   mockEvaluate,
+  mockEvaluateFirst,
   mockFirstAssessmentSchedule,
   mockJobDescriptions,
   mockNotes,
@@ -70,6 +72,7 @@ export const API_FUNCTIONS = [
   'analyzeOsp',
   'calculateScore',
   'evaluateAssessment',
+  'evaluateFirstAssessment',
   'askAiAssistant',
   'exportAssessmentPdf',
   'getAssessmentTemplate',
@@ -444,6 +447,34 @@ export async function evaluateAssessment(input: EvaluationInput): Promise<Assess
   return fromBackendEvaluation(response)
 }
 
+/** Egzamin ze służby przygotowawczej → pole silnika (exempt = wyjątek z § 10 ust. 3, w backendzie NIE_DOTYCZY). */
+const EXAM_TO_BACKEND = { passed: 'TAK', exempt: 'NIE_DOTYCZY', failed: 'NIE' } as const
+
+/**
+ * Podgląd wyniku PIERWSZEJ oceny z backendu (POST /evaluations/evaluate, FIRST_EVALUATION),
+ * przed zakończeniem: średnia z pięciu elementów, wynik pozytywny lub negatywny z powodami.
+ * Bez zapisu; ostateczny wynik backend liczy przy zakończeniu oceny. Frontend niczego nie liczy.
+ */
+export async function evaluateFirstAssessment(input: FirstEvaluationInput): Promise<AssessmentEvaluation> {
+  if (usesMock('evaluateFirstAssessment')) return mockCall(() => mockEvaluateFirst(input, mockNames), 400)
+  const names = await competencyNames()
+  const response = await request<BackendEvaluationResponse>(
+    '/evaluations/evaluate',
+    postJson({
+      evaluation_type: 'FIRST_EVALUATION',
+      form_type: 'FIRST_EVAL_FORM',
+      oceny_czastkowe: toCriterionScores(
+        input.decisions.map((d) => ({ ...d, is_mandatory: true })),
+        names,
+      ),
+      egzamin_sluzba_przygotowawcza: input.exam_status ? EXAM_TO_BACKEND[input.exam_status] : null,
+      sprawozdanie_zlozone_w_terminie: input.report_on_time,
+      uzasadnienie: input.justification_draft || null,
+    }),
+  )
+  return fromBackendEvaluation(response)
+}
+
 /* --- Asystent ---------------------------------------------------------------------------- */
 
 /** Odpowiedź POST /ai-assistant (most zgodności w backendzie, kształt zbliżony do AssistantAnswer). */
@@ -711,6 +742,29 @@ export async function listAssessments(filters: AssessmentFilters = {}): Promise<
   return request<AssessmentSummary[]>(`/assessments${params.size ? `?${params}` : ''}`)
 }
 
+/**
+ * Szkice pierwszej oceny zapisane przed dev_maks (także w bazie wdrożenia) nie mają pól pierwszej
+ * oceny ani części list: uzupełniamy je wartościami pustymi, żeby formularz się nie wywracał.
+ */
+function normalizeDetail(detail: AssessmentDetail): AssessmentDetail {
+  const base = {
+    ...detail,
+    answers: detail.answers ?? [],
+    decisions: detail.decisions ?? [],
+    justification_draft: detail.justification_draft ?? '',
+    last_step: detail.last_step ?? null,
+    evaluation: detail.evaluation ?? null,
+  }
+  if (detail.form !== 'first') return base
+  return {
+    ...base,
+    exam_status: detail.exam_status ?? null,
+    report_on_time: detail.report_on_time ?? null,
+    initial_interview_date: detail.initial_interview_date ?? null,
+    evaluation_interview_date: detail.evaluation_interview_date ?? null,
+  }
+}
+
 /** Pełna ocena (szkic albo zakończona). null = nie istnieje; ApiError 403 = ocena pracownika innego przełożonego. */
 export async function getAssessment(id: string): Promise<AssessmentDetail | null> {
   if (usesMock('getAssessment')) {
@@ -718,11 +772,11 @@ export async function getAssessment(id: string): Promise<AssessmentDetail | null
       const assessment = assessments.find((a) => a.id === id)
       if (!assessment) return null
       if (!ownsEmployee(assessment.employee_id)) throw new ApiError(403, 'Brak dostępu do oceny')
-      return { ...assessment, ...contentOf(id) }
+      return normalizeDetail({ ...assessment, ...contentOf(id) })
     })
   }
   try {
-    return await request<AssessmentDetail>(`/assessments/${encodeURIComponent(id)}`)
+    return normalizeDetail(await request<AssessmentDetail>(`/assessments/${encodeURIComponent(id)}`))
   } catch (error) {
     if (error instanceof ApiError && error.status === 404) return null
     throw error
@@ -776,6 +830,7 @@ export async function saveAssessmentDraft(id: string, input: AssessmentDraftInpu
       const assessment = assessments.find((a) => a.id === id)
       if (!assessment || !ownsEmployee(assessment.employee_id)) throw new ApiError(403, 'Brak dostępu do oceny')
       if (assessment.status === 'completed') throw new ApiError(409, 'Ocena jest już zakończona')
+      mockCheckFirstScale(input)
       const { form, ...content } = input
       assessment.form = form
       Object.assign(contentOf(id), structuredClone(content), { updated_at: new Date().toISOString() })
@@ -786,6 +841,13 @@ export async function saveAssessmentDraft(id: string, input: AssessmentDraftInpu
     method: 'PUT',
     body: JSON.stringify(input),
   })
+}
+
+/** Makieta walidacji backendu: w pierwszej ocenie decyzje tylko 3, 5 albo 7. */
+function mockCheckFirstScale(input: AssessmentDraftInput) {
+  if (input.form !== 'first') return
+  const bad = input.decisions.find((d) => d.selected_level !== null && ![3, 5, 7].includes(d.selected_level))
+  if (bad) throw new ApiError(422, `W pierwszej ocenie można przyznać tylko 3, 5 albo 7 punktów (wybrano ${bad.selected_level}).`)
 }
 
 /** Dodaje miesiące do daty "RRRR-MM-DD" (tylko makieta; termin wylicza backend). */
@@ -806,7 +868,19 @@ export async function completeAssessment(id: string, input: AssessmentDraftInput
       if (!assessment || !ownsEmployee(assessment.employee_id)) throw new ApiError(403, 'Brak dostępu do oceny')
       const decisions = input.decisions.flatMap((d) => (d.selected_level === null ? [] : [{ ...d, selected_level: d.selected_level }]))
       if (decisions.length !== input.decisions.length) throw new ApiError(422, 'Nie wszystkie kryteria mają decyzję.')
-      const evaluation = mockEvaluate({ form: input.form, justification_draft: input.justification_draft, decisions }, mockNames)
+      mockCheckFirstScale(input)
+      const evaluation =
+        input.form === 'first'
+          ? mockEvaluateFirst(
+              {
+                exam_status: input.exam_status ?? null,
+                report_on_time: input.report_on_time ?? null,
+                justification_draft: input.justification_draft,
+                decisions,
+              },
+              mockNames,
+            )
+          : mockEvaluate({ form: input.form, justification_draft: input.justification_draft, decisions }, mockNames)
       if (evaluation.justification_required && !input.justification_draft.trim()) {
         throw new ApiError(422, 'Uzasadnienie jest obowiązkowe przy ocenie negatywnej.')
       }
@@ -863,7 +937,7 @@ function mockAssessmentPdf(a: AssessmentDetail): Promise<Blob> {
   const formLabel = a.form === 'B' ? 'Arkusz B' : a.form === 'C' ? 'Arkusz C' : 'Arkusz pierwszej oceny'
   const blocks: PdfBlock[] = [
     { text: 'DOKUMENT PRZYKŁADOWY — wygenerowany z makiety, nie jest arkuszem urzędowym', size: 8, bold: true },
-    { text: `Ocena okresowa — ${formLabel}`, size: 18, bold: true, gap: 12 },
+    { text: a.form === 'first' ? 'Pierwsza ocena w służbie cywilnej' : `Ocena okresowa — ${formLabel}`, size: 18, bold: true, gap: 12 },
     {
       text: `Oceniany: ${a.employee_name}${employee ? `, ${employee.position_title}, ${employee.organizational_unit}` : ''}`,
       gap: 10,
@@ -874,6 +948,16 @@ function mockAssessmentPdf(a: AssessmentDetail): Promise<Blob> {
     },
     { text: 'Kryteria oceny i przyznane poziomy', size: 12, bold: true, gap: 16 },
   ]
+  if (a.form === 'first') {
+    const exam = { passed: 'zdany', exempt: 'zwolnienie na podstawie wyjątku', failed: 'niezdany' }
+    blocks.splice(
+      blocks.length - 1,
+      0,
+      { text: `Rozmowa wstępna: ${a.initial_interview_date ?? '—'}; rozmowa oceniająca: ${a.evaluation_interview_date ?? '—'}`, gap: 8 },
+      { text: `Sprawozdanie w terminie: ${a.report_on_time == null ? '—' : a.report_on_time ? 'tak' : 'nie'}` },
+      { text: `Egzamin ze służby przygotowawczej: ${a.exam_status ? exam[a.exam_status] : '—'}` },
+    )
+  }
   for (const mandatory of [true, false]) {
     const list = a.decisions.filter((d) => d.is_mandatory === mandatory)
     if (!list.length) continue

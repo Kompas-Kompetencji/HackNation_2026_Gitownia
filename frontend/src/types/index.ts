@@ -333,13 +333,43 @@ export interface AssessmentDetail extends AssessmentSummary {
   updated_at: string | null
   /** Wynik zapisany przy zakończeniu oceny (widok tylko do odczytu). */
   evaluation: AssessmentEvaluation | null
+  /*
+   * Tylko pierwsza ocena (backend dev_maks). W ocenach okresowych pól nie ma, a starsze szkice
+   * pierwszej oceny mogą ich nie mieć: brak pola = null.
+   */
+  exam_status?: ExamStatus | null
+  report_on_time?: boolean | null
+  initial_interview_date?: string | null
+  evaluation_interview_date?: string | null
+}
+
+/**
+ * Egzamin ze służby przygotowawczej w pierwszej ocenie: passed = zdany, exempt = zwolnienie
+ * na podstawie wyjątku (§ 10 ust. 3 rozporządzenia z 2015 r.), failed = niezdany.
+ */
+export type ExamStatus = 'passed' | 'exempt' | 'failed'
+
+/** Dane pierwszej oceny zbierane w kroku „Dane pierwszej oceny” (null = jeszcze nie podano). */
+export interface FirstAssessmentFields {
+  exam_status: ExamStatus | null
+  report_on_time: boolean | null
+  /** Rozmowa wstępna (termin 21 dni od zatrudnienia liczy backend). */
+  initial_interview_date: string | null
+  /** Rozmowa oceniająca (bez terminu w dniach). */
+  evaluation_interview_date: string | null
+}
+
+/** Wejście evaluateFirstAssessment: podgląd wyniku pierwszej oceny przed zakończeniem. */
+export interface FirstEvaluationInput extends Pick<FirstAssessmentFields, 'exam_status' | 'report_on_time'> {
+  justification_draft: string
+  decisions: Array<{ competency_id: string; selected_level: Level }>
 }
 
 /** Wejście saveAssessmentDraft: zmieniane pola szkicu. */
 export type AssessmentDraftInput = Pick<
   AssessmentDetail,
   'additional_competency_ids' | 'answers' | 'decisions' | 'justification_draft' | 'last_step'
-> & { form: AssessmentForm }
+> & { form: AssessmentForm | 'first' } & Partial<FirstAssessmentFields>
 
 /** Wejście createAssessmentDraft. Arkusz backend bierze z pracownika (form). */
 export interface CreateAssessmentInput {
