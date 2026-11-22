@@ -15,10 +15,13 @@ from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, File, Form, Header, HTTPException, Query, UploadFile
 from fastapi.responses import Response
-from pydantic import ValidationError
+from pydantic import BaseModel, Field, ValidationError
 
+from app.core.config import settings as app_settings
+from app.core.security import TokenError, create_access_token, decode_access_token
 from app.data.factory import get_data_service
 from app.data.schemas import (
+    AuditEntry,
     AddNoteInput,
     AssessmentDetail,
     AssessmentDraftInput,
@@ -53,8 +56,21 @@ def _call(fn, *args, **kwargs):
         raise HTTPException(status_code=error.status_code, detail=error.detail) from error
 
 
-def current_user(service: Service, x_user_id: UserIdHeader = None) -> User:
-    return _call(service.current_user, x_user_id)
+def current_user(
+    service: Service,
+    authorization: Annotated[str | None, Header()] = None,
+    x_user_id: UserIdHeader = None,
+) -> User:
+    """Użytkownik z tokenu `Authorization: Bearer …` (JWT). X-User-Id tylko przy AUTH_ALLOW_DEMO_HEADER=true."""
+    if authorization and authorization.lower().startswith("bearer "):
+        try:
+            claims = decode_access_token(authorization[7:].strip())
+        except TokenError as error:
+            raise HTTPException(status_code=401, detail=str(error)) from error
+        return _call(service.current_user, claims["sub"])
+    if x_user_id and app_settings.AUTH_ALLOW_DEMO_HEADER:
+        return _call(service.current_user, x_user_id)
+    raise HTTPException(status_code=401, detail="Wymagane logowanie (brak tokenu dostępu).")
 
 
 CurrentUser = Annotated[User, Depends(current_user)]
@@ -78,8 +94,36 @@ def list_demo_users(service: Service) -> list[User]:
     return service.list_demo_users()
 
 
+class LoginInput(BaseModel):
+    user_id: str = Field(..., min_length=1, max_length=64)
+
+
+class LoginOutput(BaseModel):
+    access_token: str
+    token_type: Literal["bearer"] = "bearer"
+    expires_in: int
+    user: User
+
+
+@data_router.post("/auth/login", response_model=LoginOutput)
+def login(payload: LoginInput, service: Service) -> LoginOutput:
+    """Logowanie demonstracyjne: wybór konta → podpisany token JWT (docelowo: SSO / Entra ID urzędu)."""
+    user = _call(service.current_user, payload.user_id)
+    token, ttl = create_access_token(user.id, user.role)
+    service.audit(user, "login", "user", user.id)
+    return LoginOutput(access_token=token, expires_in=ttl, user=user)
+
+
+@data_router.get("/auth/me", response_model=User)
+def me(user: CurrentUser) -> User:
+    return user
+
+
 @data_router.get("/users/{user_id}", response_model=User)
-def get_user(user_id: str, service: Service) -> User:
+def get_user(user_id: str, service: Service, user: CurrentUser) -> User:
+    """Dane konta: własne albo (kadry) dowolnego użytkownika."""
+    if user.role != "hr" and user.id != user_id:
+        raise HTTPException(status_code=403, detail="Brak dostępu do danych innego użytkownika.")
     return _call(service.get_user, user_id)
 
 
@@ -94,7 +138,9 @@ def list_employees(service: Service, user: CurrentUser) -> list[Employee] | list
 
 @data_router.post("/employees", response_model=Employee, status_code=201)
 def create_employee(payload: CreateEmployeeInput, service: Service, user: CurrentUser) -> Employee:
-    return _call(service.create_employee, user, payload)
+    employee = _call(service.create_employee, user, payload)
+    service.audit(user, "employee.created", "employee", employee.id, f"umowa: {employee.contract_type}")
+    return employee
 
 
 @data_router.get("/employees/{employee_id}", response_model=Employee | EmployeeMonitoring)
@@ -116,7 +162,9 @@ def calendar(
 @data_router.post("/employees/{employee_id}/contract-extension", response_model=Employee)
 def extend_contract(employee_id: str, payload: ContractExtensionInput, user: CurrentUser, service: Service) -> Employee:
     """Przedłużenie umowy o czas usprawiedliwionej nieobecności > 3 mies. (art. 35 ust. 4); przesuwa terminy pierwszej oceny."""
-    return _call(service.extend_contract, user, employee_id, payload.new_end_date, payload.absence_days)
+    employee = _call(service.extend_contract, user, employee_id, payload.new_end_date, payload.absence_days)
+    service.audit(user, "employee.contract_extended", "employee", employee_id, f"do {payload.new_end_date.isoformat()}")
+    return employee
 
 
 @data_router.get("/employees/{employee_id}/notes", response_model=list[Note])
@@ -126,7 +174,9 @@ def list_notes(employee_id: str, service: Service, user: CurrentUser) -> list[No
 
 @data_router.post("/employees/{employee_id}/notes", response_model=Note, status_code=201)
 def add_note(employee_id: str, payload: AddNoteInput, service: Service, user: CurrentUser) -> Note:
-    return _call(service.add_note, user, employee_id, payload.text)
+    note = _call(service.add_note, user, employee_id, payload.text)
+    service.audit(user, "note.added", "employee", employee_id)
+    return note
 
 
 @data_router.get("/employees/{employee_id}/job-descriptions", response_model=list[JobDescriptionDocument])
@@ -149,7 +199,9 @@ async def attach_job_description(
             analysis = OspAnalysis.model_validate(json.loads(confirmed_analysis))
         except (ValueError, ValidationError) as error:
             raise HTTPException(status_code=422, detail=f"Nieprawidłowe pole confirmed_analysis: {error}") from error
-    return _call(service.attach_job_description, user, employee_id, file.filename or "opis_stanowiska.docx", analysis)
+    doc = _call(service.attach_job_description, user, employee_id, file.filename or "opis_stanowiska.docx", analysis)
+    service.audit(user, "job_description.attached", "employee", employee_id, f"wersja {doc.version}")
+    return doc
 
 
 # --- oceny ---------------------------------------------------------------------------------
@@ -168,26 +220,34 @@ def list_assessments(
 
 @data_router.post("/assessments", response_model=AssessmentSummary, status_code=201)
 def create_assessment_draft(payload: CreateAssessmentInput, service: Service, user: CurrentUser) -> AssessmentSummary:
-    return _call(service.create_assessment_draft, user, payload)
+    summary = _call(service.create_assessment_draft, user, payload)
+    service.audit(user, "assessment.started", "assessment", summary.id)
+    return summary
 
 
 @data_router.get("/assessments/{assessment_id}", response_model=AssessmentDetail)
 def get_assessment(assessment_id: str, service: Service, user: CurrentUser) -> AssessmentDetail:
-    return _call(service.get_assessment, user, assessment_id)
+    detail = _call(service.get_assessment, user, assessment_id)
+    service.audit(user, "assessment.viewed", "assessment", assessment_id)
+    return detail
 
 
 @data_router.put("/assessments/{assessment_id}/draft", response_model=AssessmentDetail)
 def save_assessment_draft(
     assessment_id: str, payload: AssessmentDraftInput, service: Service, user: CurrentUser
 ) -> AssessmentDetail:
-    return _call(service.save_assessment_draft, user, assessment_id, payload)
+    detail = _call(service.save_assessment_draft, user, assessment_id, payload)
+    service.audit(user, "assessment.draft_saved", "assessment", assessment_id)
+    return detail
 
 
 @data_router.post("/assessments/{assessment_id}/complete", response_model=AssessmentDetail)
 def complete_assessment(
     assessment_id: str, payload: AssessmentDraftInput, service: Service, user: CurrentUser
 ) -> AssessmentDetail:
-    return _call(service.complete_assessment, user, assessment_id, payload)
+    detail = _call(service.complete_assessment, user, assessment_id, payload)
+    service.audit(user, "assessment.completed", "assessment", assessment_id)
+    return detail
 
 
 @data_router.get(
@@ -197,11 +257,66 @@ def complete_assessment(
 def assessment_pdf(assessment_id: str, service: Service, user: CurrentUser) -> Response:
     """Arkusz oceny złożony z zapisanych danych (ten sam generator co POST /evaluations/pdf)."""
     pdf, filename = _call(service.assessment_pdf, user, assessment_id)
+    service.audit(user, "assessment.pdf_downloaded", "assessment", assessment_id)
     return Response(
         content=pdf,
         media_type="application/pdf",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
+
+@data_router.get(
+    "/assessments/{assessment_id}/ezd-package",
+    tags=["Integracje"],
+    responses={200: {"content": {"application/zip": {}}, "description": "Arkusz PDF + metadane.json do przekazania do EZD."}},
+)
+def assessment_ezd_package(assessment_id: str, service: Service, user: CurrentUser) -> Response:
+    """Paczka dla systemu EZD (akta osobowe): podpisywany arkusz PDF i metadane dokumentu w JSON."""
+    data, filename = _call(service.ezd_package, user, assessment_id)
+    service.audit(user, "assessment.ezd_package", "assessment", assessment_id)
+    return Response(
+        content=data,
+        media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+# --- integracje i rozliczalność -----------------------------------------------------------
+
+
+@data_router.get("/export/assessments", tags=["Integracje"])
+def export_assessments(
+    service: Service, user: CurrentUser, format: Literal["csv", "json"] = Query(default="csv")
+) -> Response:
+    """Eksport dla systemu kadrowego (np. QNT): statusy, terminy i wyniki ocen, bez treści ocen (tylko kadry)."""
+    import csv
+    import io
+
+    rows = _call(service.export_assessments, user)
+    service.audit(user, "export.assessments", "export", None, f"format {format}, {len(rows)} wierszy")
+    if format == "json":
+        return Response(
+            content=json.dumps(rows, ensure_ascii=False, indent=2),
+            media_type="application/json",
+            headers={"Content-Disposition": 'attachment; filename="oceny_eksport.json"'},
+        )
+    buffer = io.StringIO()
+    columns = list(rows[0].keys()) if rows else ["id_oceny"]
+    writer = csv.DictWriter(buffer, fieldnames=columns, delimiter=";")
+    writer.writeheader()
+    writer.writerows(rows)
+    # BOM: poprawne polskie znaki po otwarciu w Excelu
+    return Response(
+        content="\ufeff" + buffer.getvalue(),
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": 'attachment; filename="oceny_eksport.csv"'},
+    )
+
+
+@data_router.get("/audit-log", response_model=list[AuditEntry], tags=["Integracje"])
+def audit_log(service: Service, user: CurrentUser, limit: int = Query(default=200, ge=1, le=1000)) -> list[AuditEntry]:
+    """Dziennik zdarzeń (kto, kiedy, jaka czynność, na czym) – dla kadr/administratora, bez treści ocen."""
+    return _call(service.list_audit, user, limit)
 
 
 # --- przypomnienia od kadr ------------------------------------------------------------------
@@ -210,7 +325,9 @@ def assessment_pdf(assessment_id: str, service: Service, user: CurrentUser) -> R
 @data_router.post("/reminders", response_model=Reminder, status_code=201, tags=["Przypomnienia"])
 def create_reminder(payload: CreateReminderInput, service: Service, user: CurrentUser) -> Reminder:
     """Kadry wysyłają przełożonemu przypomnienie o czynnościach w procesie ocen (bez treści ocen)."""
-    return _call(service.create_reminder, user, payload)
+    reminder = _call(service.create_reminder, user, payload)
+    service.audit(user, "reminder.sent", "user", reminder.supervisor_id)
+    return reminder
 
 
 @data_router.get("/reminders", response_model=list[Reminder], tags=["Przypomnienia"])

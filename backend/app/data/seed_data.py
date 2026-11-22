@@ -4,7 +4,10 @@ dwóch przełożonych, użytkownik kadr, czworo pracowników w różnych sytuacj
 - Joanna Pietrzyk (sup-001): ocena okresowa, termin wkrótce, szkic w toku, w historii ocena negatywna,
 - Grzegorz Łuczak (sup-001): ocena okresowa aktualna (zakończona w 2025 r.),
 - Małgorzata Wróbel-Sośnicka (sup-001): termin oceny okresowej przekroczony, brak opisu stanowiska,
-- Paweł Żmijewski (sup-002): nowo zatrudniony, pierwsza ocena nierozpoczęta.
+- Paweł Żmijewski (sup-002): nowo zatrudniony, pierwsza ocena nierozpoczęta,
+- Karolina Mazur (sup-002): umowa na czas określony, trwa okno pierwszej oceny (szkic w toku),
+- Adam Wilk (sup-002): umowa na zastępstwo, pierwsza ocena liczona od porozumienia stron (art. 37 ust. 2),
+- Ewa Kubiak (sup-001): urzędniczka mianowana, termin oceny okresowej za niecały miesiąc.
 Wszystkie dane są fikcyjne.
 """
 
@@ -138,6 +141,17 @@ def build_seed() -> SeedData:
                        position_title="Specjalista", organizational_unit="Wydział Zamówień Publicznych",
                        hire_date=date(2026, 11, 16), contract_type="fixed_term_first", contract_end_date=date(2027, 11, 15),
                        assessment_kind="first", form="first"),
+        EmployeeRecord(id="emp-005", supervisor_id="sup-002", first_name="Karolina", last_name="Mazur",
+                       position_title="Starszy referent", organizational_unit="Wydział Zamówień Publicznych",
+                       hire_date=date(2026, 2, 2), contract_type="fixed_term_first", contract_end_date=date(2027, 2, 1),
+                       assessment_kind="first", form="first"),
+        EmployeeRecord(id="emp-006", supervisor_id="sup-002", first_name="Adam", last_name="Wilk",
+                       position_title="Specjalista", organizational_unit="Wydział Zamówień Publicznych",
+                       hire_date=date(2026, 5, 4), contract_type="replacement", contract_end_date=date(2027, 8, 31),
+                       first_eval_agreement_date=date(2026, 6, 1), assessment_kind="first", form="first"),
+        EmployeeRecord(id="emp-007", supervisor_id="sup-001", first_name="Ewa", last_name="Kubiak",
+                       position_title="Główny specjalista", organizational_unit="Wydział Prawny",
+                       hire_date=date(2018, 1, 8), contract_type="appointment", assessment_kind="periodic", form="C"),
     ]
 
     def note(note_id: str, employee_id: str, created: str, text: str) -> tuple[Note, str]:
@@ -150,6 +164,7 @@ def build_seed() -> SeedData:
         note("note-005", "emp-001", "2025-11-24T08:45:00Z", "Przeprowadziła dla zespołu krótkie szkolenie z nowej instrukcji kancelaryjnej po kursie w październiku."),
         note("note-006", "emp-002", "2026-09-09T10:10:00Z", "Opinia do projektu uchwały wskazała dwie kolizje z ustawą; projekt poprawiono przed posiedzeniem zarządu."),
         note("note-002", "emp-003", "2026-09-18T13:05:00Z", "Wprowadziła nowy grafik dyżurów w punkcie obsługi; kolejki w poniedziałki krótsze o około połowę."),
+        note("note-008", "emp-007", "2026-08-21T10:00:00Z", "Przygotowała analizę orzecznictwa do sprawy spornej; zarząd przyjął rekomendowane stanowisko bez poprawek."),
         note("note-007", "emp-003", "2026-05-12T09:30:00Z", "Przy awarii systemu kolejkowego w ciągu godziny zorganizowała ręczną obsługę i poinformowała interesantów."),
     ]
 
@@ -183,6 +198,12 @@ def build_seed() -> SeedData:
         _history("as-302", "emp-003", "first", "2021-07-30", "positive"),
         AssessmentRecord(id="as-004", employee_id="emp-004", kind="first", form="first", status="not_started",
                          due_date=date(2027, 11, 14)),
+        AssessmentRecord(id="as-005", employee_id="emp-005", kind="first", form="first", status="draft",
+                         started_at=_utc("2026-11-18T09:00:00Z"), due_date=date(2027, 1, 1)),
+        AssessmentRecord(id="as-006", employee_id="emp-006", kind="first", form="first", status="not_started",
+                         due_date=date(2027, 7, 31)),
+        _history("as-701", "emp-007", "C", "2024-12-17", "positive", {"C07": 7, "C08": 5}, [7, 7, 5, 5, 7]),
+        _history("as-702", "emp-007", "C", "2022-12-15", "positive", {"C07": 7}, [5, 5, 5, 5, 7]),
     ]
 
     return SeedData(users=users, employees=employees, notes=notes, job_descriptions=job_descriptions, assessments=assessments)

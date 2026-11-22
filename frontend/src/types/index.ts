@@ -184,6 +184,47 @@ export interface AssistantAnswer {
   status: 'answered' | 'no_data'
   answer: string
   sources: AssistantSource[]
+  /** Asystent rozmowy: szkic uzasadnienia oceny do akceptacji przełożonego (opcjonalny). */
+  justification_draft?: string
+  /** Odpowiedź stała: pytanie o ocenę konkretnej osoby (AI nie podejmuje decyzji). */
+  guard?: 'person_decision'
+}
+
+/** Raport wiarygodności asystenta (GET /ai/quality, kadry). */
+export interface AiQualityItem {
+  question: string
+  expected: 'answer' | 'refusal'
+  ok: boolean
+  coverage: 'strong' | 'partial' | null
+  sources: number
+  top_document: string | null
+}
+export interface AiQualityReport {
+  check: {
+    checked_at: string
+    total: number
+    passed: number
+    in_domain: number
+    strong: number
+    partial: number
+    refusals_ok: number
+    refusals_expected: number
+    items: AiQualityItem[]
+  }
+  unanswered: Array<{ question: string; mode: string; at: string }>
+}
+
+/** Wpis dziennika zdarzeń (GET /audit-log, kadry). */
+export interface AuditEntry {
+  id: string
+  at: string
+  user_id: string | null
+  user_name: string | null
+  user_role: string | null
+  action: string
+  entity: string
+  entity_id: string | null
+  details: string
 }
 
 /* ------------------------------------------------------------------ */

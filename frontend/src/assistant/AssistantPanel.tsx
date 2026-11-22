@@ -1,6 +1,9 @@
 import { useEffect, useId, useRef, useState, type FormEvent, type KeyboardEvent } from 'react'
 import {
   BookOpenText,
+  Hand,
+  ClipboardPaste,
+  Check,
   ChevronRight,
   CircleAlert,
   Eraser,
@@ -15,6 +18,7 @@ import {
 import { askAiAssistant, USE_MOCKS } from '../lib/api'
 import { texts } from '../lib/texts'
 import type { AssistantAnswer, AssistantMode } from '../types'
+import type { AssistantFormState } from './formState'
 
 interface Exchange {
   id: string
@@ -39,6 +43,10 @@ export interface AssistantContext {
   /** Wyjaśnienie, czego asystent nie wie (np. że nie dostaje danych pracownika). */
   note?: string
   suggestions: Record<AssistantMode, readonly AssistantSuggestion[]>
+  /** Zanonimizowany stan arkusza (poziomy, wybrane zachowania, przykłady) dla asystenta rozmowy. */
+  formState?: AssistantFormState
+  /** Wstawienie szkicu uzasadnienia do formularza – zawsze decyzją przełożonego (przycisk). */
+  onApplyJustification?: (text: string) => void
 }
 
 /** Pytanie wysłane z ekranu (np. przycisk „Przygotuj rozmowę oceniającą"). Nowe id = nowe pytanie. */
@@ -107,7 +115,15 @@ export function AssistantPanel({
     }))
 
     try {
-      const answer = await askAiAssistant(trimmed, askedMode)
+      // Ostatnie wymiany tego trybu jako kontekst rozmowy (pytania doprecyzowujące).
+      const historyTurns = history[askedMode]
+        .filter((e) => e.state === 'done' && e.answer?.status === 'answered')
+        .slice(-3)
+        .flatMap((e) => [
+          { role: 'user' as const, content: (e.label ?? e.question).slice(0, 1500) },
+          { role: 'assistant' as const, content: (e.answer?.answer ?? '').slice(0, 3000) },
+        ])
+      const answer = await askAiAssistant(trimmed, askedMode, { formState: context?.formState, history: historyTurns })
       setHistory((h) => ({
         ...h,
         [askedMode]: h[askedMode].map((e) => (e.id === exchangeId ? { ...e, state: 'done', answer } : e)),
@@ -216,7 +232,7 @@ export function AssistantPanel({
                 <p className="text-xs font-medium text-ink-muted">{t.you}</p>
                 <p className="mt-0.5 font-medium text-ink">{e.label ?? e.question}</p>
                 <div className="mt-3">
-                  <ExchangeAnswer exchange={e} onRetry={() => retry(e)} retryDisabled={pending} />
+                  <ExchangeAnswer exchange={e} onRetry={() => retry(e)} retryDisabled={pending} onApply={context?.onApplyJustification} />
                 </div>
               </li>
             ))}
@@ -319,12 +335,15 @@ function ExchangeAnswer({
   exchange,
   onRetry,
   retryDisabled,
+  onApply,
 }: {
   exchange: Exchange
   onRetry: () => void
   retryDisabled: boolean
+  onApply?: (text: string) => void
 }) {
   const t = texts.assistant
+  const [applied, setApplied] = useState(false)
 
   if (exchange.state === 'pending') {
     return (
@@ -371,7 +390,33 @@ function ExchangeAnswer({
 
   return (
     <div>
+      {answer.guard === 'person_decision' && (
+        <p className="mb-2 inline-flex items-center gap-1.5 rounded-full bg-accent-soft px-2.5 py-1 text-xs font-medium text-accent">
+          <Hand aria-hidden className="size-3.5" />
+          {t.guard}
+        </p>
+      )}
       <p className="text-[0.9375rem] leading-relaxed whitespace-pre-line text-ink">{answer.answer}</p>
+      {answer.justification_draft && (
+        <div className="mt-3 rounded-md border border-line bg-sunken px-3 py-2.5">
+          <p className="text-xs font-semibold tracking-wide text-ink-muted uppercase">{t.draftTitle}</p>
+          <p className="mt-1 text-sm leading-relaxed whitespace-pre-line text-ink">{answer.justification_draft}</p>
+          {onApply && (
+            <button
+              type="button"
+              onClick={() => {
+                onApply(answer.justification_draft ?? '')
+                setApplied(true)
+              }}
+              className="mt-2 flex items-center gap-1.5 rounded-md border border-accent/40 bg-surface px-3 py-1.5 text-sm font-medium text-accent transition-colors duration-150 hover:bg-accent-soft"
+            >
+              {applied ? <Check aria-hidden className="size-4" /> : <ClipboardPaste aria-hidden className="size-4" />}
+              {applied ? t.draftApplied : t.draftApply}
+            </button>
+          )}
+          <p className="mt-1.5 text-xs text-ink-faint">{t.draftHint}</p>
+        </div>
+      )}
       {answer.sources.map((s) => (
         <figure key={`${s.document_title}-${s.location}`} className="mt-3 border-l-2 border-accent bg-accent-soft/60 py-2 pr-3 pl-3">
           <figcaption className="flex items-start gap-2 text-xs font-medium text-accent">

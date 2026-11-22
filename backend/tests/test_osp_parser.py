@@ -68,6 +68,7 @@ def test_api_renamed_upload_keeps_title() -> None:
     client = TestClient(app)
     response = client.post(
         "/api/v1/osp/parse",
+        headers={"X-User-Id": "sup-001"},
         files={"file": ("opis.docx", data, "application/vnd.openxmlformats-officedocument.wordprocessingml.document")},
     )
     assert response.status_code == 200, response.text

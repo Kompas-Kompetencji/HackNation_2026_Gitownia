@@ -20,6 +20,8 @@ from app.core.deadline_calc import add_months_art_112_kc, calculate_deadlines
 from app.core.scoring_engine import determine_periodic_overall_level, evaluate, round_half_up
 from app.data.repository import DataRepository, StorageError
 from app.data.schemas import (
+    AuditEntry,
+    NewAuditEntry,
     AssessmentDetail,
     AssessmentDraftInput,
     AssessmentEvaluation,
@@ -828,6 +830,118 @@ class DataService:
         # Nazwa pliku bez polskich znaków (nagłówek Content-Disposition musi być w ASCII).
         return pdf, f"Arkusz_oceny_{record.id}.pdf"
 
+
+    def ezd_package(self, user: User, assessment_id: str) -> tuple[bytes, str]:
+        """Paczka do EZD: arkusz PDF + metadane.json (do przekazania do akt osobowych). Tylko zakończone oceny."""
+        import io
+        import zipfile
+
+        record, employee = self._assessment_for(user, assessment_id, write=False)
+        self._deny_hr(user, HR_NO_CONTENT)
+        if record.status != "completed":
+            raise ServiceError(409, "Paczkę do EZD można przygotować dopiero po zakończeniu oceny.")
+        pdf, pdf_name = self.assessment_pdf(user, assessment_id)
+        kind = (
+            "Arkusz pierwszej oceny w służbie cywilnej"
+            if record.kind == "first"
+            else f"Arkusz oceny okresowej członka korpusu służby cywilnej (arkusz {record.form})"
+        )
+        supervisor = self.repo.get_user(employee.supervisor_id)
+        metadata = {
+            "schemat": "kompas-kompetencji/ezd-paczka/v1",
+            "rodzaj_dokumentu": kind,
+            "podstawa_prawna": (
+                "Rozporządzenie PRM z 23 lipca 2015 r. w sprawie pierwszej oceny w służbie cywilnej"
+                if record.kind == "first"
+                else "Rozporządzenie PRM z 4 kwietnia 2016 r. w sprawie ocen okresowych w służbie cywilnej"
+            ),
+            "data_zakonczenia_oceny": record.completed_at.date().isoformat() if record.completed_at else None,
+            "wynik": {"positive": "POZYTYWNA", "negative": "NEGATYWNA"}.get(record.result or "", None),
+            "pracownik": {
+                "imie": employee.first_name,
+                "nazwisko": employee.last_name,
+                "stanowisko": employee.position_title,
+                "komorka_organizacyjna": employee.organizational_unit,
+            },
+            "oceniajacy": {
+                "imie": supervisor.first_name if supervisor else None,
+                "nazwisko": supervisor.last_name if supervisor else None,
+                "stanowisko": supervisor.job_title if supervisor else None,
+            },
+            "dokumenty": [{"plik": pdf_name, "typ": "application/pdf", "wymaga_podpisu": True}],
+            "akta": {
+                "miejsce_przechowywania": "akta osobowe pracownika (część B)",
+                "klasa_jrwa": None,
+                "uwaga": "Klasę JRWA i znak sprawy nadaje kancelaria zgodnie z jednolitym rzeczowym wykazem akt urzędu.",
+            },
+            "wygenerowano": _now().isoformat(timespec="seconds"),
+        }
+        buffer = io.BytesIO()
+        with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as zf:
+            zf.writestr(pdf_name, pdf)
+            zf.writestr("metadane.json", json.dumps(metadata, ensure_ascii=False, indent=2))
+        return buffer.getvalue(), f"EZD_ocena_{record.id}.zip"
+
+    # --- eksport dla systemu kadrowego i dziennik zdarzeń ------------------------------------
+
+    def export_assessments(self, user: User) -> list[dict[str, Any]]:
+        """Kadry: statusy, terminy i wyniki ocen (bez treści) do systemu kadrowego, np. QNT."""
+        if user.role != "hr":
+            raise ServiceError(403, "Eksport ocen jest dostępny dla kadr.")
+        employees = {e.id: e for e in self.repo.list_employees()}
+        rows: list[dict[str, Any]] = []
+        for a in self.list_assessments(user):
+            e = employees.get(a.employee_id)
+            rows.append(
+                {
+                    "id_oceny": a.id,
+                    "id_pracownika": a.employee_id,
+                    "pracownik": a.employee_name,
+                    "stanowisko": e.position_title if e else "",
+                    "komorka": (e.organizational_unit or "") if e else "",
+                    "przelozony": a.supervisor_name,
+                    "rodzaj_oceny": "pierwsza" if a.kind == "first" else "okresowa",
+                    "arkusz": {"first": "pierwsza ocena"}.get(a.form, a.form),
+                    "status": {
+                        "not_started": "nierozpoczęta",
+                        "draft": "w toku",
+                        "awaiting_interview": "oczekuje na rozmowę",
+                        "completed": "zakończona",
+                        "overdue": "po terminie",
+                    }.get(a.status, a.status),
+                    "termin": a.due_date.isoformat() if a.due_date else "",
+                    "data_zakonczenia": a.completed_at.date().isoformat() if a.completed_at else "",
+                    "wynik": {"positive": "pozytywna", "negative": "negatywna"}.get(a.result or "", ""),
+                }
+            )
+        return rows
+
+    def audit(self, user: User | None, action: str, entity: str, entity_id: str | None = None, details: str = "") -> None:
+        """Zapis do dziennika zdarzeń; awaria dziennika nigdy nie przerywa czynności użytkownika."""
+        try:
+            self.repo.add_audit(
+                NewAuditEntry(
+                    at=_now(),
+                    user_id=user.id if user else None,
+                    user_role=user.role if user else None,
+                    action=action,
+                    entity=entity,
+                    entity_id=entity_id,
+                    details=details,
+                )
+            )
+        except Exception:  # noqa: BLE001
+            pass
+
+    def list_audit(self, user: User, limit: int = 200) -> list[AuditEntry]:
+        if user.role != "hr":
+            raise ServiceError(403, "Dziennik zdarzeń jest dostępny dla kadr (administratora).")
+        users = {u.id: u for u in self.repo.list_users()}
+        out = []
+        for entry in self.repo.list_audit(limit):
+            u = users.get(entry.user_id or "")
+            out.append(entry.model_copy(update={"user_name": f"{u.first_name} {u.last_name}" if u else None}))
+        return out
 
     # --- przypomnienia od kadr ------------------------------------------------------------
 

@@ -6,6 +6,8 @@ from typing import Any
 
 from app.data.schemas import (
     AssessmentRecord,
+    AuditEntry,
+    NewAuditEntry,
     EmployeeRecord,
     JobDescriptionDocument,
     NewAssessment,
@@ -92,3 +94,10 @@ class DataRepository(ABC):
 
     @abstractmethod
     def add_reminder(self, data: NewReminder) -> ReminderRecord: ...
+
+    # Dziennik zdarzeń (rozliczalność). Domyślnie brak trwałego zapisu – implementacje nadpisują.
+    def add_audit(self, data: NewAuditEntry) -> None:  # noqa: B027
+        return None
+
+    def list_audit(self, limit: int = 200) -> list[AuditEntry]:
+        return []

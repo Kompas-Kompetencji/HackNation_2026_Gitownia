@@ -180,7 +180,18 @@ async def run_coaching_assistant(req: CoachingAssistantRequest) -> CoachingAssis
 
     # RAG: fragmenty poradników KPRM / przepisów dla pytania przełożonego (podstawa wskazówek)
     rag_query = clean_q or "rozmowa oceniająca przełożonego z ocenianym pracownikiem"
-    rag_sources = retrieve_legal_sources(f"{rag_query} rozmowa ocena", top_k=3)
+    # Źródła z właściwego procesu: przy otwartym arkuszu dokładamy jego rodzaj do zapytania.
+    has_scores = any(v is not None for v in state.scores.values())
+    process = ""
+    if has_scores:
+        process = "pierwsza ocena służba przygotowawcza" if state.form_type == "pierwsza_ocena" else "ocena okresowa arkusz"
+    rag_sources = retrieve_legal_sources(f"{rag_query} rozmowa ocena {process}".strip(), top_k=6)
+    if has_scores:
+        want_first = state.form_type == "pierwsza_ocena"
+        matching = [s for s in rag_sources if ("pierwsz" in s.dokument.lower()) == want_first]
+        rag_sources = (matching or rag_sources)[:3]
+    else:
+        rag_sources = rag_sources[:3]
     if mode_tone == "INCOMPLETE_PREPARATION" and clean_q:
         base_reply = (
             "Wskazówki do przygotowania rozmowy (na podstawie poradników KPRM):\n"
@@ -224,6 +235,12 @@ async def run_coaching_assistant(req: CoachingAssistantRequest) -> CoachingAssis
         "decyzja należy wyłącznie do niego. Opieraj wskazówki na `zrodla_rag` (poradniki KPRM, przepisy) i powołuj się na nie. "
         "Odpowiadaj po polsku, konkretnie, na `pytanie_przelozonego`. Przy `tryb` = pytanie_ogolne_bez_formularza "
         "odpowiedz ogólnie na pytanie, nie wspominaj o stanie formularza ani o werdykcie. "
+        "Poziomy kryteriów bierz wyłącznie z `wypelnione_oceny` – nie zawyżaj ani nie zaniżaj ich w tekście, "
+        "a kryteria na poziomie 5 opisuj jako spełniające oczekiwania (nie jako wyróżniające). "
+        "`notatki_star` zawierają zachowania wybrane przez przełożonego przy wskaźnikach (poziom i opis z modelu kompetencji) "
+        "oraz przykłady STAR – opieraj argumenty wyłącznie na nich, niczego nie dopisuj. Gdy przełożony pyta o kwestie do omówienia, "
+        "wskaż konkretnie: kryteria z poziomem 1–3, kryteria bez przykładów lub z „brak podstaw do oceny”, rozbieżności między "
+        "decyzją a wybranymi zachowaniami oraz obszary rozwojowe. Nie używaj Markdown (bez gwiazdek i nagłówków). "
         "Przy ocenie NEGATYWNEJ stosuj wyłącznie fakty i zachowania STAR (zero ocen osoby), podaj otwarte pytania "
         "diagnozujące oraz formalnie bezpieczny szkic obowiązkowego uzasadnienia. "
         + ("UWAGA: dla negatywnej pierwszej oceny pole iprz_recommendations MUSI pozostać pustą tablicą []." if not summary.dev_plan_allowed else "")

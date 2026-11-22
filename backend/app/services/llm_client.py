@@ -15,6 +15,7 @@ korzysta z deterministycznej odpowiedzi opartej wyłącznie na źródłach RAG.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import re
@@ -185,6 +186,13 @@ async def _call_once(
                         "temperature": temperature,
                         "responseMimeType": "application/json",
                         "responseSchema": json_schema,
+                        # Odpowiedź z podanych fragmentów nie wymaga „myślenia” modelu – bez niego
+                        # odpowiedź przychodzi kilkukrotnie szybciej (LLM_THINKING_BUDGET, domyślnie 0).
+                        **(
+                            {"thinkingConfig": {"thinkingBudget": settings.LLM_THINKING_BUDGET}}
+                            if settings.LLM_THINKING_BUDGET is not None and settings.LLM_THINKING_BUDGET >= 0
+                            else {}
+                        ),
                     },
                 },
             )
@@ -250,27 +258,60 @@ async def call_structured_llm(
         chain = [(cfg.fallbacks or (cfg.model,))[0]]
 
     deadline = now + settings.LLM_TOTAL_BUDGET_SECONDS
-    async with httpx.AsyncClient() as client:
-        for model in chain:
-            remaining = deadline - time.monotonic()
-            if remaining < 3:
-                break
-            timeout = min(settings.LLM_TIMEOUT_SECONDS, remaining)
-            client.timeout = httpx.Timeout(timeout, connect=10.0)
-            label = f"{cfg.provider}:{model}"
-            try:
-                text = await _call_once(client, cfg, model, system_instruction, user_payload, json_schema, temperature)
-            except _RetryableLlmError as exc:
-                _COOLDOWN[model] = time.monotonic() + _COOLDOWN_SECONDS
-                logger.warning("LLM %s niedostępny (%s) – próbuję kolejnego modelu.", label, exc)
-                continue
-            except Exception as exc:  # zły klucz (400/401/403), nieoczekiwana odpowiedź
-                logger.warning("Błąd dostawcy LLM (%s): %s – fallback deterministyczny.", label, exc)
-                break
-            parsed = _extract_json(text)
-            if parsed is not None:
-                _COOLDOWN.pop(model, None)
-                _LAST_USED["model"] = model
-                return parsed, label
+    hedge_after = settings.LLM_HEDGE_SECONDS
+
+    async def attempt(client: httpx.AsyncClient, model: str) -> tuple[str, dict[str, Any] | None, str]:
+        """(model, wynik JSON | None, status: ok / retry / fatal)."""
+        label = f"{cfg.provider}:{model}"
+        try:
+            text = await _call_once(client, cfg, model, system_instruction, user_payload, json_schema, temperature)
+        except _RetryableLlmError as exc:
+            _COOLDOWN[model] = time.monotonic() + _COOLDOWN_SECONDS
+            logger.warning("LLM %s niedostępny (%s) – próbuję kolejnego modelu.", label, exc)
+            return model, None, "retry"
+        except Exception as exc:  # zły klucz (400/401/403), nieoczekiwana odpowiedź
+            logger.warning("Błąd dostawcy LLM (%s): %s – fallback deterministyczny.", label, exc)
+            return model, None, "fatal"
+        parsed = _extract_json(text)
+        if parsed is None:
             logger.warning("LLM (%s) zwrócił odpowiedź bez poprawnego JSON – próbuję kolejnego modelu.", label)
+            return model, None, "retry"
+        return model, parsed, "ok"
+
+    # Zapytanie zapasowe („hedging”): gdy model główny nie odpowie w LLM_HEDGE_SECONDS, równolegle
+    # startuje kolejny model z łańcucha; wygrywa pierwsza poprawna odpowiedź. Ucina długie ogony
+    # opóźnień (przeciążenia po stronie dostawcy), nie zmieniając jakości przy szybkiej odpowiedzi.
+    queue = list(chain)
+    timeout = httpx.Timeout(max(3.0, min(settings.LLM_TIMEOUT_SECONDS, deadline - time.monotonic())), connect=10.0)
+    async with httpx.AsyncClient(timeout=timeout) as client:
+        pending: set[asyncio.Task] = set()
+
+        def launch() -> None:
+            if queue and deadline - time.monotonic() >= 3:
+                pending.add(asyncio.create_task(attempt(client, queue.pop(0))))
+
+        launch()
+        try:
+            while pending:
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    break
+                wait_for = min(remaining, hedge_after) if queue and len(pending) == 1 else remaining
+                done, _ = await asyncio.wait(pending, timeout=wait_for, return_when=asyncio.FIRST_COMPLETED)
+                if not done:
+                    launch()  # model główny jest wolny – dokładamy zapasowy równolegle
+                    continue
+                for task in done:
+                    pending.discard(task)
+                    model, parsed, status = task.result()
+                    if status == "ok":
+                        _COOLDOWN.pop(model, None)
+                        _LAST_USED["model"] = model
+                        return parsed, f"{cfg.provider}:{model}"
+                    if status == "fatal":
+                        return None, "deterministic_local"
+                    launch()
+        finally:
+            for task in pending:
+                task.cancel()
     return None, "deterministic_local"

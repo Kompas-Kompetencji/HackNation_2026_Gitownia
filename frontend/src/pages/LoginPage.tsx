@@ -16,6 +16,8 @@ export function LoginPage() {
   const [state, setState] = useState<LoadState>({ kind: 'loading' })
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [showError, setShowError] = useState(false)
+  const [signingIn, setSigningIn] = useState(false)
+  const [loginError, setLoginError] = useState(false)
 
   useEffect(() => {
     let active = true
@@ -39,9 +41,17 @@ export function LoginPage() {
       setShowError(true)
       return
     }
+    setSigningIn(true)
+    setLoginError(false)
     signIn(chosen)
-    const home = homePathFor(chosen.role)
-    navigate(from && from.startsWith(home) ? from : home, { replace: true })
+      .then((u) => {
+        const home = homePathFor(u.role)
+        navigate(from && from.startsWith(home) ? from : home, { replace: true })
+      })
+      .catch(() => {
+        setSigningIn(false)
+        setLoginError(true)
+      })
   }
 
   const supervisors = state.kind === 'ready' ? state.users.filter((u) => u.role === 'supervisor') : []
@@ -117,12 +127,18 @@ export function LoginPage() {
             )}
           </div>
 
+          {loginError && (
+            <p role="alert" className="mt-4 flex items-center gap-2 text-sm text-danger">
+              <CircleAlert aria-hidden className="size-4" />
+              {texts.login.signInError}
+            </p>
+          )}
           <button
             type="submit"
-            disabled={state.kind !== 'ready'}
+            disabled={state.kind !== 'ready' || signingIn}
             className="mt-8 w-full rounded-md bg-accent px-5 py-3 font-medium text-accent-ink transition-colors duration-150 hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {texts.login.signIn}
+            {signingIn ? texts.login.signingIn : texts.login.signIn}
           </button>
 
           <p className="mt-6 text-sm text-ink-faint">

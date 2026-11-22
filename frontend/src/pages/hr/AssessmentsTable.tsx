@@ -1,4 +1,4 @@
-import { useId, useMemo, useState, type ReactNode } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import { ArrowDown, ArrowUp, ArrowUpDown, BellRing, ChevronRight, Search, X } from 'lucide-react'
 import { Button } from '../../components/ui'
 import { toneClasses, type Tone } from '../../components/styles'
@@ -58,7 +58,7 @@ function compare(a: MonitoringRow, b: MonitoringRow, key: SortKey): number {
 
 function matches(r: MonitoringRow, f: TableFilters): boolean {
   const q = f.query.trim().toLocaleLowerCase('pl')
-  if (q && !`${r.employeeName} ${r.employee.supervisor_name} ${r.employee.organizational_unit}`.toLocaleLowerCase('pl').includes(q)) {
+  if (q && !r.employeeName.toLocaleLowerCase('pl').includes(q)) {
     return false
   }
   if (f.kind && r.kind !== f.kind) return false
@@ -87,7 +87,6 @@ export function AssessmentsTable({
   remindersReady: boolean
   onRemind: (row: MonitoringRow) => void
 }) {
-  const uid = useId()
   const [sort, setSort] = useState<Sort>({ key: 'status', dir: 'asc' })
   const [open, setOpen] = useState<Set<string>>(new Set())
 
@@ -121,74 +120,19 @@ export function AssessmentsTable({
     })
   }
 
-  const selectClass =
-    'block w-full rounded-md border border-line-strong bg-surface px-2.5 py-2 text-sm text-ink focus-visible:outline-2 focus-visible:outline-offset-0'
 
   return (
-    <section aria-labelledby="wszystkie-oceny" className="mt-12">
+    <section aria-labelledby="wszystkie-oceny">
       <h2 id="wszystkie-oceny" className="text-title font-semibold text-ink">
         {t.title}
       </h2>
       <p className="mt-1 mb-4 text-sm text-ink-muted">{t.lead}</p>
 
-      <div className="mb-3 grid grid-cols-[minmax(14rem,1.6fr)_repeat(4,minmax(8rem,1fr))] items-end gap-3">
-        <div>
-          <label htmlFor={`${uid}-szukaj`} className="mb-1 block text-sm font-medium text-ink">
-            {t.search}
-          </label>
-          <div className="relative">
-            <Search aria-hidden className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-ink-muted" />
-            <input
-              id={`${uid}-szukaj`}
-              type="search"
-              value={filters.query}
-              onChange={(e) => set('query', e.target.value)}
-              placeholder={t.searchPlaceholder}
-              className={`${selectClass} pl-8 placeholder:text-ink-faint`}
-            />
-          </div>
-        </div>
-        <FilterSelect id={`${uid}-rodzaj`} label={t.filters.kind} value={filters.kind} onChange={(v) => set('kind', v as TableFilters['kind'])} className={selectClass}>
-          <option value="">{t.filters.all}</option>
-          <option value="first">{texts.hrHome.kind.first}</option>
-          <option value="periodic">{texts.hrHome.kind.periodic}</option>
-        </FilterSelect>
-        <FilterSelect id={`${uid}-status`} label={t.filters.status} value={filters.status} onChange={(v) => set('status', v as TableFilters['status'])} className={selectClass}>
-          <option value="">{t.filters.all}</option>
-          {(Object.keys(texts.hrHome.process) as ProcessStatus[]).map((s) => (
-            <option key={s} value={s}>
-              {texts.hrHome.process[s]}
-            </option>
-          ))}
-        </FilterSelect>
-        <FilterSelect id={`${uid}-przelozony`} label={t.filters.supervisor} value={filters.supervisor} onChange={(v) => set('supervisor', v)} className={selectClass}>
-          <option value="">{t.filters.allSupervisors}</option>
-          {supervisors.map(([id, name]) => (
-            <option key={id} value={id}>
-              {name || id}
-            </option>
-          ))}
-        </FilterSelect>
-        <FilterSelect id={`${uid}-komorka`} label={t.filters.unit} value={filters.unit} onChange={(v) => set('unit', v)} className={selectClass}>
-          <option value="">{t.filters.all}</option>
-          {units.map((u) => (
-            <option key={u} value={u}>
-              {u}
-            </option>
-          ))}
-        </FilterSelect>
-      </div>
-
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-4">
-        <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-ink">
-          <label className="flex items-center gap-2">
-            <input type="checkbox" checked={filters.dueSoon} onChange={(e) => set('dueSoon', e.target.checked)} className="size-4 accent-accent" />
-            {t.filters.dueSoon}
-          </label>
-          <label className="flex items-center gap-2">
-            <input type="checkbox" checked={filters.overdue} onChange={(e) => set('overdue', e.target.checked)} className="size-4 accent-accent" />
-            {t.filters.overdue}
-          </label>
+      <div className="overflow-hidden rounded-md border border-line bg-surface">
+        <div className="flex items-center justify-between gap-4 border-b border-line px-4 py-2.5 text-sm">
+          <p className="text-ink-muted tabular-nums" aria-live="polite">
+            {t.count(visible.length, rows.length)}
+          </p>
           {hasFilters(filters) && (
             <button type="button" onClick={() => onFilters(EMPTY_FILTERS)} className="inline-flex items-center gap-1 font-medium text-accent hover:underline">
               <X aria-hidden className="size-4" />
@@ -196,12 +140,6 @@ export function AssessmentsTable({
             </button>
           )}
         </div>
-        <p className="text-sm text-ink-muted tabular-nums" aria-live="polite">
-          {t.count(visible.length, rows.length)}
-        </p>
-      </div>
-
-      <div className="overflow-hidden rounded-md border border-line bg-surface">
         <table className="w-full border-collapse text-left text-sm">
           <caption className="sr-only">{t.caption}</caption>
           <thead className="border-b border-line bg-sunken/60 text-ink-muted">
@@ -214,6 +152,72 @@ export function AssessmentsTable({
               <SortHeader label={t.columns.due} k="due" sort={sort} onSort={toggleSort} />
               <SortHeader label={t.columns.result} k="result" sort={sort} onSort={toggleSort} />
               <SortHeader label={t.columns.lastReminder} k="lastReminder" sort={sort} onSort={toggleSort} />
+            </tr>
+            {/* Filtry pod kolumnami, które zawężają. */}
+            <tr className="border-t border-line bg-surface align-top">
+              <td className="px-2 pt-1 pb-2.5">
+                <div className="relative">
+                  <Search aria-hidden className="pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-ink-muted" />
+                  <input
+                    type="search"
+                    aria-label={t.filterBy(t.columns.employee)}
+                    value={filters.query}
+                    onChange={(e) => set('query', e.target.value)}
+                    placeholder={t.searchPlaceholder}
+                    className={`${fieldClass(!!filters.query)} pl-7 placeholder:text-ink-faint`}
+                  />
+                </div>
+              </td>
+              <td className="px-2 pt-1 pb-2.5">
+                <FilterSelect label={t.columns.unit} value={filters.unit} onChange={(v) => set('unit', v)}>
+                  <option value="">{t.filters.all}</option>
+                  {units.map((u) => (
+                    <option key={u} value={u}>
+                      {u}
+                    </option>
+                  ))}
+                </FilterSelect>
+              </td>
+              <td className="px-2 pt-1 pb-2.5">
+                <FilterSelect label={t.columns.supervisor} value={filters.supervisor} onChange={(v) => set('supervisor', v)}>
+                  <option value="">{t.filters.allSupervisors}</option>
+                  {supervisors.map(([id, name]) => (
+                    <option key={id} value={id}>
+                      {name || id}
+                    </option>
+                  ))}
+                </FilterSelect>
+              </td>
+              <td className="px-2 pt-1 pb-2.5">
+                <FilterSelect label={t.columns.kind} value={filters.kind} onChange={(v) => set('kind', v as TableFilters['kind'])}>
+                  <option value="">{t.filters.all}</option>
+                  <option value="first">{texts.hrHome.kind.first}</option>
+                  <option value="periodic">{texts.hrHome.kind.periodic}</option>
+                </FilterSelect>
+              </td>
+              <td className="px-2 pt-1 pb-2.5">
+                <FilterSelect label={t.columns.status} value={filters.status} onChange={(v) => set('status', v as TableFilters['status'])}>
+                  <option value="">{t.filters.all}</option>
+                  {(Object.keys(texts.hrHome.process) as ProcessStatus[]).map((st) => (
+                    <option key={st} value={st}>
+                      {texts.hrHome.process[st]}
+                    </option>
+                  ))}
+                </FilterSelect>
+              </td>
+              <td className="px-2 pt-1 pb-2.5">
+                <FilterSelect
+                  label={t.columns.due}
+                  value={filters.overdue ? 'overdue' : filters.dueSoon ? 'dueSoon' : ''}
+                  onChange={(v) => onFilters({ ...filters, overdue: v === 'overdue', dueSoon: v === 'dueSoon' })}
+                >
+                  <option value="">{t.filters.anyDue}</option>
+                  <option value="overdue">{t.filters.overdue}</option>
+                  <option value="dueSoon">{t.filters.dueSoon}</option>
+                </FilterSelect>
+              </td>
+              <td />
+              <td />
             </tr>
           </thead>
           <tbody>
@@ -246,30 +250,28 @@ export function AssessmentsTable({
   )
 }
 
+/** Pole filtra: aktywny filtr ma obramowanie w kolorze akcentu, żeby było widać, co zawęża tabelę. */
+function fieldClass(active: boolean): string {
+  return `block w-full min-w-0 rounded-md border bg-surface px-2 py-1.5 text-[0.8125rem] text-ink focus-visible:outline-2 focus-visible:outline-offset-0 ${
+    active ? 'border-accent ring-1 ring-accent/30' : 'border-line-strong'
+  }`
+}
+
 function FilterSelect({
-  id,
   label,
   value,
   onChange,
-  className,
   children,
 }: {
-  id: string
   label: string
   value: string
   onChange: (v: string) => void
-  className: string
   children: ReactNode
 }) {
   return (
-    <div>
-      <label htmlFor={id} className="mb-1 block text-sm font-medium text-ink">
-        {label}
-      </label>
-      <select id={id} value={value} onChange={(e) => onChange(e.target.value)} className={className}>
-        {children}
-      </select>
-    </div>
+    <select aria-label={t.filterBy(label)} value={value} onChange={(e) => onChange(e.target.value)} className={fieldClass(value !== '')}>
+      {children}
+    </select>
   )
 }
 

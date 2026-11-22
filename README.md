@@ -4,6 +4,15 @@ Narzędzie dla przełożonych w służbie cywilnej: prowadzi krok po kroku przez
 (arkusz B/C), ocenę wskaźników behawioralnych z oficjalnego modelu kompetencji, **sugerowany poziom** kryterium
 (decyzja zawsze należy do przełożonego), terminy, urzędowy **PDF** arkusza oraz **asystenta AI** z RAG i cytowaniem źródeł.
 
+**Prototyp:** https://kompas-api.calmwater-95f16d05.swedencentral.azurecontainerapps.io (konta demonstracyjne na ekranie logowania,
+dane fikcyjne; przełożeni: Halina Zawadzka-Nowicka, Tomasz Kędzierski; kadry: Bożena Ślęzak).
+
+| Dokument | Zawartość |
+|---|---|
+| [docs/opis_projektu.md](docs/opis_projektu.md) | Koncepcja, funkcjonalności, zgodność z wymaganiami, scenariusz demonstracji |
+| [docs/opis_ai.md](docs/opis_ai.md) | Gdzie i jak użyto AI, baza wiedzy, bezpieczeństwo, ograniczenia |
+| [docs/architektura_wdrozeniowa.md](docs/architektura_wdrozeniowa.md) | Architektura, technologie, integracje (EZD, QNT, SSO), bezpieczeństwo, wdrożenie produkcyjne |
+
 ## Architektura
 
 ```
@@ -21,14 +30,30 @@ Dockerfile  jeden obraz: build frontendu + backend (Azure Container Apps, port 8
 
 Dokumentacja API (Swagger): `/docs`. Stan usług (baza, LLM, rozmiar bazy wiedzy): `/api/v1/health`.
 
+## Logowanie i uprawnienia
+
+Wybór konta demonstracyjnego → `POST /api/v1/auth/login` zwraca token JWT (HS256, `JWT_SECRET`, 8 h); każde zapytanie
+wysyła `Authorization: Bearer …`. Przełożony widzi tylko swoich pracowników, kadry – statusy i terminy bez treści ocen.
+Nagłówek `X-User-Id` działa wyłącznie przy `AUTH_ALLOW_DEMO_HEADER=true` (testy).
+
+## Dane demonstracyjne
+
+`supabase/seed.sql` (generowany z `backend/app/data/seed_data.py` skryptem `scripts/build_supabase_seed.py`): 2 przełożonych,
+kadry, 7 pracowników (pierwsza ocena w toku, zastępstwo, ocena okresowa po terminie / wkrótce / aktualna, historia ocen).
+Zastąpienie danych w bazie z `DATABASE_URL` (najpierw kopia zapasowa do `backend/backups/`):
+`python scripts/reset_demo_data.py` (próba) → `python scripts/reset_demo_data.py --yes`.
+
 ## Asystent AI (gdzie i jak użyto AI)
 
 - **Asystent formalny** – RAG: pytanie → anonimizacja danych osobowych → wyszukanie fragmentów (rozporządzenia, poradniki KPRM,
   model kompetencji; indeks n-gramowy, opcjonalnie ChromaDB) → LLM odpowiada *wyłącznie* na podstawie znalezionych źródeł
   i podaje dokument / § / stronę. Brak źródeł → jawna odmowa (bez halucynacji). Brak klucza lub błąd LLM → odpowiedź z cytatu źródła.
-- **Asystent rozmowy** – pytania do rozmowy, argumenty STAR, szkic uzasadnienia, IPRZ; werdykt liczy deterministyczny silnik,
-  AI nie ustala poziomu oceny.
-- **Analiza OSP** – dobór arkusza B/C i kryteriów dodatkowych (do akceptacji przełożonego).
+- **Asystent rozmowy** – zna zanonimizowany stan arkusza (poziomy, wybrane zachowania, przykłady STAR): pytania do rozmowy,
+  kwestie do omówienia, argumenty, IPRZ i szkic uzasadnienia wstawiany do formularza przyciskiem; werdykt liczy
+  deterministyczny silnik, AI nie ustala poziomu oceny.
+- **Analiza OSP** – regułowa (bez AI): dobór arkusza B/C i kryteriów dodatkowych (do akceptacji przełożonego).
+
+Szczegóły: [docs/opis_ai.md](docs/opis_ai.md).
 
 ## Uruchomienie lokalne
 

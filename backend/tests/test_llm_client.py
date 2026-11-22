@@ -135,3 +135,26 @@ def test_placeholder_values_mean_no_llm(monkeypatch):
     monkeypatch.setattr(settings, "LLM_API_KEY", "placeholder")
     monkeypatch.setattr(settings, "LLM_MODEL_NAME", "placeholder")
     assert llm_client.get_active_llm_provider() is None
+
+
+def test_hedged_request_returns_faster_fallback(monkeypatch):
+    """Wolny model główny: po LLM_HEDGE_SECONDS startuje zapasowy i jego odpowiedź wygrywa."""
+    import asyncio
+    import time
+
+    monkeypatch.setattr(settings, "LLM_API_KEY", "AIzaFAKE")
+    monkeypatch.setattr(settings, "LLM_MODEL_NAME", "wolny-model")
+    monkeypatch.setattr(settings, "LLM_FALLBACK_MODELS", "szybki-model")
+    monkeypatch.setattr(settings, "LLM_HEDGE_SECONDS", 0.2)
+    llm_client._COOLDOWN.clear()
+
+    async def fake_call(client, cfg, model, *args):
+        await asyncio.sleep(5 if model == "wolny-model" else 0.05)
+        return '{"odp": "%s"}' % model
+
+    monkeypatch.setattr(llm_client, "_call_once", fake_call)
+    start = time.monotonic()
+    parsed, label = asyncio.run(llm_client.call_structured_llm("s", "u", {"type": "OBJECT"}))
+    assert parsed == {"odp": "szybki-model"} and label.endswith("szybki-model")
+    assert time.monotonic() - start < 2
+    assert "wolny-model" not in llm_client._COOLDOWN  # wolny, ale nie zepsuty – bez kary

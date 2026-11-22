@@ -85,6 +85,8 @@ class RagSourceCitation(BaseModel):
     excerpt: str
     # Pełna treść fragmentu dla modelu LLM (nie trafia do odpowiedzi API)
     full_text: str = Field(default="", exclude=True)
+    # Trafność dopasowania z wyszukiwania (0–1+); do oceny pokrycia źródłami, nie trafia do API
+    score: float = Field(default=0.0, exclude=True)
 
 
 class FormPatch(BaseModel):

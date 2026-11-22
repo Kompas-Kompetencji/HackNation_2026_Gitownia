@@ -27,7 +27,7 @@ OUTPUT = BACKEND_ROOT.parent / "supabase" / "seed.sql"
 FIRST_ID = 9001
 
 ROLE = {"supervisor": "PRZELOZONY", "hr": "HR_ADMIN"}
-CONTRACT = {"indefinite": "CZAS_NIEOKRESLONY", "fixed_term_first": "CZAS_OKRESLONY_12M", "appointment": "MIANOWANY_URZEDNIK"}
+CONTRACT = {"indefinite": "CZAS_NIEOKRESLONY", "fixed_term_first": "CZAS_OKRESLONY_12M", "appointment": "MIANOWANY_URZEDNIK", "replacement": "ZASTEPSTWO"}
 PATH = {"periodic": "OKRESOWA", "first": "PIERWSZA"}
 SHEET = {"B": "B", "C": "C", "first": "PIERWSZA"}
 STATUS = {"draft": "ROBOCZA", "completed": "ZATWIERDZONA", "not_started": "NIEROZPOCZETA"}
@@ -97,10 +97,11 @@ def main() -> int:
     parts.append(insert(
         "employees",
         ["id", "first_name", "last_name", "department", "unit", "position", "employment_type", "hire_date",
-         "contract_end_date", "eval_path", "sheet_type", "status", "supervisor_id"],
+         "contract_end_date", "first_eval_agreement_date", "eval_path", "sheet_type", "status", "supervisor_id"],
         [[employee_ids[e.id], e.first_name, e.last_name, users[e.supervisor_id].organizational_unit, e.organizational_unit,
           e.position_title, CONTRACT[e.contract_type], e.hire_date.isoformat(),
-          e.contract_end_date.isoformat() if e.contract_end_date else None, PATH[e.assessment_kind],
+          e.contract_end_date.isoformat() if e.contract_end_date else None,
+          e.first_eval_agreement_date.isoformat() if e.first_eval_agreement_date else None, PATH[e.assessment_kind],
           # sheet_type jest wymagane; pracownik bez opisu stanowiska dostaje arkusz z otwartej oceny (B)
           SHEET[e.form] if e.form else "B", EMPLOYEE_STATUS[e.assessment_kind], user_ids[e.supervisor_id]]
          for e in seed.employees],

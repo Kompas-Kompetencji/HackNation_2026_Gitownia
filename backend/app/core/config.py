@@ -43,6 +43,11 @@ class Settings(BaseSettings):
 
     LLM_BASE_URL: str | None = None
     LLM_API_KEY: str | None = None
+    # Uwierzytelnianie: tokeny JWT (HS256) podpisane JWT_SECRET; nagłówek X-User-Id tylko w testach/dev.
+    JWT_SECRET: str | None = None
+    AUTH_TOKEN_TTL_MINUTES: int = 480
+    AUTH_ALLOW_DEMO_HEADER: bool = False
+
     LLM_MODEL_NAME: str | None = None
     LLM_MODEL: str | None = None  # alias zgodności wstecznej dla LLM_MODEL_NAME
     LLM_PROVIDER: str | None = None  # opcjonalnie: gemini | openai | groq | openrouter
@@ -50,6 +55,10 @@ class Settings(BaseSettings):
     LLM_TEMPERATURE: float = 0.25
     LLM_TIMEOUT_SECONDS: float = 25.0  # limit jednej próby (jednego modelu)
     LLM_TOTAL_BUDGET_SECONDS: float = 55.0  # limit całej odpowiedzi asystenta (z modelami zapasowymi)
+    # Po ilu sekundach bez odpowiedzi modelu głównego równolegle startuje model zapasowy.
+    LLM_HEDGE_SECONDS: float = 4.0
+    # Budżet „myślenia” Gemini (0 = wyłączone, szybkie odpowiedzi; puste = domyślne modelu).
+    LLM_THINKING_BUDGET: int | None = 0
 
     model_config = SettingsConfigDict(
         env_file=".env",

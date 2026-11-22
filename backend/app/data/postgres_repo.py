@@ -34,10 +34,11 @@ _TABLES = frozenset(
         "employee_notes",
         "job_descriptions",
         "reminders",
+        "audit_log",
     }
 )
 # Migracje, których błąd jest tylko logowany (start backendu trwa dalej, nie działa tylko ta funkcja).
-OPTIONAL_MIGRATIONS = frozenset({"003_reminders.sql", "004_development_conclusions.sql"})
+OPTIONAL_MIGRATIONS = frozenset({"003_reminders.sql", "004_development_conclusions.sql", "005_audit_log.sql"})
 
 
 def _ident(name: str) -> str:
@@ -64,7 +65,12 @@ def normalize_dsn(url: str) -> str:
     """Akceptuje także zapis SQLAlchemy (postgresql+psycopg://, postgres://)."""
     url = url.strip().strip("'\"")
     url = re.sub(r"^postgres(ql)?\+[a-z0-9]+://", "postgresql://", url)
-    return re.sub(r"^postgres://", "postgresql://", url)
+    url = re.sub(r"^postgres://", "postgresql://", url)
+    # Poza maszyną lokalną połączenie z bazą wyłącznie szyfrowane (TLS), chyba że DSN mówi inaczej.
+    host = re.search(r"@([^:/?]+)", url)
+    if host and host.group(1) not in ("localhost", "127.0.0.1", "::1") and "sslmode=" not in url:
+        url += ("&" if "?" in url else "?") + "sslmode=require"
+    return url
 
 
 class PostgresRepository(SupabaseRepository):

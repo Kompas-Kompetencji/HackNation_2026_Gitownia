@@ -15,7 +15,10 @@
  * Różnice między jego odpowiedziami a kontraktem z src/types są wyrównywane w adapterach
  * poniżej (funkcje from*), komponenty widzą wyłącznie typy z src/types.
  */
+import type { AssistantFormState } from '../assistant/formState'
 import type {
+  AiQualityReport,
+  AuditEntry,
   CreateReminderInput,
   Reminder,
   EmployeeMonitoring,
@@ -69,7 +72,10 @@ import {
 } from './mocks'
 import { ApiError } from './apiError'
 import { REMINDER_MAX_LENGTH } from '../types'
-import { readSessionUserId } from './session'
+import { readSessionToken, readSessionUserId } from './session'
+
+/** Zdarzenie okna: token wygasł albo został odrzucony – AuthContext wylogowuje i wraca do logowania. */
+export const SESSION_EXPIRED_EVENT = 'kompas:session-expired'
 
 /** Funkcje api.ts, które da się osobno przełączyć na backend (VITE_REAL_API). */
 export const API_FUNCTIONS = [
@@ -103,6 +109,10 @@ export const API_FUNCTIONS = [
   'listMonitoredEmployees',
   'sendReminder',
   'listReminders',
+  'getAiQuality',
+  'listAuditLog',
+  'exportAssessments',
+  'exportEzdPackage',
 ] as const
 
 export type ApiFunctionName = (typeof API_FUNCTIONS)[number]
@@ -161,10 +171,12 @@ async function errorMessage(response: Response): Promise<string> {
  */
 async function send(path: string, init?: RequestInit): Promise<Response> {
   const userId = readSessionUserId()
+  const token = readSessionToken()
   const headers = new Headers(init?.headers)
   if (init?.body !== undefined && !(init.body instanceof FormData)) headers.set('Content-Type', 'application/json')
-  // Założenie: do czasu prawdziwego logowania backend rozpoznaje użytkownika po nagłówku (dziś go ignoruje).
-  if (userId) headers.set('X-User-Id', userId)
+  // Backend rozpoznaje użytkownika po podpisanym tokenie (JWT); X-User-Id zostaje tylko dla makiet i testów.
+  if (token) headers.set('Authorization', `Bearer ${token}`)
+  else if (userId) headers.set('X-User-Id', userId)
 
   // Odczyty (GET) ponawiamy przy chwilowym braku połączenia lub przeciążeniu (502/503/504),
   // np. podczas szybkiego odświeżania albo zimnego startu kontenera. Zapisów nie ponawiamy.
@@ -186,6 +198,7 @@ async function send(path: string, init?: RequestInit): Promise<Response> {
       continue
     }
     if (!response.ok) {
+      if (response.status === 401 && token && !path.startsWith('/auth/')) window.dispatchEvent(new Event(SESSION_EXPIRED_EVENT))
       const message = await errorMessage(response)
       if ([500, 502, 503, 504].includes(response.status) && !message.trim()) throw new ApiError(0, NETWORK_ERROR_MESSAGE)
       throw new ApiError(response.status, message || response.statusText)
@@ -506,23 +519,84 @@ interface BackendAssistantAnswer {
   status?: string
   answer?: string
   sources?: Array<{ document_title?: string; location?: string; excerpt?: string }>
+  justification_draft?: string
+  coverage?: 'strong' | 'partial' | null
+  guard?: 'person_decision'
 }
 
 /** Backend dokleja źródło także do treści odpowiedzi; panel pokazuje źródła osobno. */
 const INLINE_SOURCE = /\s*\(Podstawa:[^()]*(?:\([^()]*\)[^()]*)*\)\.?\s*$/
 
-export async function askAiAssistant(question: string, mode: AssistantMode): Promise<AssistantAnswer> {
+/** Panel pokazuje zwykły tekst: bez doklejonego źródła i bez znaczników Markdown. */
+const plainText = (text: string) =>
+  text
+    .replace(INLINE_SOURCE, '')
+    .replace(/\*\*(.+?)\*\*/g, '$1')
+    .replace(/(^|\s)\*(\S[^*]*?)\*(?=\s|[.,;:!?]|$)/g, '$1$2')
+    .replace(/^#{1,6}\s+/gm, '')
+    .replace(/^\s*[-*]\s+/gm, '• ')
+    .trim()
+
+export interface AssistantExtras {
+  /** Zanonimizowany stan arkusza (tylko asystent rozmowy). */
+  formState?: AssistantFormState
+  /** Poprzednie wymiany w tym trybie (kontekst pytań doprecyzowujących). */
+  history?: Array<{ role: 'user' | 'assistant'; content: string }>
+}
+
+export async function askAiAssistant(question: string, mode: AssistantMode, extras: AssistantExtras = {}): Promise<AssistantAnswer> {
   if (usesMock('askAiAssistant')) return mockDelay(mockAskAiAssistant(question, mode), 700)
-  const raw = await request<BackendAssistantAnswer>('/ai-assistant', postJson({ question, mode }))
+  const raw = await request<BackendAssistantAnswer>(
+    '/ai-assistant',
+    postJson({ question, mode, history: extras.history ?? [], form_state: extras.formState ?? null }),
+  )
   const sources = (raw.sources ?? []).map((s) => ({
     document_title: s.document_title ?? '',
     location: s.location ?? '',
     excerpt: s.excerpt ?? '',
   }))
-  // Panel pokazuje zwykły tekst: bez doklejonego źródła i bez znaczników Markdown (**pogrubienie**).
-  const answer = (raw.answer ?? '').replace(INLINE_SOURCE, '').replace(/\*\*(.+?)\*\*/g, '$1').trim()
+  const answer = plainText(raw.answer ?? '')
   const answered = raw.status === 'answered' && answer.length > 0
-  return { mode, status: answered ? 'answered' : 'no_data', answer: answered ? answer : '', sources: answered ? sources : [] }
+  const draft = plainText(raw.justification_draft ?? '')
+  return {
+    mode,
+    status: answered ? 'answered' : 'no_data',
+    answer: answered ? answer : '',
+    sources: answered ? sources : [],
+    ...(answered && draft ? { justification_draft: draft } : {}),
+    ...(raw.guard ? { guard: raw.guard } : {}),
+  }
+}
+
+/* --- Wiarygodność AI, dziennik zdarzeń, integracje -------------------------------------- */
+
+/** Raport jakości asystenta (kadry): test kontrolny na banku pytań i pytania bez odpowiedzi. */
+export async function getAiQuality(): Promise<AiQualityReport> {
+  if (usesMock('getAiQuality')) {
+    return mockDelay({
+      check: { checked_at: new Date().toISOString(), total: 0, passed: 0, in_domain: 0, strong: 0, partial: 0, refusals_ok: 0, refusals_expected: 0, items: [] },
+      unanswered: [],
+    })
+  }
+  return request<AiQualityReport>('/ai/quality')
+}
+
+/** Dziennik zdarzeń (kadry): kto, kiedy, jaka czynność – bez treści ocen. */
+export async function listAuditLog(limit = 200): Promise<AuditEntry[]> {
+  if (usesMock('listAuditLog')) return mockDelay([])
+  return request<AuditEntry[]>(`/audit-log?limit=${limit}`)
+}
+
+/** Eksport statusów, terminów i wyników ocen dla systemu kadrowego (np. QNT). */
+export async function exportAssessments(format: 'csv' | 'json'): Promise<Blob> {
+  if (usesMock('exportAssessments')) throw new ApiError(501, 'Eksport działa z prawdziwym backendem.')
+  return requestBlob(`/export/assessments?format=${format}`)
+}
+
+/** Paczka do EZD: arkusz PDF + metadane.json (tylko zakończona ocena, tylko przełożony). */
+export async function exportEzdPackage(assessmentId: string): Promise<Blob> {
+  if (usesMock('exportEzdPackage')) throw new ApiError(501, 'Paczka EZD działa z prawdziwym backendem.')
+  return requestBlob(`/assessments/${encodeURIComponent(assessmentId)}/ezd-package`)
 }
 
 /* --- Terminy pierwszej oceny ------------------------------------------------------------- */
@@ -614,6 +688,17 @@ function ownsEmployee(employee_id: string): boolean {
 export async function listDemoUsers(): Promise<User[]> {
   if (usesMock('listDemoUsers')) return mockDelay(mockUsers, 150)
   return request<User[]>('/auth/demo-users')
+}
+
+/** Logowanie kontem demonstracyjnym: backend zwraca podpisany token dostępu (JWT). */
+export async function loginDemo(userId: string): Promise<{ token: string | null; user: User }> {
+  if (usesMock('listDemoUsers')) {
+    const user = mockUsers.find((u) => u.id === userId)
+    if (!user) throw new ApiError(401, 'Nieznany użytkownik.')
+    return mockDelay({ token: null, user }, 0)
+  }
+  const r = await request<{ access_token: string; user: User }>('/auth/login', postJson({ user_id: userId }))
+  return { token: r.access_token, user: r.user }
 }
 
 export async function getUser(id: string): Promise<User | null> {

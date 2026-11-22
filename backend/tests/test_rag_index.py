@@ -25,10 +25,12 @@ def test_every_pdf_in_raw_is_indexed():
 def test_relevant_questions_find_sources_and_off_topic_does_not():
     relevant = [
         line.strip()
-        for line in (BACKEND / "tests" / "data" / "pytania_jury.txt").read_text(encoding="utf-8").splitlines()
-        if line.strip()
+        for line in (BACKEND / "data" / "eval" / "pytania_kontrolne.txt").read_text(encoding="utf-8").splitlines()
+        if line.strip() and not line.startswith("#")
     ]
-    off_topic = {"Przepis na sernik", "Kto wygrał mundial w 2022?", "Ile wynosi trzynastka w służbie cywilnej?"}
+    off_topic = {q.lstrip("!") for q in relevant if q.startswith("!")}
+    relevant = [q.lstrip("!") for q in relevant]
+    assert len(off_topic) == 3
     without_sources = [q for q in relevant if q not in off_topic and not rag_service.retrieve_legal_sources(q, top_k=8)]
     assert not without_sources, f"Trafne pytania bez źródeł: {without_sources}"
     for q in off_topic:

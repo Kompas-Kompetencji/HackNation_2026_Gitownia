@@ -108,7 +108,7 @@ def test_hr_cannot_read_notes_or_job_descriptions(client: TestClient) -> None:
 
 def test_hr_employee_list_has_only_monitoring_fields(client: TestClient) -> None:
     employees = client.get(f"{API}/employees", headers=HR).json()
-    assert len(employees) == 4
+    assert len(employees) == 7
     for e in employees:
         assert set(e) == HR_EMPLOYEE_FIELDS
         assert e["supervisor_name"]

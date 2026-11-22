@@ -35,6 +35,8 @@ import httpx
 
 from app.data.repository import DataRepository, NotFoundError, StorageError
 from app.data.schemas import (
+    AuditEntry,
+    NewAuditEntry,
     AssessmentRecord,
     CriterionDecision,
     EmployeeRecord,
@@ -561,3 +563,41 @@ class SupabaseRepository(DataRepository):
         except Exception as exc:  # noqa: BLE001
             logger.error("Nie zapisano przypomnienia dla przełożonego %s: %s", data.supervisor_id, exc)
             raise StorageError("reminders: zapis") from exc
+
+    # --- dziennik zdarzeń (tabela audit_log, supabase/schema-additions-005.sql) ------------------
+    # Błąd zapisu dziennika jest tylko logowany: nie może blokować pracy przełożonego.
+
+    def add_audit(self, data: NewAuditEntry) -> None:
+        row = {
+            "at": data.at.isoformat(),
+            "user_id": _int_id(data.user_id) if data.user_id else None,
+            "user_role": data.user_role,
+            "action": data.action,
+            "entity": data.entity,
+            "entity_id": data.entity_id,
+            "details": data.details[:500],
+        }
+        try:
+            self._insert("audit_log", row)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("Nie zapisano wpisu dziennika zdarzeń (%s): %s", data.action, exc)
+
+    def list_audit(self, limit: int = 200) -> list[AuditEntry]:
+        try:
+            rows = self._select("audit_log", order="at.desc", limit=str(limit))
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("Nie odczytano dziennika zdarzeń: %s", exc)
+            return []
+        return [
+            AuditEntry(
+                id=str(r["id"]),
+                at=r["at"],
+                user_id=str(r["user_id"]) if r.get("user_id") is not None else None,
+                user_role=r.get("user_role"),
+                action=r["action"],
+                entity=r["entity"],
+                entity_id=r.get("entity_id"),
+                details=r.get("details") or "",
+            )
+            for r in rows
+        ]

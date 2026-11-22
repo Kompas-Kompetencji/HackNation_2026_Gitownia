@@ -6,7 +6,7 @@ import { formatDate } from '../../lib/format'
 import { texts } from '../../lib/texts'
 import type { AssessmentDetail, CompetencyModel } from '../../types'
 import { BackLink } from './BackLink'
-import { DecisionsTable, EvaluationResultView, PdfButton, type DecisionRow } from './SummaryParts'
+import { DecisionsTable, EvaluationResultView, EzdButton, PdfButton, type DecisionRow } from './SummaryParts'
 import { FirstDataList } from './SummaryStep'
 
 const t = texts.assessment.readOnly
@@ -47,7 +47,10 @@ export function AssessmentReadOnly({ detail, model }: { detail: AssessmentDetail
           </p>
         </div>
         {(detail.kind === 'periodic' || first) && (
-          <PdfButton assessmentId={detail.id} employeeName={detail.employee_name} label={texts.assessment.summary.pdf} />
+          <div className="flex items-start gap-3">
+            <PdfButton assessmentId={detail.id} employeeName={detail.employee_name} label={texts.assessment.summary.pdf} />
+            <EzdButton assessmentId={detail.id} />
+          </div>
         )}
       </header>
 

@@ -23,6 +23,11 @@ export const texts = {
     hr: 'Kadry',
   } satisfies Record<UserRole, string>,
 
+  desktopOnly: {
+    title: 'Otwórz Kompas na komputerze',
+    body: 'Kompas Kompetencji jest przeznaczony do pracy na komputerze lub tablecie (przeglądarka internetowa). Wersja na smartfony nie jest udostępniana – ocena pracownika wymaga pracy z arkuszem i dokumentami.',
+  },
+
   login: {
     title: 'Zaloguj się',
     lead: 'Wybierz konto demonstracyjne. Każdy przełożony widzi wyłącznie własnych pracowników, kadry widzą terminy i statusy wszystkich ocen.',
@@ -33,7 +38,9 @@ export const texts = {
     loading: 'Wczytywanie kont…',
     loadError: 'Nie udało się wczytać listy kont. Odśwież stronę, a jeśli błąd się powtórzy, zgłoś go administratorowi.',
     chooseAccount: 'Wybierz konto, aby się zalogować.',
-    demoNotice: 'Wersja demonstracyjna: dane osobowe są fikcyjne, logowanie nie wymaga hasła.',
+    signInError: 'Nie udało się zalogować. Sprawdź połączenie i spróbuj ponownie.',
+    demoNotice:
+      'Wersja demonstracyjna: dane osobowe są fikcyjne, a konto wybiera się bez hasła. Każde zapytanie jest podpisane tokenem sesji (JWT, 8 godzin); docelowo logowanie przez SSO urzędu.',
     mockNotice: 'Dane przykładowe (makiety) są włączone.',
     claim: 'Ocena oparta na zachowaniach, nie na wrażeniach.',
     claimBody:
@@ -44,6 +51,8 @@ export const texts = {
     label: 'Nawigacja główna',
     supervisorHome: 'Moi pracownicy',
     hrHome: 'Oceny w urzędzie',
+    aiQuality: 'Jakość asystenta AI',
+    auditLog: 'Dziennik zdarzeń',
     signedInAs: 'Zalogowano jako',
     signOut: 'Wyloguj się',
     showAssistant: 'Pokaż asystenta',
@@ -362,7 +371,7 @@ export const texts = {
         interview: ['Jak przygotować rozmowę oceniającą?'],
       },
       periodic: {
-        formal: ['Do kiedy przeprowadzić rozmowę oceniającą?', 'Co oznacza brak podstaw do oceny?'],
+        formal: ['Do kiedy przeprowadzić rozmowę oceniającą?', 'Jak opisać przykład zachowania metodą STAR?'],
         interview: ['Jak przygotować rozmowę oceniającą?', 'Jak napisać uzasadnienie?'],
       },
     },
@@ -451,18 +460,13 @@ export const texts = {
     criterion: {
       mandatory: 'Kryterium obowiązkowe',
       additional: 'Kryterium dodatkowe',
-      lead: 'Oprzyj ocenę na konkretnych przykładach z ocenianego okresu: sytuacja, działanie, rezultat. Jeśli nie było okazji zaobserwować zachowania, zaznacz „brak podstaw do oceny”.',
+      lead: 'Oprzyj ocenę na konkretnych przykładach z ocenianego okresu: sytuacja, działanie, rezultat.',
       indicatorOf: (n: number, total: number) => `Wskaźnik ${n} z ${total}`,
       answered: (n: number, total: number) => `Odpowiedzi: ${n} z ${total}`,
       levelLegend: 'Poziom zachowania',
-      noBasis: 'Brak podstaw do oceny',
-      noBasisHint: 'nie wchodzi do średniej',
       levelPoints: (level: number) => `${level} pkt`,
       levelDescription: (level: number) => `Opis poziomu ${level}`,
       pickLevelHint: 'Wybierz poziom. Pojawi się opis zachowania z modelu kompetencji.',
-      noBasisSelected: 'Ten wskaźnik nie wejdzie do średniej kryterium.',
-      noBasisLocked:
-        '„Brak podstaw do oceny” jest niedostępny: to ostatni oceniany wskaźnik kryterium. Kryterium otrzymuje ocenę cząstkową, więc co najmniej jeden wskaźnik musi zostać oceniony.',
       example: {
         toggleAdd: 'Dodaj przykład',
         toggleShow: 'Przykład',
@@ -485,7 +489,7 @@ export const texts = {
         title: 'Wskazówka poziomu',
         mean: (value: string) => `Średnia ze wskaźników: ${value}`,
         counted: (n: number, total: number, noBasis: number) =>
-          `Policzono ${n} z ${total} wskaźników${noBasis ? `, brak podstaw do oceny: ${noBasis}` : ''}.`,
+          `Policzono ${n} z ${total} wskaźników${noBasis ? ` (${noBasis} bez oceny)` : ''}.`,
         suggested: 'Sugerowany poziom',
         noAnswers: 'Odpowiedz przy wskaźnikach, a pojawi się tutaj średnia i sugerowany poziom.',
         noMean: 'Żaden wskaźnik nie ma oceny, więc nie ma średniej.',
@@ -622,7 +626,7 @@ export const texts = {
 
     assistant: {
       subject: (name: string, step: string) => `Ocena okresowa: ${name} · ${step}`,
-      note: 'Asystent dostaje nazwę kryterium i wskaźnika, bez danych osobowych pracownika.',
+      note: 'Asystent rozmowy widzi stan arkusza (poziomy, wybrane zachowania, przykłady) i stanowisko – bez imienia i nazwiska pracownika.',
       context: {
         form: (form: string) => `Kontekst oceny: ocena okresowa, Arkusz ${form}.`,
         criterion: (name: string, id: string) => `Kryterium: ${name} (${id}).`,
@@ -635,17 +639,21 @@ export const texts = {
       },
       suggestions: {
         setup: {
-          formal: ['Czym różnią się kryteria obowiązkowe od dodatkowych?', 'Co oznacza brak podstaw do oceny?'],
+          formal: ['Czym różnią się kryteria obowiązkowe od dodatkowych?', 'Jak opisać przykład zachowania metodą STAR?'],
           interview: ['Jak przygotować rozmowę oceniającą?'],
         },
         criterion: {
           whatIndicator: 'Co oznacza ten wskaźnik?',
-          noBasis: 'Co oznacza brak podstaw do oceny?',
+          noBasis: 'Jak opisać przykład zachowania metodą STAR?',
           justifyLevel: (level: number) => `Jak uzasadnić poziom ${level}?`,
         },
         summary: {
           formal: ['Kiedy uzasadnienie jest obowiązkowe?', 'Do kiedy przeprowadzić rozmowę oceniającą?'],
-          interview: ['Jak napisać uzasadnienie?'],
+          interview: [
+            'Przygotuj szkic uzasadnienia na podstawie arkusza',
+            'Które kwestie wymagają omówienia z pracownikiem?',
+            'Uporządkuj argumenty uzasadniające ocenę',
+          ],
         },
       },
       prepareLabel: 'Przygotuj rozmowę oceniającą na podstawie decyzji',
@@ -696,7 +704,7 @@ export const texts = {
     },
     criterion: {
       label: 'Element pierwszej oceny',
-      lead: 'Oprzyj ocenę na konkretnych przykładach z okresu próbnego: sytuacja, działanie, rezultat. Jeśli nie było okazji zaobserwować zachowania, zaznacz „brak podstaw do oceny”.',
+      lead: 'Oprzyj ocenę na konkretnych przykładach z okresu próbnego: sytuacja, działanie, rezultat.',
       blocked: 'Oceń przynajmniej jeden wskaźnik: na tej podstawie wystawiasz ocenę tego elementu.',
       decisionLegend: 'Twoja decyzja: ocena elementu',
       hintScale: (level: number) => `${level} pkt w skali pierwszej oceny`,
@@ -750,10 +758,117 @@ export const texts = {
         },
         summary: {
           formal: ['Jakie warunki musi spełnić pozytywna pierwsza ocena?', 'Kiedy uzasadnienie pierwszej oceny jest obowiązkowe?'],
-          interview: ['Jak napisać uzasadnienie negatywnej pierwszej oceny?'],
+          interview: [
+            'Przygotuj szkic uzasadnienia na podstawie arkusza',
+            'Które kwestie wymagają omówienia z pracownikiem?',
+            'Jak napisać uzasadnienie negatywnej pierwszej oceny?',
+          ],
         },
       },
     },
+  },
+
+  aiQuality: {
+    title: 'Jakość asystenta AI',
+    lead: 'Test kontrolny asystenta formalnego na banku pytań oraz pytania, na które baza wiedzy nie miała odpowiedzi. Test sprawdza wyszukiwanie źródeł (bez wywołań modelu językowego).',
+    loading: 'Uruchamiam test kontrolny…',
+    error: 'Nie udało się pobrać raportu jakości asystenta.',
+    tiles: {
+      passed: 'pytań zgodnie z oczekiwaniem',
+      strong: 'z mocnym pokryciem źródłami',
+      partial: 'z częściowym pokryciem',
+      refusals: 'pytań spoza tematu poprawnie odrzuconych',
+    },
+    checkedAt: (when: string) => `Ostatni test: ${when}`,
+    tableTitle: 'Wyniki pytań kontrolnych',
+    columns: { question: 'Pytanie', expected: 'Oczekiwane', result: 'Wynik', coverage: 'Pokrycie', source: 'Najlepsze źródło' },
+    expected: { answer: 'odpowiedź ze źródłem', refusal: 'odmowa (spoza tematu)' },
+    ok: 'zgodnie',
+    notOk: 'do poprawy',
+    coverage: { strong: 'mocne', partial: 'częściowe', none: '—' },
+    unansweredTitle: 'Pytania bez odpowiedzi w bazie wiedzy',
+    unansweredLead: 'Pytania użytkowników, na które asystent odpowiedział „brak informacji” (dane osobowe usunięte). To lista luk do uzupełnienia w bazie wiedzy.',
+    unansweredEmpty: 'Brak pytań bez odpowiedzi od ostatniego uruchomienia serwera.',
+  },
+
+  auditLog: {
+    title: 'Dziennik zdarzeń',
+    lead: 'Kto, kiedy i jaką czynność wykonał w systemie. Dziennik nie zawiera treści ocen – służy rozliczalności przetwarzania danych pracowników.',
+    loading: 'Wczytuję dziennik…',
+    error: 'Nie udało się wczytać dziennika zdarzeń.',
+    empty: 'Brak zdarzeń.',
+    columns: { at: 'Kiedy', user: 'Kto', action: 'Czynność', object: 'Obiekt', details: 'Szczegóły' },
+    roles: { supervisor: 'przełożony', hr: 'kadry' } as Record<string, string>,
+    actions: {
+      login: 'Logowanie',
+      'employee.created': 'Dodanie pracownika',
+      'employee.contract_extended': 'Przedłużenie umowy',
+      'note.added': 'Dodanie notatki',
+      'job_description.attached': 'Opis stanowiska',
+      'assessment.started': 'Rozpoczęcie oceny',
+      'assessment.viewed': 'Otwarcie oceny',
+      'assessment.draft_saved': 'Zapis szkicu oceny',
+      'assessment.completed': 'Zakończenie oceny',
+      'assessment.pdf_downloaded': 'Pobranie arkusza PDF',
+      'assessment.ezd_package': 'Paczka do EZD',
+      'export.assessments': 'Eksport dla systemu kadrowego',
+      'reminder.sent': 'Wysłanie przypomnienia',
+    } as Record<string, string>,
+    entities: { assessment: 'ocena', employee: 'pracownik', user: 'użytkownik', export: 'eksport' } as Record<string, string>,
+  },
+
+  interview: {
+    title: (name: string) => `Rozmowa oceniająca: ${name}`,
+    subtitle: 'Ekran na czas spotkania z pracownikiem. Agenda powstała z arkusza oceny; notatki zapiszesz do arkusza po rozmowie.',
+    openButton: 'Tryb rozmowy oceniającej',
+    openHint: 'Agenda spotkania z arkusza, pytania i notatki z rozmowy',
+    backToForm: 'Wróć do arkusza',
+    forbidden: 'Brak dostępu do tej oceny.',
+    completedNote: 'Ocena jest zakończona – ekran rozmowy służy do przygotowania i notatek przed jej zakończeniem.',
+    progress: (done: number, total: number) => `Omówione: ${done} z ${total}`,
+    discussed: 'Omówione',
+    dateLabel: 'Data rozmowy',
+    sections: {
+      opening: {
+        title: 'Otwarcie rozmowy',
+        hint: 'Wyjaśnij cel i przebieg spotkania: rozmowa dotyczy zachowań i wyników z całego okresu oceny, a pracownik ma czas na swoje zdanie.',
+        points: [
+          'Cel: podsumowanie okresu, informacja zwrotna i ustalenie dalszego rozwoju.',
+          'Przebieg: mocne strony → obszary do rozwoju → zdanie pracownika → ustalenia.',
+          'Ocena opiera się na konkretnych przykładach zachowań, nie na ogólnym wrażeniu.',
+        ],
+      },
+      strengths: { title: 'Mocne strony', hint: 'Zacznij od tego, co działało. Przywołaj konkretne zachowania i przykłady.', empty: 'Brak kryteriów powyżej oczekiwań – omów kryteria na poziomie oczekiwań i to, co pracownik robi dobrze.' },
+      development: { title: 'Obszary do rozwoju', hint: 'Mów o faktach i ich skutkach, nie o cechach osoby. Zapytaj o przyczyny i potrzebne wsparcie.', empty: 'Brak kryteriów poniżej oczekiwań.' },
+      employee: { title: 'Zdanie pracownika', hint: 'Pytania otwarte: jak pracownik ocenia ten okres, co mu pomagało, co utrudniało. Zanotuj jego stanowisko.', label: 'Stanowisko i uwagi pracownika', placeholder: 'Np. pracownik wskazał, że opóźnienia wynikały z…' },
+      agreements: { title: 'Ustalenia i plan rozwoju', hint: 'Uzgodnij oczekiwania na kolejny okres, działania rozwojowe i termin ich przeglądu.', label: 'Ustalenia (trafią do wniosków rozwojowych w arkuszu)', placeholder: 'Np. szkolenie z redagowania pism do II kwartału; konsultowanie odpowiedzi na skargi zbiorcze z wydziałem prawnym.' },
+    },
+    noBasis: 'brak podstaw do oceny',
+    level: (n: number) => `poziom ${n}`,
+    noExamples: 'brak zapisanych przykładów – warto o nie dopytać',
+    aiButton: 'Zaproponuj pytania do rozmowy (AI)',
+    aiQuestion: 'Przygotuj pytania do rozmowy oceniającej według agendy: mocne strony, obszary do rozwoju, zdanie pracownika i ustalenia. Wskaż kwestie, które wymagają omówienia.',
+    save: 'Zapisz notatki do arkusza',
+    saving: 'Zapisywanie…',
+    saved: 'Zapisano: ustalenia w arkuszu, stanowisko pracownika w notatkach.',
+    saveError: 'Nie udało się zapisać. Spróbuj ponownie.',
+    noteText: (date: string, text: string) => `Rozmowa oceniająca ${date} – stanowisko pracownika: ${text}`,
+    suggestions: {
+      formal: ['Jak przebiega rozmowa oceniająca?', 'Czy pracownik może nie zgodzić się z oceną?', 'Kiedy uzasadnienie oceny jest obowiązkowe?'],
+      interview: ['Które kwestie wymagają omówienia z pracownikiem?', 'Jak rozmawiać o kryterium poniżej oczekiwań?', 'Uporządkuj argumenty uzasadniające ocenę'],
+    },
+  },
+
+  integrations: {
+    exportTitle: 'Eksport dla systemu kadrowego',
+    exportCsv: 'Pobierz CSV',
+    exportJson: 'Pobierz JSON',
+    exportHint: 'Statusy, terminy i wyniki ocen (bez treści) – do importu np. w QNT.',
+    exportError: 'Nie udało się przygotować eksportu.',
+    ezd: 'Paczka do EZD',
+    ezdPreparing: 'Przygotowuję paczkę…',
+    ezdHint: 'Arkusz PDF i metadane dokumentu (JSON) do przekazania do akt osobowych w EZD.',
+    ezdError: 'Nie udało się przygotować paczki do EZD.',
   },
 
   hrHome: {
@@ -770,6 +885,7 @@ export const texts = {
     result: { positive: 'Pozytywna', negative: 'Negatywna' },
     overview: {
       title: 'Przegląd',
+      all: 'Wszystkie',
       unit: 'pracowników',
       items: {
         not_started: 'nierozpoczęte',
@@ -778,7 +894,7 @@ export const texts = {
         overdue: 'po terminie',
         due_soon: 'termin w ciągu 30 dni',
       },
-      hint: 'Kliknij liczbę, aby zawęzić tabelę „Wszystkie oceny”.',
+      hint: 'Kliknij liczbę, aby zawęzić tabelę poniżej. „Status” sumuje się do liczby pracowników; „Termin” pokazuje, ile ocen jest po terminie lub blisko terminu.',
       showIn: (label: string, n: number) => `${n}: ${label}. Pokaż w tabeli`,
     },
     attention: {
@@ -849,7 +965,7 @@ export const texts = {
       lead: 'Jeden wiersz na pracownika: bieżąca ocena, jej status i termin.',
       caption: 'Oceny wszystkich pracowników',
       search: 'Szukaj',
-      searchPlaceholder: 'Pracownik, przełożony albo komórka',
+      searchPlaceholder: 'Szukaj osoby',
       filters: {
         kind: 'Rodzaj oceny',
         status: 'Status',
@@ -857,9 +973,11 @@ export const texts = {
         unit: 'Komórka',
         all: 'Wszystkie',
         allSupervisors: 'Wszyscy',
-        dueSoon: 'Termin w ciągu 30 dni',
+        dueSoon: 'W ciągu 30 dni',
         overdue: 'Po terminie',
+        anyDue: 'Dowolny',
       },
+      filterBy: (column: string) => `Filtruj kolumnę: ${column}`,
       clear: 'Wyczyść filtry',
       count: (shown: number, total: number) => `Pokazano ${shown} z ${total}`,
       columns: {
@@ -956,7 +1074,7 @@ export const texts = {
     emptyState: 'Zadaj pytanie. Odpowiedzi pojawią się tutaj razem ze źródłem.',
     suggestionsLabel: 'Przykładowe pytania',
     suggestions: {
-      formal: ['Jaki jest termin oceny okresowej?', 'Kiedy uzasadnienie jest obowiązkowe?', 'Co oznacza brak podstaw do oceny?'],
+      formal: ['Jaki jest termin oceny okresowej?', 'Kiedy uzasadnienie jest obowiązkowe?', 'Jak opisać przykład zachowania metodą STAR?'],
       interview: ['Jak przygotować się do rozmowy?', 'Jak napisać uzasadnienie?'],
     } satisfies Record<AssistantMode, string[]>,
     you: 'Pytanie',
@@ -965,6 +1083,11 @@ export const texts = {
     noDataBody: 'W dostępnych dokumentach nie ma podstawy do odpowiedzi na to pytanie. Sprawdź przepisy samodzielnie lub zapytaj kadry.',
     error: 'Asystent nie odpowiedział. Spróbuj ponownie za chwilę.',
     disclaimer: 'Asystent tylko podpowiada. Decyzję o ocenie podejmuje przełożony.',
+    guard: 'Decyzja o ocenie należy do przełożonego',
+    draftTitle: 'Szkic uzasadnienia (propozycja AI)',
+    draftApply: 'Wstaw do pola uzasadnienia',
+    draftApplied: 'Wstawiono – możesz go dowolnie poprawić',
+    draftHint: 'Sprawdź i popraw szkic przed zakończeniem oceny. Za treść odpowiada przełożony.',
     clear: 'Wyczyść rozmowę',
     mockLabel: 'dane przykładowe',
     mockLabelTitle: 'Odpowiedź z makiety, nie z dokumentów urzędu',

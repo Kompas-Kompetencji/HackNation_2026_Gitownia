@@ -80,7 +80,13 @@ export function AppLayout({
 
           <nav aria-label={texts.nav.label} className="flex h-full items-stretch gap-1">
             {user?.role === 'supervisor' && <TopNavLink to="/przelozony">{texts.nav.supervisorHome}</TopNavLink>}
-            {user?.role === 'hr' && <TopNavLink to="/kadry">{texts.nav.hrHome}</TopNavLink>}
+            {user?.role === 'hr' && (
+              <>
+                <TopNavLink to="/kadry" end>{texts.nav.hrHome}</TopNavLink>
+                <TopNavLink to="/kadry/jakosc-ai">{texts.nav.aiQuality}</TopNavLink>
+                <TopNavLink to="/kadry/dziennik">{texts.nav.auditLog}</TopNavLink>
+              </>
+            )}
           </nav>
 
           <div className="ml-auto flex items-center gap-6">
@@ -134,10 +140,11 @@ export function AppLayout({
   )
 }
 
-function TopNavLink({ to, children }: { to: string; children: ReactNode }) {
+function TopNavLink({ to, end, children }: { to: string; end?: boolean; children: ReactNode }) {
   return (
     <NavLink
       to={to}
+      end={end}
       className={({ isActive }) =>
         `flex items-center border-b-2 px-3 text-sm font-medium transition-colors duration-150 ${
           isActive ? 'border-accent text-ink' : 'border-transparent text-ink-muted hover:text-ink'

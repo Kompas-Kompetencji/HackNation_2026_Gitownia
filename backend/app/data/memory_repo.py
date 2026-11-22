@@ -8,6 +8,8 @@ from typing import Any
 from app.data.repository import DataRepository, NotFoundError
 from app.data.schemas import (
     AssessmentRecord,
+    AuditEntry,
+    NewAuditEntry,
     EmployeeRecord,
     JobDescriptionDocument,
     NewAssessment,
@@ -38,6 +40,7 @@ class MemoryRepository(DataRepository):
         self._job_descriptions = list(data.job_descriptions)
         self._assessments = {a.id: a for a in data.assessments}
         self._reminders: list[ReminderRecord] = []
+        self._audit: list[AuditEntry] = []
 
     # Użytkownicy
     def list_users(self) -> list[User]:
@@ -141,3 +144,12 @@ class MemoryRepository(DataRepository):
             record = ReminderRecord(id=_new_id("rem"), **data.model_dump())
             self._reminders.append(record)
             return record.model_copy(deep=True)
+
+    # Dziennik zdarzeń (ostatnie 1000 wpisów w pamięci)
+    def add_audit(self, data: NewAuditEntry) -> None:
+        with self._lock:
+            self._audit.append(AuditEntry(id=_new_id("aud"), **data.model_dump()))
+            del self._audit[:-1000]
+
+    def list_audit(self, limit: int = 200) -> list[AuditEntry]:
+        return [a.model_copy() for a in reversed(self._audit[-limit:])]

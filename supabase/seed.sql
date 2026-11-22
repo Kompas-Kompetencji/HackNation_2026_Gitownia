@@ -15,11 +15,14 @@ insert into public.users (id, email, full_name, role, department, position) valu
     (9003, 'bozena.slezak@urzad.example', 'Bożena Ślęzak', 'HR_ADMIN', 'Biuro Kadr i Szkoleń', 'Główny specjalista do spraw kadr')
 on conflict (id) do nothing;
 
-insert into public.employees (id, first_name, last_name, department, unit, position, employment_type, hire_date, contract_end_date, eval_path, sheet_type, status, supervisor_id) values
-    (9001, 'Joanna', 'Pietrzyk', 'Departament Spraw Obywatelskich', 'Wydział Skarg i Wniosków', 'Starszy specjalista', 'CZAS_NIEOKRESLONY', '2019-03-01', null, 'OKRESOWA', 'C', 'W_TRAKCIE_OBSERWACJI', 9001),
-    (9002, 'Grzegorz', 'Łuczak', 'Departament Spraw Obywatelskich', 'Wydział Prawny', 'Radca', 'MIANOWANY_URZEDNIK', '2016-09-15', null, 'OKRESOWA', 'C', 'W_TRAKCIE_OBSERWACJI', 9001),
-    (9003, 'Małgorzata', 'Wróbel-Sośnicka', 'Departament Spraw Obywatelskich', 'Wydział Obsługi Interesantów', 'Naczelnik wydziału', 'CZAS_NIEOKRESLONY', '2021-02-01', null, 'OKRESOWA', 'B', 'W_TRAKCIE_OBSERWACJI', 9001),
-    (9004, 'Paweł', 'Żmijewski', 'Wydział Zamówień Publicznych', 'Wydział Zamówień Publicznych', 'Specjalista', 'CZAS_OKRESLONY_12M', '2026-11-16', '2027-11-15', 'PIERWSZA', 'PIERWSZA', 'ROZMOWA_WSTEPNA', 9002)
+insert into public.employees (id, first_name, last_name, department, unit, position, employment_type, hire_date, contract_end_date, first_eval_agreement_date, eval_path, sheet_type, status, supervisor_id) values
+    (9001, 'Joanna', 'Pietrzyk', 'Departament Spraw Obywatelskich', 'Wydział Skarg i Wniosków', 'Starszy specjalista', 'CZAS_NIEOKRESLONY', '2019-03-01', null, null, 'OKRESOWA', 'C', 'W_TRAKCIE_OBSERWACJI', 9001),
+    (9002, 'Grzegorz', 'Łuczak', 'Departament Spraw Obywatelskich', 'Wydział Prawny', 'Radca', 'MIANOWANY_URZEDNIK', '2016-09-15', null, null, 'OKRESOWA', 'C', 'W_TRAKCIE_OBSERWACJI', 9001),
+    (9003, 'Małgorzata', 'Wróbel-Sośnicka', 'Departament Spraw Obywatelskich', 'Wydział Obsługi Interesantów', 'Naczelnik wydziału', 'CZAS_NIEOKRESLONY', '2021-02-01', null, null, 'OKRESOWA', 'B', 'W_TRAKCIE_OBSERWACJI', 9001),
+    (9004, 'Paweł', 'Żmijewski', 'Wydział Zamówień Publicznych', 'Wydział Zamówień Publicznych', 'Specjalista', 'CZAS_OKRESLONY_12M', '2026-11-16', '2027-11-15', null, 'PIERWSZA', 'PIERWSZA', 'ROZMOWA_WSTEPNA', 9002),
+    (9005, 'Karolina', 'Mazur', 'Wydział Zamówień Publicznych', 'Wydział Zamówień Publicznych', 'Starszy referent', 'CZAS_OKRESLONY_12M', '2026-02-02', '2027-02-01', null, 'PIERWSZA', 'PIERWSZA', 'ROZMOWA_WSTEPNA', 9002),
+    (9006, 'Adam', 'Wilk', 'Wydział Zamówień Publicznych', 'Wydział Zamówień Publicznych', 'Specjalista', 'ZASTEPSTWO', '2026-05-04', '2027-08-31', '2026-06-01', 'PIERWSZA', 'PIERWSZA', 'ROZMOWA_WSTEPNA', 9002),
+    (9007, 'Ewa', 'Kubiak', 'Departament Spraw Obywatelskich', 'Wydział Prawny', 'Główny specjalista', 'MIANOWANY_URZEDNIK', '2018-01-08', null, null, 'OKRESOWA', 'C', 'W_TRAKCIE_OBSERWACJI', 9001)
 on conflict (id) do nothing;
 
 insert into public.evaluations (id, employee_id, supervisor_id, eval_path, sheet_type, status, due_date, average_score, overall_level, final_result, justification, started_at, completed_at) values
@@ -32,7 +35,11 @@ insert into public.evaluations (id, employee_id, supervisor_id, eval_path, sheet
     (9007, 9003, 9001, 'OKRESOWA', 'B', 'NIEROZPOCZETA', '2026-10-14', null, null, null, null, null, null),
     (9008, 9003, 9001, 'OKRESOWA', 'B', 'ZATWIERDZONA', '2024-10-14', 6.14, 'powyżej oczekiwań', 'POZYTYWNA', null, '2024-10-14T08:00:00+00:00', '2024-10-14T14:00:00+00:00'),
     (9009, 9003, 9001, 'PIERWSZA', 'PIERWSZA', 'ZATWIERDZONA', '2021-07-30', null, null, 'POZYTYWNA', null, '2021-07-30T08:00:00+00:00', '2021-07-30T14:00:00+00:00'),
-    (9010, 9004, 9002, 'PIERWSZA', 'PIERWSZA', 'NIEROZPOCZETA', '2027-11-14', null, null, null, null, null, null)
+    (9010, 9004, 9002, 'PIERWSZA', 'PIERWSZA', 'NIEROZPOCZETA', '2027-11-14', null, null, null, null, null, null),
+    (9011, 9005, 9002, 'PIERWSZA', 'PIERWSZA', 'ROBOCZA', '2027-01-01', null, null, null, null, '2026-11-18T09:00:00+00:00', null),
+    (9012, 9006, 9002, 'PIERWSZA', 'PIERWSZA', 'NIEROZPOCZETA', '2027-07-31', null, null, null, null, null, null),
+    (9013, 9007, 9001, 'OKRESOWA', 'C', 'ZATWIERDZONA', '2024-12-17', 6.14, 'powyżej oczekiwań', 'POZYTYWNA', null, '2024-12-17T08:00:00+00:00', '2024-12-17T14:00:00+00:00'),
+    (9014, 9007, 9001, 'OKRESOWA', 'C', 'ZATWIERDZONA', '2022-12-15', 5.67, 'na poziomie oczekiwań', 'POZYTYWNA', null, '2022-12-15T08:00:00+00:00', '2022-12-15T14:00:00+00:00')
 on conflict (id) do nothing;
 
 insert into public.evaluation_criteria (id, evaluation_id, competency_id, is_mandatory, approved_score)
@@ -70,7 +77,20 @@ select * from (values
     (9031, 9008, 6, true, 5),
     (9032, 9008, 2, true, 5),
     (9033, 9008, 10, false, 7),
-    (9034, 9008, 11, false, 7)
+    (9034, 9008, 11, false, 7),
+    (9035, 9013, 3, true, 7),
+    (9036, 9013, 1, true, 7),
+    (9037, 9013, 4, true, 5),
+    (9038, 9013, 6, true, 5),
+    (9039, 9013, 2, true, 7),
+    (9040, 9013, 7, false, 7),
+    (9041, 9013, 8, false, 5),
+    (9042, 9014, 3, true, 5),
+    (9043, 9014, 1, true, 5),
+    (9044, 9014, 4, true, 5),
+    (9045, 9014, 6, true, 5),
+    (9046, 9014, 2, true, 7),
+    (9047, 9014, 7, false, 7)
 ) as v(id, evaluation_id, competency_id, is_mandatory, approved_score)
 where exists (select 1 from public.competencies c where c.id = v.competency_id)
 on conflict (id) do nothing;
@@ -82,7 +102,8 @@ insert into public.employee_notes (id, employee_id, author_id, text, created_at)
     (9004, 9001, 9001, 'Przeprowadziła dla zespołu krótkie szkolenie z nowej instrukcji kancelaryjnej po kursie w październiku.', '2025-11-24T08:45:00+00:00'),
     (9005, 9002, 9001, 'Opinia do projektu uchwały wskazała dwie kolizje z ustawą; projekt poprawiono przed posiedzeniem zarządu.', '2026-09-09T10:10:00+00:00'),
     (9006, 9003, 9001, 'Wprowadziła nowy grafik dyżurów w punkcie obsługi; kolejki w poniedziałki krótsze o około połowę.', '2026-09-18T13:05:00+00:00'),
-    (9007, 9003, 9001, 'Przy awarii systemu kolejkowego w ciągu godziny zorganizowała ręczną obsługę i poinformowała interesantów.', '2026-05-12T09:30:00+00:00')
+    (9007, 9007, 9001, 'Przygotowała analizę orzecznictwa do sprawy spornej; zarząd przyjął rekomendowane stanowisko bez poprawek.', '2026-08-21T10:00:00+00:00'),
+    (9008, 9003, 9001, 'Przy awarii systemu kolejkowego w ciągu godziny zorganizowała ręczną obsługę i poinformowała interesantów.', '2026-05-12T09:30:00+00:00')
 on conflict (id) do nothing;
 
 insert into public.job_descriptions (id, employee_id, filename, version, analysis, uploaded_at) values

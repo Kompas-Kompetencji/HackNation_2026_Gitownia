@@ -53,7 +53,10 @@ export interface SupervisorAttention {
 function processStatus(employee: EmployeeMonitoring, assessments: AssessmentSummary[]): ProcessStatus {
   const open = assessments.filter((a) => a.status !== 'completed')
   if (open.some((a) => a.status === 'draft' || a.status === 'awaiting_interview')) return 'in_progress'
-  if (open.length === 0 && employee.last_assessment_result != null) return 'completed'
+  // Termin kolejnej oceny jest blisko albo minął, a nikt jej nie zaczął: to nowa, nierozpoczęta ocena,
+  // nawet jeśli poprzednia jest zakończona.
+  const nextDuePending = employee.status === 'assessment_overdue' || employee.status === 'assessment_due_soon'
+  if (open.length === 0 && employee.last_assessment_result != null && !nextDuePending) return 'completed'
   return 'not_started'
 }
 

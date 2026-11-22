@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useBlocker, useNavigate } from 'react-router-dom'
-import { ArrowLeft, ArrowRight, CircleAlert, CircleCheck, LoaderCircle, Save } from 'lucide-react'
+import { ArrowLeft, ArrowRight, CircleAlert, CircleCheck, LoaderCircle, Save, MessagesSquare } from 'lucide-react'
 import { AppLayout } from '../../layout/AppLayout'
-import { Button } from '../../components/ui'
+import { Button, ButtonLink } from '../../components/ui'
 import { Dialog } from '../../components/Dialog'
 import type { AssistantContext, AssistantRequest, AssistantSuggestion } from '../../assistant/AssistantPanel'
+import { toAssistantFormState } from '../../assistant/formState'
 import { completeAssessment, getAssessmentTemplate, saveAssessmentDraft } from '../../lib/api'
 import { formatDate } from '../../lib/format'
 import { texts } from '../../lib/texts'
@@ -286,7 +287,15 @@ export function AssessmentForm({
 
   const decisionsById = Object.fromEntries(criteria.map((c) => [c.competency.competency_id, state.decisions[c.competency.competency_id]?.selected_level ?? null]))
   const statuses = Object.fromEntries(criteria.map((c) => [c.competency.competency_id, criterionStatus(state, c.competency)]))
-  const assistantContext = buildAssistantContext()
+
+  const lastDoc = docs.kind === 'ready' ? docs.data.at(-1)?.analysis : null
+  const assistantExtras: Pick<AssistantContext, 'formState' | 'onApplyJustification'> = {
+    formState: toAssistantFormState(state, criteria, {
+      title: lastDoc?.position_title ?? '',
+      unit: lastDoc?.organizational_unit ?? '',
+    }),
+    onApplyJustification: (text: string) => update((s) => ({ ...s, justification: text })),
+  }
 
   function buildAssistantContext(): AssistantContext {
     const a = t.assistant
@@ -302,6 +311,7 @@ export function AssessmentForm({
       return {
         subject: a.subject(detail.employee_name, c.name),
         note: a.note,
+        ...assistantExtras,
         suggestions: {
           formal: [
             ask(a.suggestions.criterion.whatIndicator, ` ${a.context.indicator(indicator.indicator_id, indicator.description)}`),
@@ -315,9 +325,12 @@ export function AssessmentForm({
     return {
       subject: a.subject(detail.employee_name, summary ? t.stepper.summary : t.stepper.setup),
       note: a.note,
+      ...assistantExtras,
       suggestions: summary ? a.suggestions.summary : a.suggestions.setup,
     }
   }
+
+  const assistantContext = buildAssistantContext()
 
   /* ------------------------------ widok ------------------------------ */
 
@@ -331,15 +344,21 @@ export function AssessmentForm({
   return (
     <AppLayout withAssistant assistantContext={assistantContext} assistantRequest={assistantRequest}>
       <BackLink to={`/przelozony/pracownicy/${detail.employee_id}`} />
-      <header className="mb-6">
-        <h1 className="font-serif text-display font-semibold text-ink">
-          {t.title('periodic')}: {detail.employee_name}
-        </h1>
-        <p className="mt-1 text-ink-muted">
-          {texts.assessment.setup.formOptions[state.form].label}
-          <span aria-hidden> · </span>
-          {t.dueLabel(formatDate(detail.due_date))}
-        </p>
+      <header className="mb-6 flex items-start justify-between gap-6">
+        <div>
+          <h1 className="font-serif text-display font-semibold text-ink">
+            {t.title('periodic')}: {detail.employee_name}
+          </h1>
+          <p className="mt-1 text-ink-muted">
+            {texts.assessment.setup.formOptions[state.form].label}
+            <span aria-hidden> · </span>
+            {t.dueLabel(formatDate(detail.due_date))}
+          </p>
+        </div>
+        <ButtonLink variant="secondary" to={`/przelozony/oceny/${detail.id}/rozmowa`} title={texts.interview.openHint} className="shrink-0 whitespace-nowrap">
+          <MessagesSquare aria-hidden className="size-4" />
+          {texts.interview.openButton}
+        </ButtonLink>
       </header>
 
       <div className="sticky top-16 z-20 -mx-10 mb-8 flex min-h-14 items-center justify-between gap-4 border-y border-line bg-paper/95 px-10 py-2 backdrop-blur-sm">

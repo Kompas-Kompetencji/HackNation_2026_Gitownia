@@ -1,8 +1,8 @@
 import { useState } from 'react'
-import { CircleAlert, FileDown, LoaderCircle, PencilLine } from 'lucide-react'
+import { Archive, CircleAlert, FileDown, LoaderCircle, PencilLine } from 'lucide-react'
 import { ResultBadge } from '../../components/StatusBadge'
 import { Button } from '../../components/ui'
-import { USE_MOCKS, exportAssessmentPdf } from '../../lib/api'
+import { USE_MOCKS, exportAssessmentPdf, exportEzdPackage } from '../../lib/api'
 import { assessmentPdfName, downloadBlob } from '../../lib/download'
 import { texts } from '../../lib/texts'
 import type { AssessmentEvaluation, Level } from '../../types'
@@ -208,6 +208,37 @@ export function PdfButton({
         </p>
       )}
       {USE_MOCKS && <p className="mt-1.5 max-w-64 text-xs text-ink-muted">{t.pdfMock}</p>}
+    </div>
+  )
+}
+
+/** Paczka dla EZD (arkusz PDF + metadane.json) – tylko zakończona ocena. */
+export function EzdButton({ assessmentId }: { assessmentId: string }) {
+  const ti = texts.integrations
+  const [state, setState] = useState<'idle' | 'working' | 'error'>('idle')
+
+  async function handleClick() {
+    setState('working')
+    try {
+      downloadBlob(await exportEzdPackage(assessmentId), `ezd-ocena-${assessmentId}.zip`)
+      setState('idle')
+    } catch {
+      setState('error')
+    }
+  }
+
+  return (
+    <div>
+      <Button variant="secondary" onClick={() => void handleClick()} disabled={state === 'working'} className="whitespace-nowrap" title={ti.ezdHint}>
+        {state === 'working' ? <LoaderCircle aria-hidden className="size-4 animate-spin" /> : <Archive aria-hidden className="size-4" />}
+        {state === 'working' ? ti.ezdPreparing : ti.ezd}
+      </Button>
+      {state === 'error' && (
+        <p role="alert" className="mt-1.5 flex items-center gap-1.5 text-sm text-danger">
+          <CircleAlert aria-hidden className="size-4" />
+          {ti.ezdError}
+        </p>
+      )}
     </div>
   )
 }

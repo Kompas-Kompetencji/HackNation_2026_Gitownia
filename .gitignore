@@ -27,3 +27,6 @@ backend/chroma_db/
 .DS_Store
 .vscode/
 .idea/
+
+# Kopie zapasowe danych z bazy (skrypt reset_demo_data.py)
+backend/backups/

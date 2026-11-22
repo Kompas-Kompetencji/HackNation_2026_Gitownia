@@ -11,8 +11,9 @@ import { texts } from '../lib/texts'
 import type { AssessmentSummary, EmployeeMonitoring, Reminder } from '../types'
 import { AttentionSection } from './hr/AttentionSection'
 import { AssessmentsTable } from './hr/AssessmentsTable'
-import { EMPTY_FILTERS, type TableFilters } from './hr/filters'
+import { EMPTY_FILTERS, hasFilters, type TableFilters } from './hr/filters'
 import { ReminderDialog, type ReminderTarget } from './hr/ReminderDialog'
+import { ExportActions } from './hr/ExportActions'
 
 const t = texts.hrHome
 
@@ -23,7 +24,11 @@ type Load =
 type RemindersLoad = { kind: 'loading' } | { kind: 'error' } | { kind: 'ready'; data: Reminder[] }
 
 type OverviewKey = 'not_started' | 'in_progress' | 'completed' | 'overdue' | 'due_soon'
-const OVERVIEW: OverviewKey[] = ['not_started', 'in_progress', 'completed', 'overdue', 'due_soon']
+/** Przegląd w dwóch grupach, tak jak kolumny tabeli: „Status” (sumuje się do liczby pracowników) i „Termin”. */
+const OVERVIEW_GROUPS: { column: 'status' | 'due'; keys: OverviewKey[] }[] = [
+  { column: 'status', keys: ['not_started', 'in_progress', 'completed'] },
+  { column: 'due', keys: ['overdue', 'due_soon'] },
+]
 
 function overviewFilter(key: OverviewKey): TableFilters {
   if (key === 'overdue') return { ...EMPTY_FILTERS, overdue: true }
@@ -118,7 +123,7 @@ export function HrHomePage() {
 
   return (
     <AppLayout>
-      <PageHeader title={t.title} lead={t.lead} />
+      <PageHeader title={t.title} lead={t.lead} actions={<ExportActions />} />
       {/* Wynik wysłania przypomnienia dla czytników ekranu (region istnieje stale, treść się zmienia). */}
       <p className="sr-only" role="status" aria-live="polite">
         {notice ?? ''}
@@ -138,35 +143,50 @@ export function HrHomePage() {
 
       {state.kind === 'ready' && (
         <>
-          <section aria-labelledby="przeglad" className="mb-10">
+          <section aria-labelledby="przeglad" className="mb-6">
             <h2 id="przeglad" className="mb-2 text-sm font-medium tracking-wide text-ink-muted uppercase">
               {t.overview.title}
             </h2>
-            <div className="flex flex-wrap divide-x divide-line overflow-hidden rounded-md border border-line bg-surface">
-              {OVERVIEW.map((key) => {
-                const active = isOverviewActive(key, filters)
-                const tone =
-                  key === 'overdue' && counts.overdue ? 'text-danger' : key === 'due_soon' && counts.due_soon ? 'text-warning' : 'text-ink'
-                return (
-                  <button
-                    key={key}
-                    type="button"
-                    aria-pressed={active}
-                    title={t.overview.hint}
-                    onClick={() => pickOverview(key)}
-                    className={`relative flex min-w-[9rem] flex-1 items-baseline gap-2 px-5 py-4 text-left transition-colors duration-150 hover:bg-paper ${
-                      active ? 'bg-accent-soft/70' : ''
-                    }`}
-                  >
-                    <span className={`font-serif text-[1.75rem] leading-none font-semibold tabular-nums ${tone}`}>{counts[key]}</span>
-                    <span className="text-sm text-ink-muted">{t.overview.items[key]}</span>
-                    {active && <span aria-hidden className="absolute inset-x-0 bottom-0 h-0.5 bg-accent" />}
-                  </button>
-                )
-              })}
+            <div className="flex flex-wrap items-stretch gap-3">
+              <OverviewTile
+                count={rows.length}
+                label={t.overview.all}
+                active={!hasFilters(filters)}
+                onClick={() => setFilters(EMPTY_FILTERS)}
+              />
+              {OVERVIEW_GROUPS.map((g) => (
+                <div key={g.column} className="flex min-w-0 flex-1 flex-col">
+                  <p className="mb-1 text-xs font-semibold tracking-wide text-ink-muted uppercase">
+                    {texts.hrHome.table.columns[g.column]}
+                  </p>
+                  <div className="flex flex-1 divide-x divide-line overflow-hidden rounded-md border border-line bg-surface">
+                    {g.keys.map((key) => (
+                      <OverviewTile
+                        key={key}
+                        count={counts[key]}
+                        label={overviewLabel(key)}
+                        tone={key === 'overdue' && counts.overdue ? 'text-danger' : key === 'due_soon' && counts.due_soon ? 'text-warning' : 'text-ink'}
+                        active={isOverviewActive(key, filters)}
+                        onClick={() => pickOverview(key)}
+                        bare
+                      />
+                    ))}
+                  </div>
+                </div>
+              ))}
             </div>
             <p className="mt-2 text-xs text-ink-faint">{t.overview.hint}</p>
           </section>
+
+          <div ref={tableRef} className="mb-12 scroll-mt-6">
+            <AssessmentsTable
+              rows={rows}
+              filters={filters}
+              onFilters={setFilters}
+              remindersReady={reminders.kind === 'ready'}
+              onRemind={(r) => openReminder(r.employee.supervisor_id, [r.employee.id])}
+            />
+          </div>
 
           {notice && (
             <div className="mb-4">
@@ -198,15 +218,6 @@ export function HrHomePage() {
 
           <AssessmentCalendar role="hr" onRemind={(e) => openReminder(e.supervisor_id, [e.employee_id])} />
 
-          <div ref={tableRef} className="scroll-mt-6">
-            <AssessmentsTable
-              rows={rows}
-              filters={filters}
-              onFilters={setFilters}
-              remindersReady={reminders.kind === 'ready'}
-              onRemind={(r) => openReminder(r.employee.supervisor_id, [r.employee.id])}
-            />
-          </div>
         </>
       )}
 
@@ -220,5 +231,43 @@ export function HrHomePage() {
         />
       )}
     </AppLayout>
+  )
+}
+
+/** Etykiety przeglądu = etykiety filtrów w tabeli (Status i Termin). */
+function overviewLabel(key: OverviewKey): string {
+  if (key === 'overdue') return texts.hrHome.table.filters.overdue
+  if (key === 'due_soon') return texts.hrHome.table.filters.dueSoon
+  return texts.hrHome.process[key]
+}
+
+function OverviewTile({
+  count,
+  label,
+  active,
+  onClick,
+  tone = 'text-ink',
+  bare = false,
+}: {
+  count: number
+  label: string
+  active: boolean
+  onClick: () => void
+  tone?: string
+  bare?: boolean
+}) {
+  return (
+    <button
+      type="button"
+      aria-pressed={active}
+      onClick={onClick}
+      className={`relative flex min-w-[8.5rem] flex-1 items-baseline gap-2 px-5 py-4 text-left transition-colors duration-150 hover:bg-paper ${
+        bare ? '' : 'flex-none self-end rounded-md border border-line bg-surface'
+      } ${active ? 'bg-accent-soft/70' : ''}`}
+    >
+      <span className={`font-serif text-[1.75rem] leading-none font-semibold tabular-nums ${tone}`}>{count}</span>
+      <span className="text-sm text-ink-muted">{label}</span>
+      {active && <span aria-hidden className="absolute inset-x-0 bottom-0 h-0.5 bg-accent" />}
+    </button>
   )
 }

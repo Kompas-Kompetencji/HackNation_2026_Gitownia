@@ -407,4 +407,21 @@ class ReminderRecord(NewReminder):
     author_id: str | None  # type: ignore[assignment]
 
 
+class NewAuditEntry(BaseModel):
+    """Wpis dziennika zdarzeń (rozliczalność): kto, kiedy, jaka czynność, na czym. Bez treści ocen."""
+
+    at: datetime
+    user_id: str | None
+    user_role: str | None
+    action: str
+    entity: str
+    entity_id: str | None = None
+    details: str = ""
+
+
+class AuditEntry(NewAuditEntry):
+    id: str
+    user_name: str | None = None
+
+
 JsonDict = dict[str, Any]

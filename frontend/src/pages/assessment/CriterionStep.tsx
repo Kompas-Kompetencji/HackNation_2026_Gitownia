@@ -1,5 +1,5 @@
 import { forwardRef, useId, useRef, useState, type ReactNode } from 'react'
-import { Check, ChevronDown, CircleAlert, CircleSlash, LoaderCircle, NotebookText, RotateCcw, Trash2 } from 'lucide-react'
+import { Check, ChevronDown, CircleAlert, LoaderCircle, NotebookText, RotateCcw, Trash2 } from 'lucide-react'
 import { Button } from '../../components/ui'
 import { formatDate } from '../../lib/format'
 import { texts } from '../../lib/texts'
@@ -86,7 +86,6 @@ export function CriterionStep({
               position={i + 1}
               total={competency.indicators.length}
               answer={state.answers[indicator.indicator_id]}
-              noBasisLocked={isLastAssessable(state, competency.indicators, indicator)}
               notes={notes}
               onAnswer={(patch) => onAnswer(indicator, patch)}
               onFocus={() => onActiveIndicator(indicator)}
@@ -148,17 +147,6 @@ export const BlockedAlert = forwardRef<HTMLDivElement, { mandatory: boolean; onR
     </div>
   )
 })
-
-/**
- * Model kompetencji: "brak podstaw do oceny" odnotowuje się dla pojedynczego wskaźnika, ale kryterium
- * otrzymuje ocenę cząstkową, więc co najmniej jeden jego wskaźnik musi zostać oceniony.
- * true = to ostatni wskaźnik kryterium, który nie ma "brak podstaw" – opcja jest dla niego niedostępna.
- */
-function isLastAssessable(state: AnyFormState, indicators: BehavioralIndicator[], indicator: BehavioralIndicator): boolean {
-  if (state.answers[indicator.indicator_id]?.selected_level === null) return false
-  const others = indicators.filter((i) => i.indicator_id !== indicator.indicator_id)
-  return others.length === 0 || others.every((i) => state.answers[i.indicator_id]?.selected_level === null)
-}
 
 /**
  * Pierwsza ocena: pięć opisów zachowań z modelu kompetencji pogrupowanych pod trzema poziomami arkusza
@@ -246,7 +234,6 @@ function IndicatorCard({
   position,
   total,
   answer,
-  noBasisLocked,
   notes,
   onAnswer,
   onFocus,
@@ -256,7 +243,6 @@ function IndicatorCard({
   position: number
   total: number
   answer: LocalAnswer | undefined
-  noBasisLocked: boolean
   notes: SectionState<Note[]>
   onAnswer: (patch: Partial<Pick<LocalAnswer, 'selected_level' | 'star_note'>>) => void
   onFocus: () => void
@@ -339,42 +325,10 @@ function IndicatorCard({
           })}
         </div>
         )}
-        <label className={`mt-1.5 inline-block ${noBasisLocked ? 'cursor-not-allowed' : ''}`}>
-          <input
-            type="radio"
-            name={name}
-            value="brak"
-            checked={level === null}
-            disabled={noBasisLocked}
-            aria-describedby={noBasisLocked ? `${uid}-brak-blokada` : undefined}
-            onChange={() => onAnswer({ selected_level: null })}
-            className="peer sr-only"
-          />
-          <span
-            className={`${optionClass} flex-row gap-2 px-3 ${
-              level === null
-                ? 'border-ink bg-sunken text-ink'
-                : noBasisLocked
-                  ? 'pointer-events-none border-dashed border-line bg-surface text-ink-muted opacity-50'
-                  : 'border-dashed border-line-strong bg-surface text-ink-muted hover:border-ink hover:text-ink'
-            }`}
-          >
-            <CircleSlash aria-hidden className="size-4" />
-            <span className="text-sm font-medium">{t.noBasis}</span>
-            <span className="text-xs">({t.noBasisHint})</span>
-          </span>
-        </label>
       </div>
-
-      {noBasisLocked && (
-        <p id={`${uid}-brak-blokada`} className="mt-1.5 text-xs text-ink-muted">
-          {t.noBasisLocked}
-        </p>
-      )}
 
       <p className="mt-3 min-h-10 text-sm leading-snug text-ink-muted">
         {level === undefined && t.pickLevelHint}
-        {level === null && t.noBasisSelected}
         {level != null && indicator.level_descriptions?.[level] && (
           <>
             <span className="font-medium text-ink">

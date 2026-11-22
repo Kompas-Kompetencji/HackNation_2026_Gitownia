@@ -1,3 +1,5 @@
+# Pytania kontrolne asystenta formalnego (bank pytań jury).
+# Wiersz zaczynający się od '!' = pytanie spoza dziedziny: oczekiwana odmowa (brak źródeł).
 Kto sporządza ocenę okresową?
 Kto podlega ocenie okresowej?
 Czy pracownik zatrudniony na czas określony podlega ocenie okresowej?
@@ -43,6 +45,6 @@ Jakie błędy popełniają oceniający?
 Czym jest efekt aureoli w ocenianiu?
 Jak przygotować się do oceniania pracownika?
 Jakie są cele oceny okresowej?
-Przepis na sernik
-Kto wygrał mundial w 2022?
-Ile wynosi trzynastka w służbie cywilnej?
+!Przepis na sernik
+!Kto wygrał mundial w 2022?
+!Ile wynosi trzynastka w służbie cywilnej?

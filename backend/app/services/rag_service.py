@@ -272,13 +272,15 @@ def compute_deterministic_summary(state: FormSchemaState) -> DeterministicEvalSu
             Decimal(f"{avg_float:.2f}")
         )
         ones = [c for c in active_criteria if normalized_scores.get(c) == 1]
-        if ones or raw_avg <= Decimal("4.0"):
+        # Średnia przesądza o wyniku dopiero przy komplecie kryteriów obowiązkowych (szkic w trakcie ≠ ocena negatywna).
+        avg_negative = raw_avg <= Decimal("4.0") and not missing_mandatory
+        if ones or avg_negative:
             verdict = "NEGATYWNA"
             if ones:
                 reasons.append(
                     f"Wystąpiła ocena cząstkowa 1 pkt ('znacznie poniżej oczekiwań') w: {', '.join(ones)} (§ 11 ust. 1 pkt 4)."
                 )
-            if raw_avg <= Decimal("4.0"):
+            if avg_negative:
                 reasons.append(f"Średnia arytmetyczna {avg_float:.2f} pkt nie przekracza progu 4,00 pkt (poziom: {overall_level}).")
         elif missing_mandatory:
             verdict = "NIEKOMPLETNA"
@@ -633,6 +635,7 @@ def retrieve_legal_sources(query: str, top_k: int = 3) -> list[RagSourceCitation
                 strona=str(item["strona"]),
                 excerpt=_best_excerpt(full, q_stems),
                 full_text=full[:1400],
+                score=round(_sc, 4),
             )
         )
         if len(results) >= top_k:

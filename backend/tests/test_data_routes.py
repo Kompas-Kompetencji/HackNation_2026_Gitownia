@@ -73,8 +73,37 @@ def test_calculate_score_validation(client: TestClient, answers: list) -> None:
 def test_demo_users_and_user(client: TestClient) -> None:
     users = client.get(f"{API}/auth/demo-users").json()
     assert {u["id"]: u["role"] for u in users} == {"sup-001": "supervisor", "sup-002": "supervisor", "hr-001": "hr"}
-    assert client.get(f"{API}/users/hr-001").json()["last_name"] == "Ślęzak"
-    assert client.get(f"{API}/users/brak").status_code == 404
+    hr = {"X-User-Id": "hr-001"}
+    assert client.get(f"{API}/users/hr-001").status_code == 401  # bez logowania
+    assert client.get(f"{API}/users/hr-001", headers=hr).json()["last_name"] == "Ślęzak"
+    assert client.get(f"{API}/users/brak", headers=hr).status_code == 404
+    assert client.get(f"{API}/users/hr-001", headers={"X-User-Id": "sup-001"}).status_code == 403
+
+
+def test_jwt_login_flow(client: TestClient, monkeypatch) -> None:
+    from app.core.config import settings
+
+    monkeypatch.setattr(settings, "AUTH_ALLOW_DEMO_HEADER", False)
+    assert client.post(f"{API}/auth/login", json={"user_id": "brak"}).status_code == 401
+    login = client.post(f"{API}/auth/login", json={"user_id": "sup-001"}).json()
+    assert login["token_type"] == "bearer" and login["user"]["id"] == "sup-001"
+    auth = {"Authorization": f"Bearer {login['access_token']}"}
+    assert client.get(f"{API}/auth/me", headers=auth).json()["id"] == "sup-001"
+    assert client.get(f"{API}/employees", headers=auth).status_code == 200
+    # Nagłówek X-User-Id bez tokenu nie wystarcza (produkcja), podrobiony token też nie.
+    assert client.get(f"{API}/employees", headers={"X-User-Id": "sup-001"}).status_code == 401
+    forged = login["access_token"][:-4] + "AAAA"
+    assert client.get(f"{API}/employees", headers={"Authorization": f"Bearer {forged}"}).status_code == 401
+
+
+def test_expired_token_rejected() -> None:
+    import pytest
+
+    from app.core.security import TokenError, create_access_token, decode_access_token
+
+    token, _ = create_access_token("sup-001", "supervisor", ttl_minutes=-1)
+    with pytest.raises(TokenError):
+        decode_access_token(token)
 
 
 def test_requires_user_header(client: TestClient) -> None:
@@ -85,7 +114,7 @@ def test_requires_user_header(client: TestClient) -> None:
 def test_supervisor_sees_only_own_employees(client: TestClient) -> None:
     employees = client.get(f"{API}/employees", headers=SUP1).json()
     by_id = {e["id"]: e for e in employees}
-    assert set(by_id) == {"emp-001", "emp-002", "emp-003"}
+    assert set(by_id) == {"emp-001", "emp-002", "emp-003", "emp-007"}
     assert by_id["emp-001"]["status"] == "assessment_due_soon"
     assert by_id["emp-001"]["next_assessment_due"] == "2026-12-09"
     assert by_id["emp-002"]["status"] == "up_to_date"
@@ -101,7 +130,7 @@ def test_supervisor_sees_only_own_employees(client: TestClient) -> None:
 
 
 def test_hr_sees_all_but_cannot_change(client: TestClient) -> None:
-    assert len(client.get(f"{API}/employees", headers=HR).json()) == 4
+    assert len(client.get(f"{API}/employees", headers=HR).json()) == 7
     assert client.get(f"{API}/employees/emp-001", headers=HR).status_code == 200
     assert client.post(f"{API}/employees/emp-001/notes", headers=HR, json={"text": "x"}).status_code == 403
     assert client.post(f"{API}/assessments", headers=HR, json={"employee_id": "emp-001", "kind": "periodic"}).status_code == 403
@@ -122,7 +151,7 @@ def test_create_employee_first_assessment(client: TestClient) -> None:
     assert employee["next_assessment_due"] is not None
     listed = client.get(f"{API}/assessments", headers=SUP2, params={"employee_id": employee["id"]}).json()
     assert [(a["kind"], a["status"]) for a in listed] == [("first", "not_started")]
-    assert client.get(f"{API}/employees", headers=SUP1).json().__len__() == 3
+    assert client.get(f"{API}/employees", headers=SUP1).json().__len__() == 4
 
 
 # --- notatki i opisy stanowiska ---------------------------------------------------------------
@@ -164,9 +193,9 @@ def test_job_descriptions_versions_and_form(client: TestClient) -> None:
 
 
 def test_list_assessments_visibility_and_filters(client: TestClient) -> None:
-    assert len(client.get(f"{API}/assessments", headers=HR).json()) == 10
+    assert len(client.get(f"{API}/assessments", headers=HR).json()) == 14
     own = client.get(f"{API}/assessments", headers=SUP2).json()
-    assert [a["id"] for a in own] == ["as-004"]
+    assert sorted(a["id"] for a in own) == ["as-004", "as-005", "as-006"]
     overdue = client.get(f"{API}/assessments", headers=SUP1, params={"status": "overdue"}).json()
     assert [a["id"] for a in overdue] == ["as-003"]
     assert overdue[0]["employee_name"] == "Małgorzata Wróbel-Sośnicka"

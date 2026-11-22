@@ -6,7 +6,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, FastAPI, File, HTTPException, Query, Request, UploadFile, status
+from fastapi import APIRouter, Depends, FastAPI, File, HTTPException, Query, Request, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, Response
 
@@ -25,6 +25,7 @@ from app.services.osp_parser import parse_osp_docx
 from app.services.pdf_generator import generate_evaluation_pdf
 from app.data.supabase_repo import SupabaseError
 from app.services.llm_client import llm_status
+from app.routers.auth_dep import require_user
 from scripts.parse_excel import build_output_document, build_seed_competencies
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -153,7 +154,7 @@ def get_competencies(
     }
 
 
-@router.post("/osp/parse", response_model=OspParseResult, tags=["Parser OSP"])
+@router.post("/osp/parse", response_model=OspParseResult, tags=["Parser OSP"], dependencies=[Depends(require_user)])
 async def upload_and_parse_osp(
     file: UploadFile = File(..., description="Plik Opisu Stanowiska Pracy w formacie .docx"),
 ) -> OspParseResult:
@@ -184,6 +185,7 @@ def validate_and_score_evaluation(payload: EvaluationRequest) -> EvaluationRespo
 @router.post(
     "/evaluations/pdf",
     tags=["Generator PDF"],
+    dependencies=[Depends(require_user)],
     responses={
         200: {
             "content": {"application/pdf": {}},

@@ -10,3 +10,4 @@ frontend/dist
 backend/static
 backend/chroma_db
 docs
+**/backups
