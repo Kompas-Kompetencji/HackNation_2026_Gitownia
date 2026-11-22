@@ -8,6 +8,7 @@ import { Alert, Button } from '../components/ui'
 import { listDemoUsers, listEmployees } from '../lib/api'
 import { formatDate, formatRelativeDue, fullName } from '../lib/format'
 import { texts } from '../lib/texts'
+import { isFirstAssessmentDone } from '../lib/employee'
 import type { Employee, EmployeeStatus, User } from '../types'
 
 type Tile = 'assessment_overdue' | 'assessment_due_soon' | 'in_progress' | 'up_to_date'
@@ -157,7 +158,9 @@ export function HrHomePage() {
                         <EmployeeStatusBadge status={e.status} />
                       </td>
                       <td className="px-4 py-3 tabular-nums">
-                        {e.next_assessment_due ? (
+                        {isFirstAssessmentDone(e) ? (
+                          <span className="text-ink-muted">{texts.supervisorHome.firstDone}</span>
+                        ) : e.next_assessment_due ? (
                           <>
                             <span className="text-ink">{formatDate(e.next_assessment_due)}</span>
                             <span className="block text-ink-muted">{formatRelativeDue(e.next_assessment_due)}</span>

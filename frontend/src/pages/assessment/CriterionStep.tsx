@@ -7,16 +7,22 @@ import type { BehavioralIndicator, Level, Note, StarNote } from '../../types'
 import type { SectionState } from '../employee/sectionState'
 import {
   emptyStar,
+  FIRST_LEVELS,
   formatOneDecimal,
   hasStarContent,
   LEVELS,
+  toFirstScaleHint,
   type Criterion,
-  type FormState,
+  type AnyFormState,
   type LocalAnswer,
 } from './model'
 import type { ScoreHint } from './useScoreHint'
 
 const t = texts.assessment.criterion
+const tf = texts.firstAssessment.criterion
+
+/** periodic = ocena okresowa (skala 1–9); first = pierwsza ocena (elementy, decyzja 3/5/7). */
+export type CriterionVariant = 'periodic' | 'first'
 
 /** Wspólny wygląd opcji wyboru: natywny radio (klawiatura: strzałki) ukryty pod etykietą. */
 const optionClass =
@@ -35,11 +41,13 @@ export function CriterionStep({
   onDecision,
   onRemove,
   onActiveIndicator,
+  variant = 'periodic',
 }: {
+  variant?: CriterionVariant
   criterion: Criterion
   position: number
   total: number
-  state: FormState
+  state: AnyFormState
   hint: ScoreHint
   onRetryHint: () => void
   notes: SectionState<Note[]>
@@ -52,19 +60,22 @@ export function CriterionStep({
   const { competency, mandatory } = criterion
   const answered = competency.indicators.filter((i) => state.answers[i.indicator_id]?.selected_level !== undefined).length
   const decision = state.decisions[competency.competency_id]
-  const suggested = hint.kind === 'ready' ? hint.result.suggested_level : null
+  const first = variant === 'first'
+  const rawSuggested = hint.kind === 'ready' ? hint.result.suggested_level : null
+  // Pierwsza ocena: wskazówka 1–9 z backendu przeliczona na skalę 3/5/7 (tylko podpowiedź).
+  const suggested = first ? toFirstScaleHint(rawSuggested) : rawSuggested
 
   return (
     <div>
       <p className="text-sm font-medium text-ink-muted">
         <span className="sr-only">{texts.assessment.progress.criterion(position, total)}, </span>
-        {mandatory ? t.mandatory : t.additional}
+        {first ? tf.label : mandatory ? t.mandatory : t.additional}
       </p>
       <h2 tabIndex={-1} data-step-heading className="mt-1 font-serif text-display font-semibold text-ink focus:outline-none">
         {competency.name}
       </h2>
       {competency.definition && <p className="mt-2 text-ink">{competency.definition}</p>}
-      <p className="mt-3 max-w-prose text-sm leading-relaxed text-ink-muted">{t.lead}</p>
+      <p className="mt-3 max-w-prose text-sm leading-relaxed text-ink-muted">{first ? tf.lead : t.lead}</p>
       <p className="mt-2 text-sm text-ink-muted tabular-nums">{t.answered(answered, competency.indicators.length)}</p>
 
       <ol className="mt-6 space-y-5">
@@ -84,10 +95,17 @@ export function CriterionStep({
         ))}
       </ol>
 
-      {blocked && <BlockedAlert mandatory={mandatory} onRemove={onRemove} />}
+      {blocked && <BlockedAlert mandatory={mandatory} onRemove={onRemove} message={first ? tf.blocked : undefined} />}
 
       <section aria-labelledby="wskazowka" className="mt-8 border-t border-line pt-6">
-        <ScoreHintView hint={hint} onRetry={onRetryHint} total={competency.indicators.length} state={state} criterion={criterion} />
+        <ScoreHintView
+          hint={hint}
+          onRetry={onRetryHint}
+          total={competency.indicators.length}
+          state={state}
+          criterion={criterion}
+          variant={variant}
+        />
       </section>
 
       <DecisionField
@@ -97,13 +115,15 @@ export function CriterionStep({
         suggested={suggested}
         hasEvidence={competency.indicators.some((i) => state.answers[i.indicator_id]?.selected_level != null)}
         onChange={onDecision}
+        levels={first ? FIRST_LEVELS : LEVELS}
+        legend={first ? tf.decisionLegend : undefined}
       />
     </div>
   )
 }
 
-export const BlockedAlert = forwardRef<HTMLDivElement, { mandatory: boolean; onRemove: () => void }>(function BlockedAlert(
-  { mandatory, onRemove },
+export const BlockedAlert = forwardRef<HTMLDivElement, { mandatory: boolean; onRemove: () => void; message?: string }>(function BlockedAlert(
+  { mandatory, onRemove, message },
   ref,
 ) {
   return (
@@ -116,7 +136,7 @@ export const BlockedAlert = forwardRef<HTMLDivElement, { mandatory: boolean; onR
     >
       <CircleAlert aria-hidden className="mt-0.5 size-4 shrink-0" />
       <div className="flex-1">
-        <p className="font-medium">{mandatory ? t.blocked.mandatory : t.blocked.additional}</p>
+        <p className="font-medium">{message ?? (mandatory ? t.blocked.mandatory : t.blocked.additional)}</p>
         {!mandatory && (
           <Button variant="secondary" onClick={onRemove} className="mt-3 border-danger/40 py-1.5 text-sm text-danger">
             <Trash2 aria-hidden className="size-4" />
@@ -133,7 +153,7 @@ export const BlockedAlert = forwardRef<HTMLDivElement, { mandatory: boolean; onR
  * otrzymuje ocenę cząstkową, więc co najmniej jeden jego wskaźnik musi zostać oceniony.
  * true = to ostatni wskaźnik kryterium, który nie ma "brak podstaw" – opcja jest dla niego niedostępna.
  */
-function isLastAssessable(state: FormState, indicators: BehavioralIndicator[], indicator: BehavioralIndicator): boolean {
+function isLastAssessable(state: AnyFormState, indicators: BehavioralIndicator[], indicator: BehavioralIndicator): boolean {
   if (state.answers[indicator.indicator_id]?.selected_level === null) return false
   const others = indicators.filter((i) => i.indicator_id !== indicator.indicator_id)
   return others.length === 0 || others.every((i) => state.answers[i.indicator_id]?.selected_level === null)
@@ -381,12 +401,14 @@ function ScoreHintView({
   total,
   state,
   criterion,
+  variant,
 }: {
   hint: ScoreHint
   onRetry: () => void
   total: number
-  state: FormState
+  state: AnyFormState
   criterion: Criterion
+  variant: CriterionVariant
 }) {
   const h = t.hint
   const noBasis = criterion.competency.indicators.filter((i) => state.answers[i.indicator_id]?.selected_level === null).length
@@ -428,7 +450,14 @@ function ScoreHintView({
                 <p className="text-ink">
                   <span className="font-semibold tabular-nums">{h.mean(formatOneDecimal(result.mean))}</span>
                 </p>
-                {result.suggested_level && (
+                {variant === 'first' && result.suggested_level && (
+                  <p className="text-ink">
+                    {h.suggested}:{' '}
+                    <span className="font-semibold tabular-nums">{tf.hintScale(toFirstScaleHint(result.suggested_level)!)}</span>{' '}
+                    <span className="text-ink-muted">({tf.hintFrom(result.suggested_level)})</span>
+                  </p>
+                )}
+                {variant !== 'first' && result.suggested_level && (
                   <p className="text-ink">
                     {h.suggested}:{' '}
                     <span className="font-semibold tabular-nums">{t.levelPoints(result.suggested_level)}</span>{' '}
@@ -451,7 +480,7 @@ function ScoreHintView({
           </div>
         )}
       </div>
-      <p className="mt-2 text-xs text-ink-muted">{h.disclaimer}</p>
+      <p className="mt-2 text-xs text-ink-muted">{variant === 'first' ? tf.hintDisclaimer : h.disclaimer}</p>
     </div>
   )
 }
@@ -463,7 +492,11 @@ function DecisionField({
   suggested,
   hasEvidence,
   onChange,
+  levels,
+  legend,
 }: {
+  levels: Level[]
+  legend?: string
   competencyId: string
   value: Level | null
   note: string
@@ -477,12 +510,12 @@ function DecisionField({
 
   return (
     <fieldset className="mt-6 rounded-md border-2 border-ink/80 bg-surface px-5 pt-4 pb-5" aria-describedby={`${uid}-wymagane`}>
-      <legend className="px-1 font-semibold text-ink">{d.legend}</legend>
+      <legend className="px-1 font-semibold text-ink">{legend ?? d.legend}</legend>
       <p id={`${uid}-wymagane`} className="-mt-1 text-sm text-ink-muted">
         {d.required}
       </p>
-      <div className="mt-3 grid grid-cols-5 gap-1.5">
-        {LEVELS.map((l) => {
+      <div className={`mt-3 grid gap-1.5 ${levels.length === 3 ? 'grid-cols-3' : 'grid-cols-5'}`}>
+        {levels.map((l) => {
           const checked = value === l
           return (
             <label key={l} className="block">

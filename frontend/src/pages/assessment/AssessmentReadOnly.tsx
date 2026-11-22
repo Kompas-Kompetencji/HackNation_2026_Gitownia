@@ -7,6 +7,7 @@ import { texts } from '../../lib/texts'
 import type { AssessmentDetail, CompetencyModel } from '../../types'
 import { BackLink } from './BackLink'
 import { DecisionsTable, EvaluationResultView, PdfButton, type DecisionRow } from './SummaryParts'
+import { FirstDataList } from './SummaryStep'
 
 const t = texts.assessment.readOnly
 
@@ -22,14 +23,16 @@ export function AssessmentReadOnly({ detail, model }: { detail: AssessmentDetail
     note: d.decision_note,
   }))
   const completed = detail.completed_at ? formatDate(detail.completed_at) : '—'
+  const first = detail.kind === 'first' || detail.form === 'first'
+  const tf = texts.firstAssessment
 
   return (
     <AppLayout
       withAssistant
       assistantContext={{
-        subject: texts.assessment.assistant.subject(detail.employee_name, t.completedOn(completed)),
+        subject: (first ? tf.assistant.subject : texts.assessment.assistant.subject)(detail.employee_name, t.completedOn(completed)),
         note: texts.assessment.assistant.note,
-        suggestions: texts.assessment.assistant.suggestions.summary,
+        suggestions: first ? tf.assistant.suggestions.summary : texts.assessment.assistant.suggestions.summary,
       }}
     >
       <BackLink to={`/przelozony/pracownicy/${detail.employee_id}`} />
@@ -43,7 +46,7 @@ export function AssessmentReadOnly({ detail, model }: { detail: AssessmentDetail
             {t.readOnlyNote}
           </p>
         </div>
-        {detail.kind === 'periodic' && (
+        {(detail.kind === 'periodic' || first) && (
           <PdfButton assessmentId={detail.id} employeeName={detail.employee_name} label={texts.assessment.summary.pdf} />
         )}
       </header>
@@ -65,13 +68,32 @@ export function AssessmentReadOnly({ detail, model }: { detail: AssessmentDetail
                 {texts.assessment.summary.result.title}
               </h2>
               <EvaluationResultView evaluation={detail.evaluation} />
+              {first && (
+                <p className="mt-3 max-w-prose text-sm text-ink-muted">
+                  {detail.evaluation.result === 'negative' ? tf.readOnly.afterNegative : tf.readOnly.afterPositive}
+                </p>
+              )}
+            </section>
+          )}
+          {first && (
+            <section aria-labelledby="dane-pierwszej">
+              <h2 id="dane-pierwszej" className="mb-1 text-title font-semibold text-ink">
+                {tf.readOnly.data}
+              </h2>
+              <FirstDataList data={detail} />
             </section>
           )}
           <section aria-labelledby="decyzje">
             <h2 id="decyzje" className="mb-3 text-title font-semibold text-ink">
               {t.decisions}
             </h2>
-            <DecisionsTable rows={rows} showSuggestion={false} decisionLabel={t.level} />
+            <DecisionsTable
+              rows={rows}
+              showSuggestion={false}
+              decisionLabel={t.level}
+              caption={first ? tf.summary.caption : undefined}
+              criterionLabel={first ? tf.summary.element : undefined}
+            />
           </section>
           <section aria-labelledby="uzasadnienie">
             <h2 id="uzasadnienie" className="mb-3 text-title font-semibold text-ink">

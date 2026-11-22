@@ -29,20 +29,24 @@ export function DecisionsTable({
   onEdit,
   showSuggestion = true,
   decisionLabel = t.table.decision,
+  caption = t.table.caption,
+  criterionLabel = t.table.criterion,
 }: {
   rows: DecisionRow[]
   onEdit?: (step: string) => void
   showSuggestion?: boolean
   decisionLabel?: string
+  caption?: string
+  criterionLabel?: string
 }) {
   const c = t.table
   return (
     <div className="overflow-hidden rounded-md border border-line bg-surface">
       <table className="w-full border-collapse text-left">
-        <caption className="sr-only">{c.caption}</caption>
+        <caption className="sr-only">{caption}</caption>
         <thead className="border-b border-line bg-sunken/60 text-sm text-ink-muted">
           <tr>
-            <th scope="col" className="px-4 py-2.5 font-medium">{c.criterion}</th>
+            <th scope="col" className="px-4 py-2.5 font-medium">{criterionLabel}</th>
             {showSuggestion && <th scope="col" className="px-4 py-2.5 font-medium">{c.suggested}</th>}
             <th scope="col" className="px-4 py-2.5 font-medium">{decisionLabel}</th>
             {onEdit && (

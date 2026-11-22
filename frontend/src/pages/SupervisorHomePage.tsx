@@ -10,6 +10,7 @@ import { Alert, Button, ButtonLink } from '../components/ui'
 import { listEmployees } from '../lib/api'
 import { formatDate, formatRelativeDue, fullName } from '../lib/format'
 import { texts } from '../lib/texts'
+import { isFirstAssessmentDone } from '../lib/employee'
 import type { Employee, EmployeeStatus } from '../types'
 
 type SortKey = 'name' | 'position' | 'status' | 'due'
@@ -226,7 +227,9 @@ function EmployeeRow({ employee: e }: { employee: Employee }) {
         <EmployeeStatusBadge status={e.status} />
       </td>
       <td className="px-5 py-3.5">
-        {e.next_assessment_due ? (
+        {isFirstAssessmentDone(e) ? (
+          <p className="text-ink-muted">{texts.supervisorHome.firstDone}</p>
+        ) : e.next_assessment_due ? (
           <>
             <p className="text-ink tabular-nums">{formatDate(e.next_assessment_due)}</p>
             <p className="text-sm text-ink-muted">{formatRelativeDue(e.next_assessment_due)}</p>

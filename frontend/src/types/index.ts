@@ -312,7 +312,7 @@ export interface AssessmentSummary {
 
 /** Odpowiedź getAssessmentTemplate(form): które kryteria są obowiązkowe dla arkusza. */
 export interface AssessmentTemplate {
-  form: AssessmentForm
+  form: EmployeeForm
   mandatory_competency_ids: string[]
   max_additional: number
 }

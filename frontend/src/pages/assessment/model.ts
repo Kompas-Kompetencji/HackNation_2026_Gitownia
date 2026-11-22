@@ -3,6 +3,8 @@ import type {
   AssessmentForm,
   Competency,
   CriterionDecision,
+  EmployeeForm,
+  FirstAssessmentFields,
   IndicatorAnswer,
   Level,
   StarNote,
@@ -10,13 +12,32 @@ import type {
 
 export const LEVELS: Level[] = [1, 3, 5, 7, 9]
 
+/** Skala decyzji w pierwszej ocenie (§ 9 ust. 1 rozporządzenia z 2015 r.); wynik i tak sprawdza backend. */
+export const FIRST_LEVELS: Level[] = [3, 5, 7]
+
+/**
+ * Wskazówka poziomu w skali pierwszej oceny: przekłada poziom z backendu (calculateScore, skala 1–9)
+ * na skalę 3/5/7. Mapowanie: 1 i 3 → 3, 5 → 5, 7 i 9 → 7.
+ * To wyłącznie podpowiedź na ekranie: przełożony sam wybiera 3, 5 albo 7, a wynik oceny liczy backend.
+ */
+export function toFirstScaleHint(level: Level | null): Level | null {
+  if (level === null) return null
+  if (level <= 3) return 3
+  if (level >= 7) return 7
+  return 5
+}
+
+/** Krok „Dane pierwszej oceny” (rozmowy, sprawozdanie, egzamin). */
+export const FIRST_DATA_STEP = 'dane-pierwszej-oceny'
+
 export const SETUP_STEP = 'konfiguracja'
 export const SUMMARY_STEP = 'podsumowanie'
 export const criterionStep = (competency_id: string) => `kryterium-${competency_id}`
 
 /** Lokalny stan formularza; do backendu idzie jako AssessmentDraftInput. */
-export interface FormState {
-  form: AssessmentForm
+/** Arkusz w stanie formularza: B/C w ocenie okresowej, "first" w pierwszej ocenie. */
+export interface FormState<F extends EmployeeForm = AssessmentForm> {
+  form: F
   additional: string[]
   /**
    * Po indicator_id. selected_level: undefined = bez odpowiedzi (może już mieć przykład),
@@ -27,7 +48,12 @@ export interface FormState {
   decisions: Record<string, { selected_level: Level | null; decision_note: string }>
   justification: string
   step: string
+  /** Tylko pierwsza ocena: rozmowy, sprawozdanie, egzamin. */
+  first?: FirstAssessmentFields
 }
+
+/** Stan formularza dowolnej oceny (okresowej albo pierwszej) — dla części wspólnych. */
+export type AnyFormState = FormState<EmployeeForm>
 
 export interface LocalAnswer {
   competency_id: string
@@ -41,7 +67,7 @@ export interface Criterion {
   mandatory: boolean
 }
 
-export function toDraftInput(state: FormState, criteria: Criterion[]): AssessmentDraftInput {
+export function toDraftInput(state: FormState<EmployeeForm>, criteria: Criterion[]): AssessmentDraftInput {
   const ids = new Set(criteria.map((c) => c.competency.competency_id))
   return {
     form: state.form,
@@ -60,11 +86,12 @@ export function toDraftInput(state: FormState, criteria: Criterion[]): Assessmen
     })),
     justification_draft: state.justification,
     last_step: state.step,
+    ...(state.form === 'first' && state.first ? state.first : {}),
   }
 }
 
 /** Odpowiedzi wskaźników kryterium w kształcie kontraktu (bez wskaźników bez odpowiedzi). */
-export function answersFor(state: FormState, competency: Competency): IndicatorAnswer[] {
+export function answersFor(state: AnyFormState, competency: Competency): IndicatorAnswer[] {
   return competency.indicators.flatMap((i) => {
     const a = state.answers[i.indicator_id]
     return a && a.selected_level !== undefined ? [{ ...a, selected_level: a.selected_level }] : []
@@ -75,14 +102,14 @@ export function answersFor(state: FormState, competency: Competency): IndicatorA
  * Walidacja formularza (nie punktacja): wszystkie wskaźniki mają odpowiedź
  * i każda to „brak podstaw do oceny" → nie ma podstawy do oceny kryterium.
  */
-export function isBlocked(state: FormState, competency: Competency): boolean {
+export function isBlocked(state: AnyFormState, competency: Competency): boolean {
   const answers = answersFor(state, competency)
   return answers.length === competency.indicators.length && answers.every((a) => a.selected_level === null)
 }
 
 export type CriterionStatus = 'todo' | 'progress' | 'blocked' | 'decided'
 
-export function criterionStatus(state: FormState, competency: Competency): CriterionStatus {
+export function criterionStatus(state: AnyFormState, competency: Competency): CriterionStatus {
   if (isBlocked(state, competency)) return 'blocked'
   if (state.decisions[competency.competency_id]?.selected_level) return 'decided'
   return answersFor(state, competency).length > 0 ? 'progress' : 'todo'

@@ -41,7 +41,7 @@ import { BackLink } from './BackLink'
 const t = texts.assessment
 const AUTOSAVE_MS = 2500
 
-type SaveState = { kind: 'idle' } | { kind: 'saving' } | { kind: 'saved'; at: string } | { kind: 'error' }
+export type SaveState = { kind: 'idle' } | { kind: 'saving' } | { kind: 'saved'; at: string } | { kind: 'error' }
 
 function initialState(detail: AssessmentDetail): FormState {
   return {
@@ -484,7 +484,7 @@ export function AssessmentForm({
 }
 
 /** Kontener kroku kryterium: osobna wskazówka poziomu dla każdego kryterium. */
-function CriterionContainer(
+export function CriterionContainer(
   props: Omit<Parameters<typeof CriterionStep>[0], 'hint' | 'onRetryHint'> & { criterion: Criterion },
 ) {
   const answers = answersFor(props.state, props.criterion.competency)
@@ -492,7 +492,7 @@ function CriterionContainer(
   return <CriterionStep {...props} hint={hint} onRetryHint={retry} />
 }
 
-function SaveStatus({
+export function SaveStatus({
   state,
   dirty,
   onSave,

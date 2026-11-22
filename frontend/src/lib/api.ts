@@ -30,6 +30,7 @@ import type {
   CompetencyModel,
   CreateEmployeeInput,
   Employee,
+  EmployeeForm,
   EvaluationInput,
   FirstAssessmentSchedule,
   FirstEvaluationInput,
@@ -363,13 +364,15 @@ const MAX_ADDITIONAL_PERIODIC = 3
  * Szablon arkusza oceny okresowej: kryteria obowiązkowe i limit kryteriów dodatkowych.
  * Backend: GET /competencies?form_type=FORM_B|FORM_C (pole is_mandatory_for_selected_form).
  */
-export async function getAssessmentTemplate(form: AssessmentForm): Promise<AssessmentTemplate> {
+export async function getAssessmentTemplate(form: EmployeeForm): Promise<AssessmentTemplate> {
   if (usesMock('getAssessmentTemplate')) return mockDelay(mockAssessmentTemplates[form], 200)
-  const raw = await request<BackendCompetencyModel>(`/competencies?form_type=FORM_${form}`)
+  // Pierwsza ocena: FIRST_EVAL_FORM, pięć stałych elementów, bez kryteriów dodatkowych.
+  const formType = form === 'first' ? 'FIRST_EVAL_FORM' : `FORM_${form}`
+  const raw = await request<BackendCompetencyModel>(`/competencies?form_type=${formType}`)
   return {
     form,
     mandatory_competency_ids: raw.competencies.filter((c) => c.is_mandatory_for_selected_form).map((c) => competencyIdOf(c.id)),
-    max_additional: MAX_ADDITIONAL_PERIODIC,
+    max_additional: form === 'first' ? 0 : MAX_ADDITIONAL_PERIODIC,
   }
 }
 

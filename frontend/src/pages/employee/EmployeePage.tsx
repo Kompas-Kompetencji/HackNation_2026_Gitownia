@@ -33,7 +33,12 @@ export function EmployeePage() {
   const { employeeId = '' } = useParams()
   const location = useLocation()
   const navigate = useNavigate()
-  const navState = location.state as { created?: string; withDocument?: boolean; completedResult?: AssessmentResult | null } | null
+  const navState = location.state as {
+    created?: string
+    withDocument?: boolean
+    completedResult?: AssessmentResult | null
+    completedKind?: 'first' | 'periodic'
+  } | null
   const [state, setState] = useState<EmployeeState>({ kind: 'loading' })
   const [docs, setDocs] = useState<SectionState<JobDescriptionDocument[]>>({ kind: 'loading' })
   const [assessments, setAssessments] = useState<SectionState<AssessmentSummary[]>>({ kind: 'loading' })
@@ -185,10 +190,12 @@ export function EmployeePage() {
       {navState?.completedResult && (
         <p role="status" className="mb-6 flex items-center gap-3 rounded-md bg-positive-soft px-4 py-3 text-positive">
           <CircleCheck aria-hidden className="size-4 shrink-0" />
-          {texts.assessment.completedNotice(
-            t.result[navState.completedResult],
-            employee.next_assessment_due ? formatDate(employee.next_assessment_due) : null,
-          )}
+          {navState.completedKind === 'first'
+            ? texts.firstAssessment.completedNotice(t.result[navState.completedResult])
+            : texts.assessment.completedNotice(
+                t.result[navState.completedResult],
+                employee.next_assessment_due ? formatDate(employee.next_assessment_due) : null,
+              )}
         </p>
       )}
 

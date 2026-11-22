@@ -75,6 +75,7 @@ export const texts = {
     count: (shown: number, total: number) =>
       shown === total ? `Pracownicy: ${total}` : `Wyniki wyszukiwania: ${shown} z ${total}`,
     dueNotSet: 'Termin ustali system',
+    firstDone: 'Pierwsza ocena zakończona',
     loading: 'Wczytywanie listy pracowników…',
     loadError: 'Nie udało się wczytać listy pracowników.',
     emptyTitle: 'Nie masz jeszcze żadnych pracowników',
@@ -255,6 +256,9 @@ export const texts = {
       periodic: (date: string) => `Ocena okresowa do ${date}`,
       first: (date: string) => `Pierwsza ocena do ${date}`,
       notSet: 'Termin następnej oceny ustali system',
+      firstDone: (result: string) => `Pierwsza ocena zakończona: ${result}`,
+      firstDoneNegative: 'Dalsze kroki wynikają z przepisów ustawy o służbie cywilnej i decyzji pracodawcy.',
+      firstDonePositive: 'Wynik zapisano w historii ocen. System nie wyznacza kolejnego terminu.',
       interview: 'Rozmowa wstępna',
       interviewValue: (date: string) => `do ${date}`,
       period: 'Okres na pierwszą ocenę',
@@ -607,6 +611,102 @@ export const texts = {
       },
       prepareLabel: 'Przygotuj rozmowę oceniającą na podstawie decyzji',
       prepareQuestion: 'Przygotuj rozmowę oceniającą na podstawie tych decyzji.',
+    },
+  },
+
+  /** Pierwsza ocena w służbie cywilnej (rozporządzenie z 2015 r.). Wspólne części formularza: texts.assessment. */
+  firstAssessment: {
+    subtitle: 'Pięć elementów oceny, skala 3, 5 albo 7 punktów',
+    stepper: {
+      data: 'Dane pierwszej oceny',
+      elements: 'Elementy oceny',
+    },
+    progress: {
+      data: 'Dane pierwszej oceny',
+      element: (n: number, total: number) => `Element ${n} z ${total}`,
+    },
+    nav: {
+      blocked: 'Najpierw oceń jeden wskaźnik tego elementu. Podsumowanie jest dostępne w pasku kroków.',
+    },
+    data: {
+      title: 'Dane pierwszej oceny',
+      lead: 'Uzupełnij informacje o przebiegu okresu próbnego. Wpływają na wynik oceny: bez sprawozdania w terminie albo przy niezdanym egzaminie ocena jest negatywna.',
+      deadlines: 'Terminy wyliczone na podstawie umowy',
+      deadlinesLoading: 'Pobieram terminy…',
+      deadlinesError: 'Nie udało się pobrać terminów pierwszej oceny.',
+      interviewDue: 'Rozmowa wstępna',
+      interviewDueValue: (date: string) => `do ${date} (21 dni od zatrudnienia)`,
+      period: 'Okres na dokonanie oceny',
+      periodValue: (from: string, to: string) => `od ${from} do ${to}`,
+      initialInterview: 'Data rozmowy wstępnej',
+      initialInterviewHint: 'Rozmowa, na której ustalono zadania i termin sprawozdania.',
+      initialInterviewLate: (due: string) =>
+        `Rozmowa wstępna odbyła się po terminie (powinna do ${due}). Możesz kontynuować, ale warto wyjaśnić opóźnienie w uzasadnieniu.`,
+      evaluationInterview: 'Data rozmowy oceniającej',
+      evaluationInterviewHint: 'Rozmowa, na której omawiasz z pracownikiem ocenę i sprawozdanie. Możesz ją uzupełnić później.',
+      report: 'Czy pracownik złożył sprawozdanie w wyznaczonym terminie?',
+      reportOptions: { yes: 'Tak, w terminie', no: 'Nie złożył w terminie' },
+      exam: 'Egzamin kończący służbę przygotowawczą',
+      examOptions: {
+        passed: { label: 'Zdany', hint: '' },
+        exempt: { label: 'Zwolniony na podstawie wyjątku', hint: 'Pracownik nie musiał zdawać egzaminu (§ 10 ust. 3 rozporządzenia).' },
+        failed: { label: 'Niezdany', hint: 'Ocena będzie negatywna.' },
+      },
+      reportNo: 'Ocena będzie negatywna.',
+      notSet: 'nie podano',
+    },
+    criterion: {
+      label: 'Element pierwszej oceny',
+      lead: 'Oprzyj ocenę na konkretnych przykładach z okresu próbnego: sytuacja, działanie, rezultat. Jeśli nie było okazji zaobserwować zachowania, zaznacz „brak podstaw do oceny”.',
+      blocked: 'Oceń przynajmniej jeden wskaźnik: na tej podstawie wystawiasz ocenę tego elementu.',
+      decisionLegend: 'Twoja decyzja: ocena elementu',
+      hintScale: (level: number) => `${level} pkt w skali pierwszej oceny`,
+      hintFrom: (level: number) => `wskaźniki wskazują ${level} pkt w skali 1–9`,
+      hintDisclaimer: 'To tylko wskazówka przeliczona na skalę 3, 5, 7. Ocenę elementu wybierasz Ty, a wynik oceny liczy system.',
+    },
+    summary: {
+      lead: 'Sprawdź decyzje i dane pierwszej oceny. Wynik wylicza system z czterech warunków: egzamin, sprawozdanie w terminie, najwyżej jedna ocena 3 pkt i średnia co najmniej 5 pkt.',
+      conditions: 'Dane pierwszej oceny',
+      edit: 'Zmień dane',
+      caption: 'Decyzje dla pięciu elementów pierwszej oceny',
+      element: 'Element',
+      missingResult: 'Wynik pojawi się, gdy wszystkie elementy dostaną decyzję, a dane pierwszej oceny będą uzupełnione.',
+      issues: {
+        exam: 'Brak informacji o egzaminie ze służby przygotowawczej',
+        report: 'Brak informacji o złożeniu sprawozdania',
+        missingDecision: (name: string) => `Brak decyzji: ${name}`,
+        blocked: (name: string) => `Brak ocenionego wskaźnika: ${name}`,
+      },
+      confirmBody: (result: string) =>
+        `Pierwsza ocena zostanie zapisana jako ${result}. Po zakończeniu nie można jej zmienić.`,
+    },
+    readOnly: {
+      data: 'Dane pierwszej oceny',
+      afterNegative:
+        'Dalsze kroki po negatywnej pierwszej ocenie wynikają z przepisów ustawy o służbie cywilnej i decyzji pracodawcy. System nie wyznacza kolejnego terminu.',
+      afterPositive: 'Wynik został zapisany w historii ocen pracownika.',
+    },
+    completedNotice: (result: string) => `Pierwsza ocena zakończona: ${result}.`,
+    completedNegative:
+      'Dalsze kroki po negatywnej pierwszej ocenie wynikają z przepisów i decyzji pracodawcy.',
+    assistant: {
+      subject: (name: string, step: string) => `Pierwsza ocena: ${name} · ${step}`,
+      context: 'Kontekst oceny: pierwsza ocena w służbie cywilnej (pięć elementów, skala 3, 5, 7).',
+      element: (name: string, id: string) => `Element oceny: ${name} (${id}).`,
+      suggestions: {
+        data: {
+          formal: [
+            'Kiedy przeprowadza się rozmowę wstępną przed pierwszą oceną?',
+            'Kiedy pracownik składa sprawozdanie przed pierwszą oceną?',
+            'Kiedy pracownik jest zwolniony z egzaminu ze służby przygotowawczej?',
+          ],
+          interview: ['Jak przygotować rozmowę oceniającą po okresie próbnym?'],
+        },
+        summary: {
+          formal: ['Jakie warunki musi spełnić pozytywna pierwsza ocena?', 'Kiedy uzasadnienie pierwszej oceny jest obowiązkowe?'],
+          interview: ['Jak napisać uzasadnienie negatywnej pierwszej oceny?'],
+        },
+      },
     },
   },
 
