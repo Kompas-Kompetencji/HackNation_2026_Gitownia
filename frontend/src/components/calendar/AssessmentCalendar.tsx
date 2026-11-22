@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { CalendarDays, ChevronLeft, ChevronRight, CircleAlert, CircleCheck, Clock, LoaderCircle, Mail } from 'lucide-react'
+import { BellRing, CalendarDays, ChevronLeft, ChevronRight, CircleAlert, CircleCheck, Clock, LoaderCircle, Mail } from 'lucide-react'
 import { Alert, Button } from '../ui'
 import { getCalendar } from '../../lib/api'
 import { formatDate } from '../../lib/format'
@@ -55,7 +55,10 @@ function matchesFilter(e: CalendarEvent, filter: Filter): boolean {
  * Kalendarz terminów ocen: kafelki dni miesiąca z terminami oraz panel aktualności (zaległe, najbliższe dni).
  * Zakres danych ustala backend według roli: kadry – wszyscy pracownicy, przełożony – tylko swoi podwładni.
  */
-export function AssessmentCalendar({ role }: { role: 'hr' | 'supervisor' }) {
+/** onRemind (kadry): przycisk „Przypomnij” otwiera okno przypomnienia; bez niego – wiadomość w programie pocztowym. */
+type RemindHandler = ((event: CalendarEvent) => void) | undefined
+
+export function AssessmentCalendar({ role, onRemind }: { role: 'hr' | 'supervisor'; onRemind?: (event: CalendarEvent) => void }) {
   const today = useMemo(() => new Date(), [])
   const todayIso = iso(today)
   const [cursor, setCursor] = useState(() => ({ year: today.getFullYear(), month: today.getMonth() }))
@@ -239,13 +242,13 @@ export function AssessmentCalendar({ role }: { role: 'hr' | 'supervisor' }) {
             ) : (
               <ul className="mt-4 space-y-3">
                 {selectedEvents.map((e) => (
-                  <EventCard key={e.id} event={e} role={role} />
+                  <EventCard key={e.id} event={e} role={role} onRemind={onRemind} />
                 ))}
               </ul>
             )}
           </>
         ) : (
-          <NewsPanel state={news} role={role} filter={filter} todayIso={todayIso} onRetry={loadNews} />
+          <NewsPanel state={news} role={role} filter={filter} todayIso={todayIso} onRetry={loadNews} onRemind={onRemind} />
         )}
       </aside>
     </section>
@@ -299,7 +302,9 @@ function NewsPanel({
   filter,
   todayIso,
   onRetry,
+  onRemind,
 }: {
+  onRemind: RemindHandler
   state: Load<CalendarEvent[]>
   role: 'hr' | 'supervisor'
   filter: Filter
@@ -340,16 +345,28 @@ function NewsPanel({
       )}
       {groups && (
         <div className="mt-4 space-y-5">
-          <NewsGroup title={t.news.overdue} icon={<CircleAlert aria-hidden className="size-4 text-danger" />} events={groups.overdue} role={role} />
-          <NewsGroup title={t.news.soon} icon={<Clock aria-hidden className="size-4 text-warning" />} events={groups.soon} role={role} />
-          <NewsGroup title={t.news.later} icon={<CalendarDays aria-hidden className="size-4 text-accent" />} events={groups.later} role={role} />
+          <NewsGroup title={t.news.overdue} icon={<CircleAlert aria-hidden className="size-4 text-danger" />} events={groups.overdue} role={role} onRemind={onRemind} />
+          <NewsGroup title={t.news.soon} icon={<Clock aria-hidden className="size-4 text-warning" />} events={groups.soon} role={role} onRemind={onRemind} />
+          <NewsGroup title={t.news.later} icon={<CalendarDays aria-hidden className="size-4 text-accent" />} events={groups.later} role={role} onRemind={onRemind} />
         </div>
       )}
     </>
   )
 }
 
-function NewsGroup({ title, icon, events, role }: { title: string; icon: React.ReactNode; events: CalendarEvent[]; role: 'hr' | 'supervisor' }) {
+function NewsGroup({
+  title,
+  icon,
+  events,
+  role,
+  onRemind,
+}: {
+  title: string
+  icon: React.ReactNode
+  events: CalendarEvent[]
+  role: 'hr' | 'supervisor'
+  onRemind: RemindHandler
+}) {
   if (events.length === 0) return null
   return (
     <div>
@@ -360,7 +377,7 @@ function NewsGroup({ title, icon, events, role }: { title: string; icon: React.R
       </h4>
       <ul className="mt-2 space-y-2">
         {events.map((e) => (
-          <EventCard key={e.id} event={e} role={role} compact />
+          <EventCard key={e.id} event={e} role={role} onRemind={onRemind} compact />
         ))}
       </ul>
     </div>
@@ -368,7 +385,17 @@ function NewsGroup({ title, icon, events, role }: { title: string; icon: React.R
 }
 
 /** Pozycja terminu: mini-kartka z datą (jak w kalendarzu systemowym), opis i – dla kadr – przypomnienie. */
-function EventCard({ event: e, role, compact = false }: { event: CalendarEvent; role: 'hr' | 'supervisor'; compact?: boolean }) {
+function EventCard({
+  event: e,
+  role,
+  onRemind,
+  compact = false,
+}: {
+  event: CalendarEvent
+  role: 'hr' | 'supervisor'
+  onRemind?: RemindHandler
+  compact?: boolean
+}) {
   const style = SEVERITY_STYLE[e.severity]
   const d = new Date(`${e.date}T00:00:00`)
   const mailto = `mailto:?subject=${encodeURIComponent(t.reminder.subject(e.title, e.employee_name))}&body=${encodeURIComponent(
@@ -392,7 +419,18 @@ function EventCard({ event: e, role, compact = false }: { event: CalendarEvent; 
         <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
           <span className={`text-xs font-medium ${style.text}`}>{t.severity[e.severity]}</span>
           <span className="text-xs text-ink-faint">{e.legal_basis}</span>
-          {role === 'hr' && (e.severity === 'overdue' || e.severity === 'soon') && (
+          {role === 'hr' && onRemind && e.severity !== 'done' && e.severity !== 'past' && (
+            <button
+              type="button"
+              onClick={() => onRemind(e)}
+              aria-label={`${texts.hrHome.remind}: ${e.supervisor_name}, ${e.title}, ${e.employee_name}`}
+              className="inline-flex items-center gap-1 text-xs font-medium text-accent hover:underline"
+            >
+              <BellRing aria-hidden className="size-3.5" />
+              {texts.hrHome.remind}
+            </button>
+          )}
+          {role === 'hr' && !onRemind && (e.severity === 'overdue' || e.severity === 'soon') && (
             <a href={mailto} className="inline-flex items-center gap-1 text-xs font-medium text-accent hover:underline">
               <Mail aria-hidden className="size-3.5" />
               {texts.hrHome.remind}

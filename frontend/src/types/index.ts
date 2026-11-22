@@ -237,6 +237,26 @@ export interface Employee {
 }
 
 /** Wejście createEmployee. Pracownik trafia do zalogowanego przełożonego (backend bierze go z sesji). */
+/**
+ * Widok pracownika dla kadr (GET /employees i /employees/{id} przy roli kadr). Minimalizacja danych:
+ * tylko pracownik, komórka, przełożony, rodzaj oceny, status, terminy i wynik końcowy.
+ * Bez stanowiska, umowy, arkusza i jakiejkolwiek treści oceny.
+ */
+export interface EmployeeMonitoring {
+  id: string
+  supervisor_id: string
+  supervisor_name: string
+  first_name: string
+  last_name: string
+  organizational_unit: string
+  assessment_kind: AssessmentKind
+  contract_end_date: string | null
+  last_assessment_date: string | null
+  last_assessment_result: AssessmentResult | null
+  next_assessment_due: string | null
+  status: EmployeeStatus
+}
+
 export interface CreateEmployeeInput {
   first_name: string
   last_name: string
@@ -266,6 +286,17 @@ export interface FirstAssessmentSchedule {
   /** Okres, w którym należy sporządzić pierwszą ocenę. */
   first_assessment_period_start: string
   first_assessment_period_end: string
+}
+
+/**
+ * Terminy pierwszej oceny okresowej pracownika na czas nieokreślony (lub mianowanego) bez poprzedniej
+ * oceny w systemie, wyliczone przez backend od daty zatrudnienia.
+ */
+export interface PeriodicAssessmentSchedule {
+  /** Rozmowa rozpoczynająca i zapoznanie z kryteriami: 30 dni (§ 7 pkt 1 rozporządzenia z 2016 r.). */
+  starting_interview_due: string
+  /** Ostatni dzień na sporządzenie oceny okresowej. */
+  assessment_due: string
 }
 
 export interface JobDescriptionDocument {
@@ -312,7 +343,7 @@ export interface AssessmentSummary {
 
 /** Odpowiedź getAssessmentTemplate(form): które kryteria są obowiązkowe dla arkusza. */
 export interface AssessmentTemplate {
-  form: AssessmentForm
+  form: EmployeeForm
   mandatory_competency_ids: string[]
   max_additional: number
 }
@@ -333,13 +364,49 @@ export interface AssessmentDetail extends AssessmentSummary {
   updated_at: string | null
   /** Wynik zapisany przy zakończeniu oceny (widok tylko do odczytu). */
   evaluation: AssessmentEvaluation | null
+  /**
+   * Arkusze B i C: wnioski dotyczące indywidualnego programu rozwoju zawodowego (§ 11 pkt 5
+   * rozporządzenia z 2016 r.); pierwsza ocena: wnioski dotyczące rozwoju zawodowego ocenianego.
+   * Opcjonalne, do 2000 znaków. Starsze odpowiedzi mogą go nie mieć (brak = null).
+   */
+  development_conclusions?: string | null
+  /*
+   * Tylko pierwsza ocena (backend dev_maks). W ocenach okresowych pól nie ma, a starsze szkice
+   * pierwszej oceny mogą ich nie mieć: brak pola = null.
+   */
+  exam_status?: ExamStatus | null
+  report_on_time?: boolean | null
+  initial_interview_date?: string | null
+  evaluation_interview_date?: string | null
+}
+
+/**
+ * Egzamin ze służby przygotowawczej w pierwszej ocenie: passed = zdany, exempt = zwolnienie
+ * na podstawie wyjątku (§ 10 ust. 3 rozporządzenia z 2015 r.), failed = niezdany.
+ */
+export type ExamStatus = 'passed' | 'exempt' | 'failed'
+
+/** Dane pierwszej oceny zbierane w kroku „Dane pierwszej oceny” (null = jeszcze nie podano). */
+export interface FirstAssessmentFields {
+  exam_status: ExamStatus | null
+  report_on_time: boolean | null
+  /** Rozmowa wstępna (termin 21 dni od zatrudnienia liczy backend). */
+  initial_interview_date: string | null
+  /** Rozmowa oceniająca (bez terminu w dniach). */
+  evaluation_interview_date: string | null
+}
+
+/** Wejście evaluateFirstAssessment: podgląd wyniku pierwszej oceny przed zakończeniem. */
+export interface FirstEvaluationInput extends Pick<FirstAssessmentFields, 'exam_status' | 'report_on_time'> {
+  justification_draft: string
+  decisions: Array<{ competency_id: string; selected_level: Level }>
 }
 
 /** Wejście saveAssessmentDraft: zmieniane pola szkicu. */
 export type AssessmentDraftInput = Pick<
   AssessmentDetail,
   'additional_competency_ids' | 'answers' | 'decisions' | 'justification_draft' | 'last_step'
-> & { form: AssessmentForm }
+> & { form: AssessmentForm | 'first'; development_conclusions?: string | null } & Partial<FirstAssessmentFields>
 
 /** Wejście createAssessmentDraft. Arkusz backend bierze z pracownika (form). */
 export interface CreateAssessmentInput {
@@ -380,4 +447,32 @@ export interface CalendarEvent {
   supervisor_id: string
   supervisor_name: string
   severity: CalendarSeverity
+}
+
+/* --- Przypomnienia od kadr (POST/GET /reminders) ----------------------------------------- */
+
+/** Najdłuższa treść przypomnienia (limit backendu). */
+export const REMINDER_MAX_LENGTH = 1000
+
+/**
+ * Przypomnienie wysłane przez kadry do przełożonego. Treść bez danych z oceny (kadry ich nie znają).
+ * Kadry widzą wszystkie przypomnienia, przełożony tylko skierowane do niego.
+ */
+export interface Reminder {
+  id: string
+  created_at: string
+  author_id: string | null
+  author_name: string
+  supervisor_id: string
+  supervisor_name: string
+  /** Pracownicy tego przełożonego, których dotyczy przypomnienie; pusta lista = przypomnienie ogólne. */
+  employee_ids: string[]
+  employee_names: string[]
+  message: string
+}
+
+export interface CreateReminderInput {
+  supervisor_id: string
+  employee_ids: string[]
+  message: string
 }

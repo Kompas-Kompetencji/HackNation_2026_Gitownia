@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { ClipboardPen, LoaderCircle, ShieldAlert } from 'lucide-react'
+import { LoaderCircle, ShieldAlert } from 'lucide-react'
 import { AppLayout } from '../../layout/AppLayout'
 import { EmptyState } from '../../components/EmptyState'
 import { Alert, Button } from '../../components/ui'
@@ -9,6 +9,7 @@ import { texts } from '../../lib/texts'
 import type { AssessmentDetail, CompetencyModel, JobDescriptionDocument, Note } from '../../types'
 import type { SectionState } from '../employee/sectionState'
 import { AssessmentForm } from './AssessmentForm'
+import { FirstAssessmentForm } from './FirstAssessmentForm'
 import { AssessmentReadOnly } from './AssessmentReadOnly'
 import { BackLink } from './BackLink'
 
@@ -56,16 +57,10 @@ export function AssessmentPage() {
   if (state.kind === 'ready') {
     const { detail, model } = state
     if (detail.status === 'completed') return <AssessmentReadOnly detail={detail} model={model} />
-    if (detail.kind === 'periodic') return <AssessmentForm detail={detail} model={model} notes={notes} docs={docs} />
-    return (
-      <AppLayout withAssistant>
-        <BackLink to={`/przelozony/pracownicy/${detail.employee_id}`} />
-        <h1 className="mb-6 font-serif text-display font-semibold text-ink">
-          {t.title(detail.kind)}: {detail.employee_name}
-        </h1>
-        <EmptyState icon={ClipboardPen} title={t.title(detail.kind)} body={t.firstPending} />
-      </AppLayout>
-    )
+    if (detail.kind === 'first' || detail.form === 'first') {
+      return <FirstAssessmentForm detail={detail} model={model} notes={notes} docs={docs} />
+    }
+    return <AssessmentForm detail={detail} model={model} notes={notes} docs={docs} />
   }
 
   return (

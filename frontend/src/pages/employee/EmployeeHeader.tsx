@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { CalendarClock, LoaderCircle } from 'lucide-react'
-import { EmployeeStatusBadge } from '../../components/StatusBadge'
+import { EmployeeStatusBadge, ResultBadge } from '../../components/StatusBadge'
 import { Alert, Button } from '../../components/ui'
 import { employeeStatusTone, toneClasses } from '../../components/styles'
 import { ApiError, extendContract, getFirstAssessmentSchedule } from '../../lib/api'
@@ -8,6 +8,7 @@ import { Dialog } from '../../components/Dialog'
 import { inputClass } from '../../components/styles'
 import { formatDate, formatRelativeDue, fullName } from '../../lib/format'
 import { texts } from '../../lib/texts'
+import { isFirstAssessmentDone } from '../../lib/employee'
 import type { AssessmentSummary, Employee, FirstAssessmentSchedule } from '../../types'
 
 type ScheduleState = { kind: 'loading' } | { kind: 'error' } | { kind: 'ready'; schedule: FirstAssessmentSchedule }
@@ -42,6 +43,8 @@ export function EmployeeHeader({
   const t = texts.employee
   const tone = toneClasses[employeeStatusTone[e.status]]
   const isFirst = e.assessment_kind === 'first'
+  // Po zakończonej pierwszej ocenie nie ma kolejnego kroku w aplikacji (bez przycisku oceny okresowej).
+  const firstDone = isFirstAssessmentDone(e) && !openDraft
 
   const primaryLabel = openDraft
     ? t.actions.continueDraft(openDraft.kind)
@@ -60,7 +63,7 @@ export function EmployeeHeader({
             {e.position_title}, {e.organizational_unit}
           </p>
         </div>
-        <div className="flex shrink-0 flex-col items-end gap-1.5">
+        {!firstDone && <div className="flex shrink-0 flex-col items-end gap-1.5">
           <Button onClick={onPrimary} disabled={creating || !primaryAvailable}>
             {creating && <LoaderCircle aria-hidden className="size-4 animate-spin" />}
             {creating ? t.actions.creating : primaryLabel}
@@ -72,7 +75,7 @@ export function EmployeeHeader({
           ) : (
             needsDocument && !isFirst && <p className="text-sm text-ink-muted">{t.actions.needsDocumentHint}</p>
           )}
-        </div>
+        </div>}
       </div>
 
       {createError && (
@@ -84,7 +87,14 @@ export function EmployeeHeader({
       <div className={`mt-6 flex items-center gap-4 rounded-md border-l-4 bg-surface px-5 py-4 shadow-raised ${tone.border}`}>
         <CalendarClock aria-hidden className={`size-5 shrink-0 ${tone.text}`} />
         <div className="min-w-0 flex-1">
-          {e.next_assessment_due ? (
+          {firstDone && e.last_assessment_result ? (
+            <>
+              <p className="font-semibold text-ink">{t.deadline.firstDone(t.result[e.last_assessment_result])}</p>
+              <p className="text-sm text-ink-muted">
+                {e.last_assessment_result === 'negative' ? t.deadline.firstDoneNegative : t.deadline.firstDonePositive}
+              </p>
+            </>
+          ) : e.next_assessment_due ? (
             <p className="text-ink">
               <span className="font-semibold">
                 {isFirst ? t.deadline.first(formatDate(e.next_assessment_due)) : t.deadline.periodic(formatDate(e.next_assessment_due))}
@@ -95,7 +105,11 @@ export function EmployeeHeader({
             <p className="text-ink-muted">{t.deadline.notSet}</p>
           )}
         </div>
-        <EmployeeStatusBadge status={e.status} />
+        {firstDone && e.last_assessment_result ? (
+          <ResultBadge result={e.last_assessment_result} />
+        ) : (
+          <EmployeeStatusBadge status={e.status} />
+        )}
       </div>
 
       <dl className="mt-6 grid grid-cols-4 gap-x-8 gap-y-4 border-b border-line pb-6">
@@ -119,12 +133,12 @@ export function EmployeeHeader({
           {e.last_assessment_date && e.last_assessment_result ? (
             `${formatDate(e.last_assessment_date)}, ${t.result[e.last_assessment_result]}`
           ) : (
-            <span className="text-ink-muted">{t.noAssessment}</span>
+            <span className="text-ink-muted">{isFirst ? t.noAssessment : t.noAssessmentPeriodic}</span>
           )}
         </Detail>
       </dl>
 
-      {isFirst && <FirstSchedule employee={e} />}
+      {isFirst && !firstDone && <FirstSchedule employee={e} />}
     </header>
   )
 }

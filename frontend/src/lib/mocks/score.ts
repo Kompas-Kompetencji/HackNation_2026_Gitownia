@@ -1,5 +1,5 @@
 import { ApiError } from '../apiError'
-import type { AssessmentEvaluation, EvaluationInput, IndicatorAnswer, Level, ScoreResult } from '../../types'
+import type { AssessmentEvaluation, EvaluationInput, FirstEvaluationInput, IndicatorAnswer, Level, ScoreResult } from '../../types'
 
 /**
  * MAKIETY odpowiedzi backendu. Prawdziwe zasady punktacji (średnie, zaokrąglanie, wynik)
@@ -82,5 +82,39 @@ export function mockEvaluate(input: EvaluationInput, names: Record<string, strin
     warnings: development_criteria.length
       ? [`We wnioskach rozwojowych uwzględnij kryteria ocenione poniżej oczekiwań: ${development_criteria.join(', ')}.`]
       : [],
+  }
+}
+
+/**
+ * MAKIETA wyniku pierwszej oceny, przepisana z backend/app/core/scoring_engine.py (evaluate_first).
+ * Prawdziwy wynik liczy wyłącznie backend.
+ */
+export function mockEvaluateFirst(input: FirstEvaluationInput, names: Record<string, string>): AssessmentEvaluation {
+  const scores = input.decisions.map((d) => d.selected_level)
+  const mean = scores.length ? round2(scores.reduce((s, l) => s + l, 0) / scores.length) : 0
+  const threes = input.decisions.filter((d) => d.selected_level === 3).map((d) => names[d.competency_id] ?? d.competency_id)
+  const exam = input.exam_status === 'passed' || input.exam_status === 'exempt'
+  const report = input.report_on_time === true
+  const average = scores.length === 5 && mean >= 5
+  const positive = exam && report && threes.length <= 1 && average
+  const reasons: string[] = []
+  if (positive) {
+    reasons.push(`Spełniono łącznie wszystkie 4 warunki (§ 10 ust. 1 rozporządzenia z 2015 r.), ocena łączna ${fmt(mean)} pkt.`)
+  } else {
+    if (!exam) reasons.push('Niezaliczenie egzaminu ze służby przygotowawczej (§ 10 ust. 1 pkt 1 rozporządzenia z 2015 r.).')
+    if (!report) reasons.push('Niezłożenie sprawozdania w wyznaczonym terminie (§ 10 ust. 1 pkt 2 rozporządzenia z 2015 r.).')
+    if (threes.length > 1)
+      reasons.push(`Więcej niż jedna ocena 3 pkt (${threes.join(', ')}) – § 10 ust. 1 pkt 3 rozporządzenia z 2015 r.`)
+    if (!average) reasons.push(`Ocena łączna ${fmt(mean)} pkt, niższa niż wymagane 5,00 pkt (§ 10 ust. 1 pkt 4 rozporządzenia z 2015 r.).`)
+  }
+  return {
+    mean,
+    overall_level: null,
+    result: positive ? 'positive' : 'negative',
+    reasons,
+    justification_required: !positive,
+    development_criteria: threes,
+    errors: [],
+    warnings: [],
   }
 }

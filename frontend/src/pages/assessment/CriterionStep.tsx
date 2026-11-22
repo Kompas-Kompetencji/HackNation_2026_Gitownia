@@ -1,5 +1,5 @@
 import { forwardRef, useId, useRef, useState, type ReactNode } from 'react'
-import { ChevronDown, CircleAlert, CircleSlash, LoaderCircle, NotebookText, RotateCcw, Trash2 } from 'lucide-react'
+import { Check, ChevronDown, CircleAlert, CircleSlash, LoaderCircle, NotebookText, RotateCcw, Trash2 } from 'lucide-react'
 import { Button } from '../../components/ui'
 import { formatDate } from '../../lib/format'
 import { texts } from '../../lib/texts'
@@ -7,16 +7,22 @@ import type { BehavioralIndicator, Level, Note, StarNote } from '../../types'
 import type { SectionState } from '../employee/sectionState'
 import {
   emptyStar,
+  FIRST_LEVELS,
   formatOneDecimal,
   hasStarContent,
   LEVELS,
+  toFirstScaleHint,
   type Criterion,
-  type FormState,
+  type AnyFormState,
   type LocalAnswer,
 } from './model'
 import type { ScoreHint } from './useScoreHint'
 
 const t = texts.assessment.criterion
+const tf = texts.firstAssessment.criterion
+
+/** periodic = ocena okresowa (skala 1–9); first = pierwsza ocena (elementy, decyzja 3/5/7). */
+export type CriterionVariant = 'periodic' | 'first'
 
 /** Wspólny wygląd opcji wyboru: natywny radio (klawiatura: strzałki) ukryty pod etykietą. */
 const optionClass =
@@ -35,11 +41,13 @@ export function CriterionStep({
   onDecision,
   onRemove,
   onActiveIndicator,
+  variant = 'periodic',
 }: {
+  variant?: CriterionVariant
   criterion: Criterion
   position: number
   total: number
-  state: FormState
+  state: AnyFormState
   hint: ScoreHint
   onRetryHint: () => void
   notes: SectionState<Note[]>
@@ -52,19 +60,22 @@ export function CriterionStep({
   const { competency, mandatory } = criterion
   const answered = competency.indicators.filter((i) => state.answers[i.indicator_id]?.selected_level !== undefined).length
   const decision = state.decisions[competency.competency_id]
-  const suggested = hint.kind === 'ready' ? hint.result.suggested_level : null
+  const first = variant === 'first'
+  const rawSuggested = hint.kind === 'ready' ? hint.result.suggested_level : null
+  // Pierwsza ocena: wskazówka 1–9 z backendu przeliczona na skalę 3/5/7 (tylko podpowiedź).
+  const suggested = first ? toFirstScaleHint(rawSuggested) : rawSuggested
 
   return (
     <div>
       <p className="text-sm font-medium text-ink-muted">
         <span className="sr-only">{texts.assessment.progress.criterion(position, total)}, </span>
-        {mandatory ? t.mandatory : t.additional}
+        {first ? tf.label : mandatory ? t.mandatory : t.additional}
       </p>
       <h2 tabIndex={-1} data-step-heading className="mt-1 font-serif text-display font-semibold text-ink focus:outline-none">
         {competency.name}
       </h2>
       {competency.definition && <p className="mt-2 text-ink">{competency.definition}</p>}
-      <p className="mt-3 max-w-prose text-sm leading-relaxed text-ink-muted">{t.lead}</p>
+      <p className="mt-3 max-w-prose text-sm leading-relaxed text-ink-muted">{first ? tf.lead : t.lead}</p>
       <p className="mt-2 text-sm text-ink-muted tabular-nums">{t.answered(answered, competency.indicators.length)}</p>
 
       <ol className="mt-6 space-y-5">
@@ -79,15 +90,23 @@ export function CriterionStep({
               notes={notes}
               onAnswer={(patch) => onAnswer(indicator, patch)}
               onFocus={() => onActiveIndicator(indicator)}
+              variant={variant}
             />
           </li>
         ))}
       </ol>
 
-      {blocked && <BlockedAlert mandatory={mandatory} onRemove={onRemove} />}
+      {blocked && <BlockedAlert mandatory={mandatory} onRemove={onRemove} message={first ? tf.blocked : undefined} />}
 
       <section aria-labelledby="wskazowka" className="mt-8 border-t border-line pt-6">
-        <ScoreHintView hint={hint} onRetry={onRetryHint} total={competency.indicators.length} state={state} criterion={criterion} />
+        <ScoreHintView
+          hint={hint}
+          onRetry={onRetryHint}
+          total={competency.indicators.length}
+          state={state}
+          criterion={criterion}
+          variant={variant}
+        />
       </section>
 
       <DecisionField
@@ -97,13 +116,15 @@ export function CriterionStep({
         suggested={suggested}
         hasEvidence={competency.indicators.some((i) => state.answers[i.indicator_id]?.selected_level != null)}
         onChange={onDecision}
+        levels={first ? FIRST_LEVELS : LEVELS}
+        legend={first ? tf.decisionLegend : undefined}
       />
     </div>
   )
 }
 
-export const BlockedAlert = forwardRef<HTMLDivElement, { mandatory: boolean; onRemove: () => void }>(function BlockedAlert(
-  { mandatory, onRemove },
+export const BlockedAlert = forwardRef<HTMLDivElement, { mandatory: boolean; onRemove: () => void; message?: string }>(function BlockedAlert(
+  { mandatory, onRemove, message },
   ref,
 ) {
   return (
@@ -116,7 +137,7 @@ export const BlockedAlert = forwardRef<HTMLDivElement, { mandatory: boolean; onR
     >
       <CircleAlert aria-hidden className="mt-0.5 size-4 shrink-0" />
       <div className="flex-1">
-        <p className="font-medium">{mandatory ? t.blocked.mandatory : t.blocked.additional}</p>
+        <p className="font-medium">{message ?? (mandatory ? t.blocked.mandatory : t.blocked.additional)}</p>
         {!mandatory && (
           <Button variant="secondary" onClick={onRemove} className="mt-3 border-danger/40 py-1.5 text-sm text-danger">
             <Trash2 aria-hidden className="size-4" />
@@ -133,11 +154,92 @@ export const BlockedAlert = forwardRef<HTMLDivElement, { mandatory: boolean; onR
  * otrzymuje ocenę cząstkową, więc co najmniej jeden jego wskaźnik musi zostać oceniony.
  * true = to ostatni wskaźnik kryterium, który nie ma "brak podstaw" – opcja jest dla niego niedostępna.
  */
-function isLastAssessable(state: FormState, indicators: BehavioralIndicator[], indicator: BehavioralIndicator): boolean {
+function isLastAssessable(state: AnyFormState, indicators: BehavioralIndicator[], indicator: BehavioralIndicator): boolean {
   if (state.answers[indicator.indicator_id]?.selected_level === null) return false
   const others = indicators.filter((i) => i.indicator_id !== indicator.indicator_id)
   return others.length === 0 || others.every((i) => state.answers[i.indicator_id]?.selected_level === null)
 }
+
+/**
+ * Pierwsza ocena: pięć opisów zachowań z modelu kompetencji pogrupowanych pod trzema poziomami arkusza
+ * (3, 5, 7 punktów), bez liczb przy opisach. Zapisywane wartości odpowiedzi pozostają bez zmian (1–9).
+ */
+function FirstScaleOptions({
+  indicator,
+  name,
+  uid,
+  level,
+  onPick,
+}: {
+  indicator: BehavioralIndicator
+  name: string
+  uid: string
+  level: Level | null | undefined
+  onPick: (l: Level) => void
+}) {
+  return (
+    // Pięć równych kolumn i dwa rzędy (nagłówki, kafelki). Każda grupa to podsiatka (subgrid) zajmująca
+    // 2, 1 i 2 kolumny: kafelki mają równą szerokość i wysokość, nagłówki wyrównują się do dołu rzędu.
+    <div className="grid grid-cols-5 grid-rows-[auto_1fr] gap-x-2 gap-y-1.5">
+      {FIRST_SCALE_GROUPS.map((group) => (
+        <div
+          key={group.points}
+          role="group"
+          aria-labelledby={`${uid}-grupa-${group.points}`}
+          className={`row-span-2 grid grid-cols-subgrid grid-rows-subgrid ${group.levels.length === 2 ? 'col-span-2' : 'col-span-1'}`}
+        >
+          <p
+            id={`${uid}-grupa-${group.points}`}
+            className="col-span-full self-end border-b border-line pb-1 text-xs leading-tight font-semibold text-ink-muted"
+          >
+            {tf.scaleGroups[group.points]}
+          </p>
+          {group.levels.map((l) => {
+            const checked = level === l
+            return (
+              <label key={l} className="block min-w-0">
+                <input
+                  type="radio"
+                  name={name}
+                  value={l}
+                  checked={checked}
+                  onChange={() => onPick(l)}
+                  aria-describedby={indicator.level_descriptions?.[l] ? `${uid}-opis-${l}` : undefined}
+                  className="peer sr-only"
+                />
+                <span
+                  className={`${optionClass} relative justify-center px-2 py-3 ${
+                    checked
+                      ? 'border-accent bg-accent text-accent-ink'
+                      : 'border-line-strong bg-surface text-ink hover:border-accent hover:bg-accent-soft'
+                  }`}
+                >
+                  {/* Zaznaczenie nie tylko kolorem: znacznik w rogu kafelka. */}
+                  {checked && <Check aria-hidden className="absolute top-1 right-1 size-3.5" strokeWidth={3} />}
+                  <span className="text-sm leading-tight font-medium break-words hyphens-auto first-letter:uppercase" lang="pl">
+                    {texts.assessment.levels[l]}
+                  </span>
+                </span>
+                {indicator.level_descriptions?.[l] && (
+                  <span id={`${uid}-opis-${l}`} hidden>
+                    {indicator.level_descriptions[l]}
+                  </span>
+                )}
+              </label>
+            )
+          })}
+        </div>
+      ))}
+    </div>
+  )
+}
+
+/** Grupy opisów zachowań zgodne z arkuszem pierwszej oceny. */
+const FIRST_SCALE_GROUPS: { points: 3 | 5 | 7; levels: Level[] }[] = [
+  { points: 3, levels: [1, 3] },
+  { points: 5, levels: [5] },
+  { points: 7, levels: [7, 9] },
+]
 
 function IndicatorCard({
   indicator,
@@ -148,6 +250,7 @@ function IndicatorCard({
   notes,
   onAnswer,
   onFocus,
+  variant,
 }: {
   indicator: BehavioralIndicator
   position: number
@@ -157,6 +260,7 @@ function IndicatorCard({
   notes: SectionState<Note[]>
   onAnswer: (patch: Partial<Pick<LocalAnswer, 'selected_level' | 'star_note'>>) => void
   onFocus: () => void
+  variant: CriterionVariant
 }) {
   const uid = useId()
   const level = answer?.selected_level
@@ -196,6 +300,9 @@ function IndicatorCard({
       </p>
 
       <div role="radiogroup" aria-label={t.levelLegend} className="mt-4">
+        {variant === 'first' ? (
+          <FirstScaleOptions indicator={indicator} name={name} uid={uid} level={level} onPick={(l) => onAnswer({ selected_level: l })} />
+        ) : (
         <div className="grid grid-cols-5 gap-1.5">
           {LEVELS.map((l) => {
             const checked = level === l
@@ -231,6 +338,7 @@ function IndicatorCard({
             )
           })}
         </div>
+        )}
         <label className={`mt-1.5 inline-block ${noBasisLocked ? 'cursor-not-allowed' : ''}`}>
           <input
             type="radio"
@@ -269,7 +377,9 @@ function IndicatorCard({
         {level === null && t.noBasisSelected}
         {level != null && indicator.level_descriptions?.[level] && (
           <>
-            <span className="font-medium text-ink">{t.levelDescription(level)}: </span>
+            <span className="font-medium text-ink">
+              {variant === 'first' ? tf.levelDescription(texts.assessment.levels[level as Level]) : t.levelDescription(level)}:{' '}
+            </span>
             {indicator.level_descriptions[level]}
           </>
         )}
@@ -381,12 +491,14 @@ function ScoreHintView({
   total,
   state,
   criterion,
+  variant,
 }: {
   hint: ScoreHint
   onRetry: () => void
   total: number
-  state: FormState
+  state: AnyFormState
   criterion: Criterion
+  variant: CriterionVariant
 }) {
   const h = t.hint
   const noBasis = criterion.competency.indicators.filter((i) => state.answers[i.indicator_id]?.selected_level === null).length
@@ -420,15 +532,24 @@ function ScoreHintView({
           </p>
         )}
         {result && (
-          <div className="flex items-baseline gap-8">
+          <div className="flex flex-wrap items-baseline gap-x-8 gap-y-1">
             {result.mean === null ? (
               <p className="text-sm text-ink-muted">{h.noMean}</p>
             ) : (
               <>
-                <p className="text-ink">
-                  <span className="font-semibold tabular-nums">{h.mean(formatOneDecimal(result.mean))}</span>
-                </p>
-                {result.suggested_level && (
+                {/* Pierwsza ocena: bez średniej w skali 1–9, przy wskaźnikach nie pokazujemy liczb. */}
+                {variant !== 'first' && (
+                  <p className="shrink-0 text-ink">
+                    <span className="font-semibold tabular-nums">{h.mean(formatOneDecimal(result.mean))}</span>
+                  </p>
+                )}
+                {variant === 'first' && result.suggested_level && (
+                  <p className="text-ink">
+                    {h.suggested}:{' '}
+                    <span className="font-semibold tabular-nums">{tf.hintScale(toFirstScaleHint(result.suggested_level)!)}</span>
+                  </p>
+                )}
+                {variant !== 'first' && result.suggested_level && (
                   <p className="text-ink">
                     {h.suggested}:{' '}
                     <span className="font-semibold tabular-nums">{t.levelPoints(result.suggested_level)}</span>{' '}
@@ -451,7 +572,7 @@ function ScoreHintView({
           </div>
         )}
       </div>
-      <p className="mt-2 text-xs text-ink-muted">{h.disclaimer}</p>
+      <p className="mt-2 text-xs text-ink-muted">{variant === 'first' ? tf.hintDisclaimer : h.disclaimer}</p>
     </div>
   )
 }
@@ -463,7 +584,11 @@ function DecisionField({
   suggested,
   hasEvidence,
   onChange,
+  levels,
+  legend,
 }: {
+  levels: Level[]
+  legend?: string
   competencyId: string
   value: Level | null
   note: string
@@ -477,12 +602,12 @@ function DecisionField({
 
   return (
     <fieldset className="mt-6 rounded-md border-2 border-ink/80 bg-surface px-5 pt-4 pb-5" aria-describedby={`${uid}-wymagane`}>
-      <legend className="px-1 font-semibold text-ink">{d.legend}</legend>
+      <legend className="px-1 font-semibold text-ink">{legend ?? d.legend}</legend>
       <p id={`${uid}-wymagane`} className="-mt-1 text-sm text-ink-muted">
         {d.required}
       </p>
-      <div className="mt-3 grid grid-cols-5 gap-1.5">
-        {LEVELS.map((l) => {
+      <div className={`mt-3 grid gap-1.5 ${levels.length === 3 ? 'grid-cols-3' : 'grid-cols-5'}`}>
+        {levels.map((l) => {
           const checked = value === l
           return (
             <label key={l} className="block">

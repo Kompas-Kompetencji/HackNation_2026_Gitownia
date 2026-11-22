@@ -5,6 +5,7 @@ import { inputClass } from '../../components/styles'
 import { analyzeOsp } from '../../lib/api'
 import { texts } from '../../lib/texts'
 import type { AssessmentForm } from '../../types'
+import { AdditionalCriteriaPicker } from './AdditionalCriteriaPicker'
 import { toEditable, type DocumentData, type EditableAnalysis } from './model'
 
 const MAX_BYTES = 10 * 1024 * 1024
@@ -12,16 +13,13 @@ const FORMS: AssessmentForm[] = ['B', 'C']
 
 type FileState = { kind: 'idle' } | { kind: 'analyzing'; name: string } | { kind: 'error'; message: string; retryable: boolean }
 
-type DetectedErrors = Partial<Record<'position_title' | 'subordinates_count' | 'criterion0' | 'criterion1' | 'criterion2', string>>
+type DetectedErrors = Partial<Record<'position_title' | 'subordinates_count', string>>
 
 function validateDetected(e: EditableAnalysis): DetectedErrors {
   const t = texts.wizard.document.errors2
   const errors: DetectedErrors = {}
   if (!e.position_title.trim()) errors.position_title = t.positionTitle
   if (!/^\d+$/.test(e.subordinates_count.trim())) errors.subordinates_count = t.subordinates
-  e.criteria.forEach((c, i) => {
-    if (!c.trim()) errors[`criterion${i}` as keyof DetectedErrors] = t.criterion
-  })
   return errors
 }
 
@@ -100,7 +98,7 @@ export function StepDocument({
     const found = validateDetected(value.edited)
     setErrors(found)
     setSubmitted(true)
-    const order: (keyof DetectedErrors)[] = ['position_title', 'subordinates_count', 'criterion0', 'criterion1', 'criterion2']
+    const order: (keyof DetectedErrors)[] = ['position_title', 'subordinates_count']
     const first = order.find((k) => found[k])
     if (first) {
       document.getElementById(id(first))?.focus()
@@ -251,30 +249,12 @@ export function StepDocument({
           <fieldset>
             <legend className="font-medium text-ink">{t.criteria}</legend>
             <p className="mt-0.5 mb-3 text-sm text-ink-muted">{t.criteriaLead}</p>
-            <ol className="space-y-4">
-              {edited.criteria.map((c, i) => {
-                const key = `criterion${i}` as keyof DetectedErrors
-                return (
-                  <li key={i}>
-                    <Field
-                      id={id(key)}
-                      label={t.criterionLabel(i + 1)}
-                      hint={`${t.criterionWhy} ${value.analysis!.additional_criteria[i]?.rationale ?? ''}`}
-                      error={errors[key]}
-                    >
-                      {(p) => (
-                        <input
-                          {...p}
-                          type="text"
-                          value={c}
-                          onChange={(e) => updateEdited({ criteria: edited.criteria.map((x, j) => (j === i ? e.target.value : x)) })}
-                        />
-                      )}
-                    </Field>
-                  </li>
-                )
-              })}
-            </ol>
+            <AdditionalCriteriaPicker
+              form={edited.form}
+              value={edited.criteria}
+              suggestions={value.analysis!.additional_criteria}
+              onChange={(criteria) => updateEdited({ criteria })}
+            />
           </fieldset>
         </section>
       )}

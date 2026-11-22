@@ -1,179 +1,224 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { CircleAlert, CircleCheck, Clock, LoaderCircle, PenLine } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { LoaderCircle } from 'lucide-react'
 import { AppLayout } from '../layout/AppLayout'
 import { PageHeader } from '../components/PageHeader'
-import { EmployeeStatusBadge } from '../components/StatusBadge'
 import { AssessmentCalendar } from '../components/calendar/AssessmentCalendar'
 import { Alert, Button } from '../components/ui'
-import { listDemoUsers, listEmployees } from '../lib/api'
-import { formatDate, formatRelativeDue, fullName } from '../lib/format'
+import { listAssessments, listDemoUsers, listMonitoredEmployees, listReminders } from '../lib/api'
+import { formatDateTime } from '../lib/format'
+import { buildAttention, buildRows, lastReminderFor } from '../lib/hrMonitoring'
 import { texts } from '../lib/texts'
-import type { Employee, EmployeeStatus, User } from '../types'
+import type { AssessmentSummary, EmployeeMonitoring, Reminder } from '../types'
+import { AttentionSection } from './hr/AttentionSection'
+import { AssessmentsTable } from './hr/AssessmentsTable'
+import { EMPTY_FILTERS, type TableFilters } from './hr/filters'
+import { ReminderDialog, type ReminderTarget } from './hr/ReminderDialog'
 
-type Tile = 'assessment_overdue' | 'assessment_due_soon' | 'in_progress' | 'up_to_date'
-type LoadState = { kind: 'loading' } | { kind: 'error' } | { kind: 'ready'; employees: Employee[]; users: Map<string, User> }
+const t = texts.hrHome
 
-const TILE_STATUSES: Record<Tile, EmployeeStatus[]> = {
-  assessment_overdue: ['assessment_overdue'],
-  assessment_due_soon: ['assessment_due_soon'],
-  in_progress: ['assessment_in_progress', 'awaiting_first_assessment'],
-  up_to_date: ['up_to_date'],
+type Load =
+  | { kind: 'loading' }
+  | { kind: 'error' }
+  | { kind: 'ready'; employees: EmployeeMonitoring[]; assessments: AssessmentSummary[]; units: Map<string, string> }
+type RemindersLoad = { kind: 'loading' } | { kind: 'error' } | { kind: 'ready'; data: Reminder[] }
+
+type OverviewKey = 'not_started' | 'in_progress' | 'completed' | 'overdue' | 'due_soon'
+const OVERVIEW: OverviewKey[] = ['not_started', 'in_progress', 'completed', 'overdue', 'due_soon']
+
+function overviewFilter(key: OverviewKey): TableFilters {
+  if (key === 'overdue') return { ...EMPTY_FILTERS, overdue: true }
+  if (key === 'due_soon') return { ...EMPTY_FILTERS, dueSoon: true }
+  return { ...EMPTY_FILTERS, status: key }
 }
 
-const TILE_STYLE: Record<Tile, { icon: typeof Clock; accent: string; ring: string }> = {
-  assessment_overdue: { icon: CircleAlert, accent: 'text-danger', ring: 'ring-danger/40' },
-  assessment_due_soon: { icon: Clock, accent: 'text-warning', ring: 'ring-warning/40' },
-  in_progress: { icon: PenLine, accent: 'text-accent', ring: 'ring-accent/40' },
-  up_to_date: { icon: CircleCheck, accent: 'text-positive', ring: 'ring-positive/40' },
+function isOverviewActive(key: OverviewKey, f: TableFilters): boolean {
+  return JSON.stringify(f) === JSON.stringify(overviewFilter(key))
 }
 
-const collator = new Intl.Collator('pl', { sensitivity: 'base' })
-
-/** Panel kadr: statusy i terminy wszystkich ocen, kalendarz czynności i przypomnienia (bez treści ocen). */
+/**
+ * Panel kadr: przegląd statusów, „Wymaga uwagi” z przypomnieniami, kalendarz terminów i tabela wszystkich ocen.
+ * Kadry widzą tylko status, terminy, rodzaj oceny, wynik końcowy i przełożonego; nie ma stąd drogi do treści oceny.
+ */
 export function HrHomePage() {
-  const t = texts.hrHome
-  const [state, setState] = useState<LoadState>({ kind: 'loading' })
-  const [tile, setTile] = useState<Tile | null>(null)
+  const [state, setState] = useState<Load>({ kind: 'loading' })
+  const [reminders, setReminders] = useState<RemindersLoad>({ kind: 'loading' })
+  const [filters, setFilters] = useState<TableFilters>(EMPTY_FILTERS)
+  const [target, setTarget] = useState<(ReminderTarget & { key: number }) | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
+  const tableRef = useRef<HTMLDivElement>(null)
+  // Fokus wraca po zamknięciu okna do przycisku, który je otworzył.
+  const returnFocus = useRef<HTMLElement | null>(null)
 
   const load = useCallback(() => {
     setState({ kind: 'loading' })
-    Promise.all([listEmployees(), listDemoUsers()])
-      .then(([employees, users]) => setState({ kind: 'ready', employees, users: new Map(users.map((u) => [u.id, u])) }))
+    Promise.all([
+      listMonitoredEmployees(),
+      listAssessments(),
+      // Komórka przełożonego z listy kont; bez niej panel działa dalej (komórki pracowników).
+      listDemoUsers().catch(() => []),
+    ])
+      .then(([employees, assessments, users]) =>
+        setState({ kind: 'ready', employees, assessments, units: new Map(users.map((u) => [u.id, u.organizational_unit])) }),
+      )
       .catch(() => setState({ kind: 'error' }))
   }, [])
 
+  const loadReminders = useCallback(() => {
+    setReminders({ kind: 'loading' })
+    listReminders()
+      .then((data) => setReminders({ kind: 'ready', data }))
+      .catch(() => setReminders({ kind: 'error' }))
+  }, [])
+
   useEffect(load, [load])
+  useEffect(loadReminders, [loadReminders])
+
+  const reminderList = useMemo(() => (reminders.kind === 'ready' ? reminders.data : []), [reminders])
+  const rows = useMemo(
+    () => (state.kind === 'ready' ? buildRows(state.employees, state.assessments, reminderList) : []),
+    [state, reminderList],
+  )
+  const attention = useMemo(
+    () => (state.kind === 'ready' ? buildAttention(rows, reminderList, state.units) : []),
+    [rows, reminderList, state],
+  )
 
   const counts = useMemo(() => {
-    const out: Record<Tile, number> = { assessment_overdue: 0, assessment_due_soon: 0, in_progress: 0, up_to_date: 0 }
-    if (state.kind === 'ready') {
-      for (const e of state.employees) {
-        const key = (Object.keys(TILE_STATUSES) as Tile[]).find((k) => TILE_STATUSES[k].includes(e.status))
-        if (key) out[key] += 1
-      }
+    const c: Record<OverviewKey, number> = { not_started: 0, in_progress: 0, completed: 0, overdue: 0, due_soon: 0 }
+    for (const r of rows) {
+      c[r.process] += 1
+      if (r.overdue) c.overdue += 1
+      if (r.dueSoon) c.due_soon += 1
     }
-    return out
-  }, [state])
+    return c
+  }, [rows])
 
-  const rows = useMemo(() => {
-    if (state.kind !== 'ready') return []
-    return state.employees
-      .filter((e) => !tile || TILE_STATUSES[tile].includes(e.status))
-      .sort((a, b) => (a.next_assessment_due ?? '9999').localeCompare(b.next_assessment_due ?? '9999') || collator.compare(a.last_name, b.last_name))
-  }, [state, tile])
+  function openReminder(supervisorId: string, preselected: string[]) {
+    const all = rows.filter((r) => r.employee.supervisor_id === supervisorId)
+    returnFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    setNotice(null)
+    setTarget({ supervisorId, supervisorName: all[0]?.employee.supervisor_name ?? '', rows: all, preselected, key: Date.now() })
+  }
+
+  function closeReminder() {
+    setTarget(null)
+    requestAnimationFrame(() => returnFocus.current?.focus())
+  }
+
+  function onSent(reminder: Reminder) {
+    setReminders((r) => ({ kind: 'ready', data: [reminder, ...(r.kind === 'ready' ? r.data : [])] }))
+    closeReminder()
+    setNotice(t.reminder.sent(reminder.supervisor_name, formatDateTime(reminder.created_at)))
+  }
+
+  function pickOverview(key: OverviewKey) {
+    setFilters((f) => (isOverviewActive(key, f) ? EMPTY_FILTERS : overviewFilter(key)))
+    tableRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
 
   return (
     <AppLayout>
       <PageHeader title={t.title} lead={t.lead} />
+      {/* Wynik wysłania przypomnienia dla czytników ekranu (region istnieje stale, treść się zmienia). */}
+      <p className="sr-only" role="status" aria-live="polite">
+        {notice ?? ''}
+      </p>
 
-      <section aria-label="Podsumowanie statusów" className="mb-8">
-        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-          {(Object.keys(TILE_STATUSES) as Tile[]).map((k) => {
-            const { icon: Icon, accent, ring } = TILE_STYLE[k]
-            const active = tile === k
-            return (
-              <button
-                key={k}
-                type="button"
-                aria-pressed={active}
-                onClick={() => setTile(active ? null : k)}
-                className={`flex flex-col items-start rounded-lg border border-line bg-surface p-4 text-left shadow-raised transition-[box-shadow,transform] duration-150 ease-out hover:-translate-y-px active:scale-[0.99] ${
-                  active ? `ring-2 ${ring}` : ''
-                }`}
+      {state.kind === 'loading' && (
+        <p role="status" className="flex items-center gap-2 text-ink-muted">
+          <LoaderCircle aria-hidden className="size-4 animate-spin" />
+          {t.loading}
+        </p>
+      )}
+      {state.kind === 'error' && (
+        <Alert action={<Button variant="secondary" className="py-1.5 text-sm" onClick={load}>{texts.common.retry}</Button>}>
+          {t.loadError}
+        </Alert>
+      )}
+
+      {state.kind === 'ready' && (
+        <>
+          <section aria-labelledby="przeglad" className="mb-10">
+            <h2 id="przeglad" className="mb-2 text-sm font-medium tracking-wide text-ink-muted uppercase">
+              {t.overview.title}
+            </h2>
+            <div className="flex flex-wrap divide-x divide-line overflow-hidden rounded-md border border-line bg-surface">
+              {OVERVIEW.map((key) => {
+                const active = isOverviewActive(key, filters)
+                const tone =
+                  key === 'overdue' && counts.overdue ? 'text-danger' : key === 'due_soon' && counts.due_soon ? 'text-warning' : 'text-ink'
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    aria-pressed={active}
+                    title={t.overview.hint}
+                    onClick={() => pickOverview(key)}
+                    className={`relative flex min-w-[9rem] flex-1 items-baseline gap-2 px-5 py-4 text-left transition-colors duration-150 hover:bg-paper ${
+                      active ? 'bg-accent-soft/70' : ''
+                    }`}
+                  >
+                    <span className={`font-serif text-[1.75rem] leading-none font-semibold tabular-nums ${tone}`}>{counts[key]}</span>
+                    <span className="text-sm text-ink-muted">{t.overview.items[key]}</span>
+                    {active && <span aria-hidden className="absolute inset-x-0 bottom-0 h-0.5 bg-accent" />}
+                  </button>
+                )
+              })}
+            </div>
+            <p className="mt-2 text-xs text-ink-faint">{t.overview.hint}</p>
+          </section>
+
+          {notice && (
+            <div className="mb-4">
+              <Alert
+                tone="positive"
+                action={
+                  <Button variant="quiet" onClick={() => setNotice(null)}>
+                    {t.close}
+                  </Button>
+                }
               >
-                <span className={`flex size-8 items-center justify-center rounded-md bg-sunken ${accent}`}>
-                  <Icon aria-hidden className="size-4" />
-                </span>
-                <span className="mt-3 font-serif text-[2rem] leading-none font-semibold text-ink tabular-nums">
-                  {state.kind === 'ready' ? counts[k] : '–'}
-                </span>
-                <span className="mt-1.5 text-sm text-ink-muted">{t.tiles[k]}</span>
-              </button>
-            )
-          })}
-        </div>
-        <p className="mt-2 text-xs text-ink-faint">{t.tilesHint}</p>
-      </section>
-
-      <div className="mb-10">
-        <AssessmentCalendar role="hr" />
-      </div>
-
-      <section aria-labelledby="tabela-kadry">
-        <div className="mb-3 flex items-end justify-between gap-4">
-          <h2 id="tabela-kadry" className="text-title font-semibold text-ink">
-            {t.tableTitle}
-            {tile && <span className="ml-2 text-base font-normal text-ink-muted">· {t.tiles[tile]}</span>}
-          </h2>
-          {tile && (
-            <button type="button" onClick={() => setTile(null)} className="text-sm font-medium text-accent hover:underline">
-              {t.clearFilter}
-            </button>
+                {notice}
+              </Alert>
+            </div>
           )}
-        </div>
+          {reminders.kind === 'error' && (
+            <div className="mb-4">
+              <Alert action={<Button variant="secondary" className="py-1.5 text-sm" onClick={loadReminders}>{texts.common.retry}</Button>}>
+                {t.remindersError}
+              </Alert>
+            </div>
+          )}
 
-        {state.kind === 'loading' && (
-          <p role="status" className="flex items-center gap-2 text-ink-muted">
-            <LoaderCircle aria-hidden className="size-4 animate-spin" />
-            {texts.calendar.loading}
-          </p>
-        )}
-        {state.kind === 'error' && (
-          <Alert action={<Button variant="secondary" className="py-1.5 text-sm" onClick={load}>{texts.common.retry}</Button>}>
-            {t.loadError}
-          </Alert>
-        )}
-        {state.kind === 'ready' && (
-          <div className="overflow-hidden rounded-lg border border-line bg-surface shadow-raised">
-            <table className="w-full text-left text-sm">
-              <thead className="bg-sunken text-ink-muted">
-                <tr>
-                  <th className="px-4 py-2.5 font-medium">{t.columns.employee}</th>
-                  <th className="px-4 py-2.5 font-medium">{t.columns.supervisor}</th>
-                  <th className="px-4 py-2.5 font-medium">{t.columns.kind}</th>
-                  <th className="px-4 py-2.5 font-medium">{t.columns.status}</th>
-                  <th className="px-4 py-2.5 font-medium">{t.columns.due}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.length === 0 && (
-                  <tr>
-                    <td colSpan={5} className="px-4 py-6 text-center text-ink-muted">
-                      {t.empty}
-                    </td>
-                  </tr>
-                )}
-                {rows.map((e) => {
-                  const sup = state.users.get(e.supervisor_id)
-                  return (
-                    <tr key={e.id} className="border-t border-line">
-                      <td className="px-4 py-3">
-                        <span className="font-medium text-ink">{fullName(e)}</span>
-                        <span className="block text-ink-muted">{e.position_title}</span>
-                      </td>
-                      <td className="px-4 py-3 text-ink">{sup ? `${sup.first_name} ${sup.last_name}` : '—'}</td>
-                      <td className="px-4 py-3 text-ink">{t.kind[e.assessment_kind]}</td>
-                      <td className="px-4 py-3">
-                        <EmployeeStatusBadge status={e.status} />
-                      </td>
-                      <td className="px-4 py-3 tabular-nums">
-                        {e.next_assessment_due ? (
-                          <>
-                            <span className="text-ink">{formatDate(e.next_assessment_due)}</span>
-                            <span className="block text-ink-muted">{formatRelativeDue(e.next_assessment_due)}</span>
-                          </>
-                        ) : (
-                          '—'
-                        )}
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
+          <AttentionSection
+            groups={attention}
+            remindersReady={reminders.kind === 'ready'}
+            onRemind={(g) => openReminder(g.supervisorId, g.rows.map((r) => r.employee.id))}
+          />
+
+          <AssessmentCalendar role="hr" onRemind={(e) => openReminder(e.supervisor_id, [e.employee_id])} />
+
+          <div ref={tableRef} className="scroll-mt-6">
+            <AssessmentsTable
+              rows={rows}
+              filters={filters}
+              onFilters={setFilters}
+              remindersReady={reminders.kind === 'ready'}
+              onRemind={(r) => openReminder(r.employee.supervisor_id, [r.employee.id])}
+            />
           </div>
-        )}
-      </section>
+        </>
+      )}
+
+      {target && (
+        <ReminderDialog
+          key={target.key}
+          target={target}
+          lastReminder={lastReminderFor(reminderList, target.supervisorId)}
+          onClose={closeReminder}
+          onSent={onSent}
+        />
+      )}
     </AppLayout>
   )
 }

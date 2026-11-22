@@ -53,12 +53,43 @@ SUBORDINATES_LEADERSHIP_PATTERN: Final[re.Pattern[str]] = re.compile(
 )
 
 
+# Tekst zastępczy listy rozwijanej, np. „wybierz nazwę stanowiska pracy z listy” (pole niewypełnione).
+WORD_DROPDOWN_PLACEHOLDER: Final[re.Pattern[str]] = re.compile(r"^wybierz\b.*\bz listy\.?$", re.IGNORECASE)
+
+W_NS: Final[str] = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+
+
 def _clean_text(text: str) -> str:
     """Usuwa nadmiarowe białe znaki i pomija placeholdery kontrolek formularza MS Word."""
     cleaned = re.sub(r"[ \t\xa0]+", " ", text or "").strip()
-    if cleaned.casefold() in WORD_PLACEHOLDERS:
+    if cleaned.casefold() in WORD_PLACEHOLDERS or WORD_DROPDOWN_PLACEHOLDER.match(cleaned):
         return ""
     return cleaned
+
+
+def _row_cell_lines(row: Any) -> list[list[str]]:
+    """
+    Akapity kolejnych komórek wiersza odczytane wprost z XML, łącznie z komórkami opakowanymi
+    w kontrolkę zawartości (w:sdt → w:sdtContent → w:tc). python-docx pomija takie komórki, a w OSP
+    tak zapisana jest lista rozwijana nazwy stanowiska (pkt 1.3), więc bez tego wartość ginęła.
+    """
+    cells: list[list[str]] = []
+    for child in row._tr.iterchildren():
+        tag = _local_tag_name(child)
+        if tag == "tc":
+            tcs = [child]
+        elif tag == "sdt":
+            tcs = list(child.iter(f"{{{W_NS}}}tc"))
+        else:
+            continue
+        for tc in tcs:
+            lines: list[str] = []
+            for paragraph in tc.iter(f"{{{W_NS}}}p"):
+                line = _clean_text("".join(t.text or "" for t in paragraph.iter(f"{{{W_NS}}}t")))
+                if line:
+                    lines.append(line)
+            cells.append(lines)
+    return cells
 
 
 def _clean_multiline_cell(cell: _Cell) -> list[str]:
@@ -201,39 +232,65 @@ def _parse_part_one_metadata(tables: list[Table]) -> dict[str, str]:
     stanowisko_do_spraw = ""
     symbol_stanowiska = ""
 
+    labels = (
+        "NAZWA URZĘDU",
+        "NAZWA KOMÓRKI ORGANIZACYJNEJ",
+        "NAZWA STANOWISKA PRACY",
+        "STANOWISKO DO SPRAW",
+        "SYMBOL STANOWISKA PRACY",
+    )
+    last_label = ""
     for table in tables:
         for row in table.rows:
-            cells = _unique_row_cells(list(row.cells))
+            cells = _row_cell_lines(row)
             if len(cells) < 2:
                 continue
 
             # Układ 3-kolumnowy (np. "1.1." | "NAZWA URZĘDU" | "Ministerstwo Cyfryzacji")
-            # lub 2-kolumnowy ("1.1. NAZWA URZĘDU" | "Ministerstwo Cyfryzacji")
-            first_text = _clean_text(cells[0].text)
-            second_text = _clean_text(cells[1].text) if len(cells) >= 2 else ""
+            # lub 2-kolumnowy ("1.1. NAZWA URZĘDU" | "Ministerstwo Cyfryzacji").
+            texts = [" ".join(lines) for lines in cells]
+            first_text = texts[0]
+            second_text = texts[1]
             label_combined = f"{first_text} {second_text}".upper()
-            value_cell = cells[-1]
-            value_lines = _clean_multiline_cell(value_cell)
+            # Wartość to wyłącznie komórki PO komórce z etykietą — nigdy sama etykieta
+            # (wcześniej przy pustej wartości trafiał tu nagłówek „NAZWA STANOWISKA PRACY”).
+            label_index = next(
+                (i for i, text in enumerate(texts[:2]) if any(label in text.upper() for label in labels)),
+                0,
+            )
+            value_lines = [line for lines in cells[label_index + 1:] for line in lines]
             value_joined = " ".join(value_lines)
+            # Wiersz kontynuacji z pionowo scaloną etykietą (np. wydział pod departamentem w pkt 1.2):
+            # komórki etykiet są puste, wartość należy do poprzedniego punktu.
+            continuation = not first_text and not second_text
 
             if "1.1" in first_text or "NAZWA URZĘDU" in label_combined:
+                last_label = "1.1"
                 if value_joined and not nazwa_urzedu:
                     nazwa_urzedu = value_joined
 
-            elif "1.2" in first_text or "NAZWA KOMÓRKI ORGANIZACYJNEJ" in label_combined:
+            elif (
+                "1.2" in first_text
+                or "NAZWA KOMÓRKI ORGANIZACYJNEJ" in label_combined
+                or (continuation and last_label == "1.2")
+            ):
+                last_label = "1.2"
                 for line in value_lines:
                     if line not in komorka_parts:
                         komorka_parts.append(line)
 
             elif "1.3" in first_text or "NAZWA STANOWISKA PRACY" in label_combined:
+                last_label = "1.3"
                 if value_joined and not stanowisko_base:
                     stanowisko_base = value_joined
 
             elif "1.4" in first_text or "STANOWISKO DO SPRAW" in label_combined:
+                last_label = "1.4"
                 if value_joined and not stanowisko_do_spraw:
                     stanowisko_do_spraw = value_joined
 
             elif "1.5" in first_text or "SYMBOL STANOWISKA PRACY" in label_combined:
+                last_label = "1.5"
                 if value_joined and not symbol_stanowiska:
                     symbol_stanowiska = value_joined
 

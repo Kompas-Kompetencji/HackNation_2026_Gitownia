@@ -33,8 +33,11 @@ _TABLES = frozenset(
         "evaluation_indicator_answers",
         "employee_notes",
         "job_descriptions",
+        "reminders",
     }
 )
+# Migracje, których błąd jest tylko logowany (start backendu trwa dalej, nie działa tylko ta funkcja).
+OPTIONAL_MIGRATIONS = frozenset({"003_reminders.sql", "004_development_conclusions.sql"})
 
 
 def _ident(name: str) -> str:
@@ -106,6 +109,9 @@ class PostgresRepository(SupabaseRepository):
                 with self._pool.connection() as conn, conn.transaction():
                     conn.execute(sql)  # type: ignore[arg-type]
             except Exception as exc:
+                if sql_file.name in OPTIONAL_MIGRATIONS:
+                    logger.error("Migracja %s nie powiodła się (funkcja z tej migracji nie będzie działać): %s", sql_file.name, exc)
+                    continue
                 raise SupabaseError(f"Postgres (migracja {sql_file.name}): {exc}") from exc
             logger.info("Migracja %s zastosowana (idempotentna).", sql_file.name)
 

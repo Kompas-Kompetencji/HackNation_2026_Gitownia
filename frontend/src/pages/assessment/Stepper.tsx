@@ -21,12 +21,19 @@ export function Stepper({
   statuses,
   decisions,
   onSelect,
+  setupStep = SETUP_STEP,
+  setupLabel = t.setup,
+  mandatoryTitle = t.mandatory,
 }: {
   criteria: Criterion[]
   current: string
   statuses: Record<string, CriterionStatus>
   decisions: Record<string, number | null>
   onSelect: (step: string) => void
+  /** Pierwszy krok: konfiguracja (ocena okresowa) albo dane pierwszej oceny. */
+  setupStep?: string
+  setupLabel?: string
+  mandatoryTitle?: string
 }) {
   const mandatory = criteria.filter((c) => c.mandatory)
   const additional = criteria.filter((c) => !c.mandatory)
@@ -35,9 +42,9 @@ export function Stepper({
     <nav aria-label={t.label} className="sticky top-32 max-h-[calc(100vh-9rem)] self-start overflow-y-auto text-sm">
       <ol className="space-y-5">
         <li>
-          <StepButton id={SETUP_STEP} current={current} onSelect={onSelect} icon={Settings2} label={t.setup} />
+          <StepButton id={setupStep} current={current} onSelect={onSelect} icon={Settings2} label={setupLabel} />
         </li>
-        <Group title={t.mandatory} items={mandatory} current={current} statuses={statuses} decisions={decisions} onSelect={onSelect} offset={0} />
+        <Group title={mandatoryTitle} items={mandatory} current={current} statuses={statuses} decisions={decisions} onSelect={onSelect} offset={0} />
         {additional.length > 0 && (
           <Group
             title={t.additional}

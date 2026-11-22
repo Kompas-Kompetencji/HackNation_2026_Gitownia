@@ -1,4 +1,4 @@
-import type { AssessmentForm, AssessmentKind, ContractType, OspAnalysis } from '../../types'
+import type { AdditionalCriterion, AssessmentForm, AssessmentKind, ContractType, OspAnalysis } from '../../types'
 
 export interface PersonalData {
   first_name: string
@@ -50,8 +50,15 @@ export interface EditableAnalysis {
   organizational_unit: string
   subordinates_count: string
   form: AssessmentForm
-  criteria: string[]
+  /**
+   * Wybrane kryteria dodatkowe: od 0 do 3 z wykazu 14 kompetencji, bez obowiązkowych dla arkusza
+   * (§ 5 ust. 2 rozporządzenia z 2016 r.). Na start podpowiedź z analizy opisu stanowiska.
+   */
+  criteria: AdditionalCriterion[]
 }
+
+/** Najwięcej kryteriów dodatkowych w ocenie okresowej (§ 5 ust. 2 rozporządzenia z 2016 r.). */
+export const MAX_ADDITIONAL_CRITERIA = 3
 
 export interface DocumentData {
   file: File | null
@@ -77,7 +84,7 @@ export function toEditable(a: OspAnalysis): EditableAnalysis {
     organizational_unit: a.organizational_unit ?? '',
     subordinates_count: a.subordinates_count === null ? '' : String(a.subordinates_count),
     form: a.suggested_form,
-    criteria: a.additional_criteria.map((c) => c.name),
+    criteria: a.additional_criteria.slice(0, MAX_ADDITIONAL_CRITERIA),
   }
 }
 
@@ -91,6 +98,6 @@ export function toConfirmed(original: OspAnalysis, edited: EditableAnalysis): Os
     subordinates_count: subordinates,
     has_management_duties: subordinates > 0,
     suggested_form: edited.form,
-    additional_criteria: original.additional_criteria.map((c, i) => ({ ...c, name: edited.criteria[i].trim() })),
+    additional_criteria: edited.criteria,
   }
 }

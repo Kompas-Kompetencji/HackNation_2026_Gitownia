@@ -8,7 +8,7 @@ from __future__ import annotations
 from datetime import date, datetime
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, SerializationInfo, SerializerFunctionWrapHandler, model_serializer
 
 UserRole = Literal["supervisor", "hr"]
 # replacement = umowa w celu zastępstwa nieobecnego członka korpusu (art. 37 ust. 2 ustawy o służbie cywilnej)
@@ -27,6 +27,14 @@ EmployeeStatus = Literal[
 AssessmentStatus = Literal["not_started", "draft", "awaiting_interview", "completed", "overdue"]
 # Status przechowywany; "overdue" wylicza się z terminu, nie zapisuje.
 StoredAssessmentStatus = Literal["not_started", "draft", "awaiting_interview", "completed"]
+# Pierwsza ocena: egzamin ze służby przygotowawczej. exempt = wyjątek z § 10 ust. 3 rozporządzenia
+# z 2015 r. (w silniku NIE_DOTYCZY), passed = TAK, failed = NIE.
+ExamStatus = Literal["passed", "exempt", "failed"]
+# Pola tylko pierwszej oceny (dev_maks): w odpowiedziach ocen okresowych ich nie ma.
+FIRST_EVAL_FIELDS = ("exam_status", "report_on_time", "initial_interview_date", "evaluation_interview_date")
+# Wnioski dotyczące indywidualnego programu rozwoju zawodowego (arkusze B i C, § 11 pkt 5 rozporządzenia
+# z 2016 r.) albo wnioski dotyczące rozwoju zawodowego ocenianego (pierwsza ocena). Opcjonalne.
+DEVELOPMENT_CONCLUSIONS_MAX_LENGTH = 2000
 
 
 class User(BaseModel):
@@ -51,6 +59,27 @@ class Employee(BaseModel):
     first_eval_agreement_date: date | None = None
     assessment_kind: AssessmentKind
     form: EmployeeForm | None
+    last_assessment_date: date | None
+    last_assessment_result: AssessmentResult | None
+    next_assessment_due: date | None
+    status: EmployeeStatus
+
+
+class EmployeeMonitoring(BaseModel):
+    """
+    Widok pracownika dla kadr (minimalizacja danych): tylko to, co potrzebne do monitorowania terminów
+    i statusów – pracownik, komórka, przełożony, rodzaj oceny, status, terminy i wynik końcowy.
+    Bez stanowiska, umowy, arkusza, punktów, uzasadnień, notatek i opisów stanowiska.
+    """
+
+    id: str
+    supervisor_id: str
+    supervisor_name: str
+    first_name: str
+    last_name: str
+    organizational_unit: str
+    assessment_kind: AssessmentKind
+    contract_end_date: date | None
     last_assessment_date: date | None
     last_assessment_result: AssessmentResult | None
     next_assessment_due: date | None
@@ -207,6 +236,20 @@ class AssessmentDetail(AssessmentSummary):
     last_step: str | None
     updated_at: datetime | None
     evaluation: AssessmentEvaluation | None
+    development_conclusions: str | None = None
+    # Tylko pierwsza ocena (opcjonalne; dla arkuszy B i C pomijane w odpowiedzi).
+    exam_status: ExamStatus | None = None
+    report_on_time: bool | None = None
+    initial_interview_date: date | None = None
+    evaluation_interview_date: date | None = None
+
+    @model_serializer(mode="wrap")
+    def _drop_first_eval_fields(self, handler: SerializerFunctionWrapHandler, info: SerializationInfo) -> Any:
+        data = handler(self)
+        if self.form != "first" and isinstance(data, dict):
+            for key in FIRST_EVAL_FIELDS:
+                data.pop(key, None)
+        return data
 
 
 class CreateAssessmentInput(BaseModel):
@@ -223,6 +266,12 @@ class AssessmentDraftInput(BaseModel):
     decisions: list[CriterionDecision] = Field(default_factory=list)
     justification_draft: str = ""
     last_step: str | None = None
+    development_conclusions: str | None = Field(default=None, max_length=DEVELOPMENT_CONCLUSIONS_MAX_LENGTH)
+    # Tylko pierwsza ocena (opcjonalne, ignorowane dla arkuszy B i C).
+    exam_status: ExamStatus | None = None
+    report_on_time: bool | None = None
+    initial_interview_date: date | None = None
+    evaluation_interview_date: date | None = None
 
 
 class CalculateScoreInput(BaseModel):
@@ -294,6 +343,14 @@ class AssessmentRecord(BaseModel):
     # Wynik zapisany przy zakończeniu (Supabase: average_score, overall_level); nie trafia do API.
     stored_mean: float | None = None
     stored_overall_level: str | None = None
+    # Supabase/Postgres: evaluations.development_conclusions (skrypt 004, zapis osłonięty).
+    development_conclusions: str | None = None
+    # Pierwsza ocena (Supabase/Postgres: exam_passed, report_on_time, initial_talk_date;
+    # evaluation_interview_date nie ma kolumny – trwale tylko w pamięci).
+    exam_status: ExamStatus | None = None
+    report_on_time: bool | None = None
+    initial_interview_date: date | None = None
+    evaluation_interview_date: date | None = None
 
 
 class NewAssessment(BaseModel):
@@ -304,6 +361,50 @@ class NewAssessment(BaseModel):
     status: StoredAssessmentStatus
     started_at: datetime | None
     due_date: date
+
+
+# --------------------------------------------------------------------------
+# Przypomnienia od kadr dla przełożonych (etap 6)
+# --------------------------------------------------------------------------
+
+REMINDER_MAX_LENGTH = 1000
+
+
+class CreateReminderInput(BaseModel):
+    """Długość i pustą treść sprawdza warstwa usług (komunikaty po polsku)."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    supervisor_id: str
+    employee_ids: list[str] = Field(default_factory=list)
+    message: str
+
+
+class Reminder(BaseModel):
+    """Przypomnienie w odpowiedzi API (nazwiska dołącza usługa przy odczycie)."""
+
+    id: str
+    created_at: datetime
+    author_id: str | None
+    author_name: str
+    supervisor_id: str
+    supervisor_name: str
+    employee_ids: list[str]
+    employee_names: list[str]
+    message: str
+
+
+class NewReminder(BaseModel):
+    author_id: str
+    supervisor_id: str
+    employee_ids: list[str]
+    message: str
+    created_at: datetime
+
+
+class ReminderRecord(NewReminder):
+    id: str
+    author_id: str | None  # type: ignore[assignment]
 
 
 JsonDict = dict[str, Any]

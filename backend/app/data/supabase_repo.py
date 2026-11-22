@@ -27,12 +27,13 @@ employees.status nie jest odczytywany: status pracownika wylicza usługa z termi
 
 from __future__ import annotations
 
-from datetime import datetime
+import logging
+from datetime import date, datetime
 from typing import Any
 
 import httpx
 
-from app.data.repository import DataRepository, NotFoundError
+from app.data.repository import DataRepository, NotFoundError, StorageError
 from app.data.schemas import (
     AssessmentRecord,
     CriterionDecision,
@@ -41,8 +42,10 @@ from app.data.schemas import (
     JobDescriptionDocument,
     NewAssessment,
     NewEmployee,
+    NewReminder,
     Note,
     OspAnalysis,
+    ReminderRecord,
     StarNote,
     User,
 )
@@ -68,6 +71,38 @@ EVAL_STATUS_TO_DB = {"draft": "ROBOCZA", "completed": "ZATWIERDZONA", "not_start
 
 RESULT_FROM_DB = {"POZYTYWNA": "positive", "NEGATYWNA": "negative"}
 RESULT_TO_DB = {v: k for k, v in RESULT_FROM_DB.items()}
+
+# Pierwsza ocena (dev_maks): evaluations.exam_passed (varchar, bez opisanego ograniczenia wartości)
+# zapisujemy wartościami z arkusza i silnika: TAK / NIE / NIE_DOTYCZY.
+EXAM_FROM_DB = {"TAK": "passed", "NIE_DOTYCZY": "exempt", "NIE": "failed"}
+EXAM_TO_DB = {v: k for k, v in EXAM_FROM_DB.items()}
+
+logger = logging.getLogger(__name__)
+
+
+def _exam_from_db(value: Any) -> str | None:
+    if value is None:
+        return None
+    if isinstance(value, bool):  # odporność na kolumnę typu boolean w innej wersji schematu
+        return "passed" if value else "failed"
+    return EXAM_FROM_DB.get(str(value).strip().upper())
+
+
+def _date_from_db(value: Any) -> date | None:
+    if value is None or value == "":
+        return None
+    if isinstance(value, datetime):
+        return value.date()
+    if isinstance(value, date):
+        return value
+    try:
+        return date.fromisoformat(str(value)[:10])
+    except ValueError:
+        return None
+
+
+def _bool_from_db(value: Any) -> bool | None:
+    return value if isinstance(value, bool) else None
 
 # Status pracownika zapisywany przy dodaniu (kolumna wymagana; odczyt wylicza usługa)
 EMPLOYEE_STATUS_ON_CREATE = {"first": "ROZMOWA_WSTEPNA", "periodic": "W_TRAKCIE_OBSERWACJI"}
@@ -334,6 +369,12 @@ class SupabaseRepository(DataRepository):
             suggested_levels={_competency_str(c["competency_id"]): c.get("suggested_score") for c in criteria if c.get("competency_id")},
             stored_mean=float(row["average_score"]) if row.get("average_score") is not None else None,
             stored_overall_level=row.get("overall_level"),
+            development_conclusions=row.get("development_conclusions"),
+            # Pierwsza ocena: odczyt odporny na brak kolumn i nieznane wartości.
+            exam_status=_exam_from_db(row.get("exam_passed")),  # type: ignore[arg-type]
+            report_on_time=_bool_from_db(row.get("report_on_time")),
+            initial_interview_date=_date_from_db(row.get("initial_talk_date")),
+            # evaluation_interview_date: brak kolumny w bazie (prośba o evaluations.evaluation_talk_date)
         )
 
     def list_assessments(self, employee_ids: set[str] | None = None) -> list[AssessmentRecord]:
@@ -387,9 +428,47 @@ class SupabaseRepository(DataRepository):
             raise NotFoundError(record.id)
         self._sync_criteria(db_id, record)
         self._sync_answers(db_id, record)
+        self._save_first_eval_fields(db_id, record)
+        self._save_development_conclusions(db_id, record)
         saved = self.get_assessment(record.id)
         assert saved is not None
         return saved
+
+    def _save_first_eval_fields(self, evaluation_id: int, record: AssessmentRecord) -> None:
+        """
+        Pola pierwszej oceny osobnym poleceniem po głównym zapisie. Nie testowane na prawdziwej bazie,
+        dlatego awaria (np. inny typ lub brak kolumny) jest tylko logowana i nie psuje zapisu oceny.
+        Data rozmowy oceniającej nie ma kolumny i nie jest zapisywana.
+        """
+        if record.form != "first":
+            return
+        try:
+            self._update(
+                "evaluations",
+                {
+                    "exam_passed": EXAM_TO_DB.get(record.exam_status or ""),
+                    "report_on_time": record.report_on_time,
+                    "initial_talk_date": record.initial_interview_date.isoformat() if record.initial_interview_date else None,
+                },
+                id=f"eq.{evaluation_id}",
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.error("Nie zapisano pól pierwszej oceny dla oceny %s: %s", evaluation_id, exc)
+
+    def _save_development_conclusions(self, evaluation_id: int, record: AssessmentRecord) -> None:
+        """
+        Wnioski rozwojowe (kolumna evaluations.development_conclusions ze skryptu 004) osobnym poleceniem
+        po głównym zapisie. Nietestowane na prawdziwej bazie: przy braku kolumny błąd trafia tylko do logu
+        i nie psuje zapisu oceny.
+        """
+        try:
+            self._update(
+                "evaluations",
+                {"development_conclusions": record.development_conclusions},
+                id=f"eq.{evaluation_id}",
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.error("Nie zapisano wniosków rozwojowych dla oceny %s: %s", evaluation_id, exc)
 
     def _sync_criteria(self, evaluation_id: int, record: AssessmentRecord) -> None:
         """Wiersze evaluation_criteria: decyzje + wybrane kryteria dodatkowe bez decyzji."""
@@ -438,3 +517,47 @@ class SupabaseRepository(DataRepository):
         if keep:
             filters["indicator_id"] = f"not.in.({','.join(keep)})"
         self._delete("evaluation_indicator_answers", **filters)
+
+    # --- przypomnienia od kadr (tabela reminders, supabase/schema-additions-003.sql) -------------
+    # NIETESTOWANE NA PRAWDZIWEJ BAZIE. Każdy błąd (np. brak tabeli) jest logowany i zamieniany na
+    # StorageError, który usługa zamienia na czytelny komunikat; reszta aplikacji działa dalej.
+
+    @staticmethod
+    def _reminder(row: dict[str, Any]) -> ReminderRecord:
+        ids = row.get("employee_ids") or []
+        return ReminderRecord(
+            id=str(row["id"]),
+            created_at=row["created_at"],
+            author_id=str(row["author_id"]) if row.get("author_id") is not None else None,
+            supervisor_id=str(row["supervisor_id"]),
+            employee_ids=[str(i) for i in ids] if isinstance(ids, list) else [],
+            message=row.get("message") or "",
+        )
+
+    def list_reminders(self, supervisor_id: str | None = None) -> list[ReminderRecord]:
+        try:
+            if supervisor_id is None:
+                rows = self._select("reminders", order="created_at.desc")
+            else:
+                db_id = _int_id(supervisor_id)
+                if db_id is None:
+                    return []
+                rows = self._select("reminders", supervisor_id=f"eq.{db_id}", order="created_at.desc")
+            return [self._reminder(r) for r in rows]
+        except Exception as exc:  # noqa: BLE001 – awaria tabeli przypomnień nie może psuć reszty aplikacji
+            logger.error("Nie odczytano przypomnień (supervisor_id=%s): %s", supervisor_id, exc)
+            raise StorageError("reminders: odczyt") from exc
+
+    def add_reminder(self, data: NewReminder) -> ReminderRecord:
+        row = {
+            "author_id": _int_id(data.author_id),
+            "supervisor_id": _int_id(data.supervisor_id),
+            "employee_ids": [i for i in (_int_id(e) for e in data.employee_ids) if i is not None],
+            "message": data.message,
+            "created_at": data.created_at.isoformat(),
+        }
+        try:
+            return self._reminder(self._insert("reminders", row)[0])
+        except Exception as exc:  # noqa: BLE001
+            logger.error("Nie zapisano przypomnienia dla przełożonego %s: %s", data.supervisor_id, exc)
+            raise StorageError("reminders: zapis") from exc

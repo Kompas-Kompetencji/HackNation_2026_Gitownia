@@ -9,15 +9,16 @@ app.core.config); ta warstwa ich nie powiela.
 from __future__ import annotations
 
 import json
+import re
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 from functools import lru_cache
 from typing import Any
 
-from app.core.config import PERIODIC_ALLOWED_SCORES, PERIODIC_SCORE_LABELS, settings
+from app.core.config import FIRST_EVAL_ALLOWED_SCORES, PERIODIC_ALLOWED_SCORES, PERIODIC_SCORE_LABELS, settings
 from app.core.deadline_calc import add_months_art_112_kc, calculate_deadlines
 from app.core.scoring_engine import determine_periodic_overall_level, evaluate, round_half_up
-from app.data.repository import DataRepository
+from app.data.repository import DataRepository, StorageError
 from app.data.schemas import (
     AssessmentDetail,
     AssessmentDraftInput,
@@ -27,14 +28,20 @@ from app.data.schemas import (
     CalendarEvent,
     CreateAssessmentInput,
     CreateEmployeeInput,
+    CreateReminderInput,
     Employee,
+    EmployeeMonitoring,
     EmployeeRecord,
     IndicatorAnswer,
     JobDescriptionDocument,
     NewAssessment,
     NewEmployee,
+    NewReminder,
     Note,
     OspAnalysis,
+    REMINDER_MAX_LENGTH,
+    Reminder,
+    ReminderRecord,
     ScoreResult,
     User,
 )
@@ -48,9 +55,52 @@ from app.schemas.models import (
     EvaluationType,
     EvaluatorPersonData,
     FormType,
+    TriStateOption,
 )
 
 DUE_SOON_DAYS = 30
+
+# Kadry monitorują terminy i statusy, ale nie widzą treści ocen (minimalizacja danych osobowych).
+HR_NO_CONTENT = "Kadry nie mają dostępu do treści ocen. Widzą tylko status, terminy, rodzaj oceny i wynik końcowy."
+HR_NO_NOTES = "Kadry nie mają dostępu do notatek przełożonego."
+HR_NO_JOB_DESCRIPTIONS = "Kadry nie mają dostępu do opisów stanowiska pracy."
+# Numer PESEL (11 cyfr) nie powinien trafiać do treści przypomnienia.
+_PESEL_RE = re.compile(r"(?<!\d)\d{11}(?!\d)")
+
+# Pierwsza ocena: egzamin ze służby przygotowawczej → pole silnika (exempt = wyjątek § 10 ust. 3).
+EXAM_TO_ENGINE = {"passed": TriStateOption.TAK, "exempt": TriStateOption.NIE_DOTYCZY, "failed": TriStateOption.NIE}
+
+
+def _first_eval_fields(data: AssessmentDraftInput) -> dict[str, Any]:
+    """Pola tylko pierwszej oceny; dla arkuszy B i C zawsze puste (nie zmieniają oceny okresowej)."""
+    first = data.form == "first"
+    return {
+        "exam_status": data.exam_status if first else None,
+        "report_on_time": data.report_on_time if first else None,
+        "initial_interview_date": data.initial_interview_date if first else None,
+        "evaluation_interview_date": data.evaluation_interview_date if first else None,
+    }
+
+
+def _conclusions(data: AssessmentDraftInput) -> str | None:
+    """Wnioski rozwojowe z formularza: pusty tekst zapisujemy jako brak wartości."""
+    text = (data.development_conclusions or "").strip()
+    return text or None
+
+
+def _validate_first_eval_scale(data: AssessmentDraftInput) -> None:
+    """Pierwsza ocena: decyzje przełożonego tylko w skali 3, 5, 7 (§ 9 ust. 1 rozporządzenia z 2015 r.)."""
+    if data.form != "first":
+        return
+    names = competency_names()
+    for d in data.decisions:
+        if d.selected_level is not None and d.selected_level not in FIRST_EVAL_ALLOWED_SCORES:
+            name = names.get(d.competency_id, d.competency_id)
+            raise ServiceError(
+                422,
+                f"Element „{name}”: w pierwszej ocenie można przyznać tylko 3, 5 albo 7 punktów "
+                f"(wybrano {d.selected_level}).",
+            )
 
 
 class ServiceError(Exception):
@@ -164,6 +214,20 @@ def first_assessment_deadlines(record: EmployeeRecord):  # noqa: ANN201
     )
 
 
+def periodic_assessment_deadlines(record: EmployeeRecord):  # noqa: ANN201
+    """
+    Terminy pierwszej oceny okresowej pracownika bez zakończonej oceny w systemie (czas nieokreślony,
+    mianowanie). Istniejąca logika kalkulatora: rozmowa rozpoczynająca i zapoznanie z kryteriami w ciągu
+    30 dni od zatrudnienia na czas nieokreślony (§ 7 pkt 1 rozporządzenia z 2016 r.), ocena po 24 miesiącach.
+    """
+    return calculate_deadlines(
+        DeadlineRequest(
+            evaluation_type=EvaluationType.PERIODIC_EVALUATION,
+            data_poprzedniej_oceny_lub_zatrudnienia=record.hire_date,
+        )
+    )
+
+
 class DataService:
     def __init__(self, repo: DataRepository) -> None:
         self.repo = repo
@@ -185,6 +249,12 @@ class DataService:
         if user.role != "hr" and employee.supervisor_id != user.id:
             raise ServiceError(403, "Brak dostępu do pracownika.")
         return employee
+
+    @staticmethod
+    def _deny_hr(user: User, detail: str) -> None:
+        """Treść ocen, notatki i opisy stanowiska widzi tylko przełożony pracownika."""
+        if user.role == "hr":
+            raise ServiceError(403, detail)
 
     def _employee_for_write(self, user: User, employee_id: str) -> EmployeeRecord:
         employee = self._employee_for_read(user, employee_id)
@@ -233,7 +303,11 @@ class DataService:
         elif record.assessment_kind == "first":
             next_due = first_assessment_deadlines(record).termin_dokonania_oceny_max
         else:
-            next_due = None
+            # Ocena okresowa bez zakończonej oceny w systemie: termin liczony od zatrudnienia.
+            try:
+                next_due = periodic_assessment_deadlines(record).termin_dokonania_oceny_max
+            except Exception:  # noqa: BLE001 – niepełne dane nie mogą psuć listy pracowników
+                next_due = None
 
         now = today()
         if next_due is not None and next_due < now:
@@ -259,11 +333,28 @@ class DataService:
         assessments = self.repo.list_assessments({r.id for r in records})
         return [self._employee_view(r, assessments) for r in records]
 
-    def list_employees(self, user: User) -> list[Employee]:
-        records = self.repo.list_employees(None if user.role == "hr" else user.id)
-        return sorted(self._views(records), key=lambda e: (e.last_name, e.first_name))
+    def _monitoring(self, views: list[Employee]) -> list[EmployeeMonitoring]:
+        """Kadry: tylko pola potrzebne do monitorowania (bez stanowiska, umowy i arkusza)."""
+        users = {u.id: u for u in self.repo.list_users()}
+        fields = set(EmployeeMonitoring.model_fields) - {"supervisor_name"}
+        out = []
+        for e in views:
+            sup = users.get(e.supervisor_id)
+            name = f"{sup.first_name} {sup.last_name}".strip() if sup else ""
+            out.append(EmployeeMonitoring(**e.model_dump(include=fields), supervisor_name=name))
+        return out
 
-    def get_employee(self, user: User, employee_id: str) -> Employee:
+    def list_employees(self, user: User) -> list[Employee] | list[EmployeeMonitoring]:
+        records = self.repo.list_employees(None if user.role == "hr" else user.id)
+        views = sorted(self._views(records), key=lambda e: (e.last_name, e.first_name))
+        return self._monitoring(views) if user.role == "hr" else views
+
+    def get_employee(self, user: User, employee_id: str) -> Employee | EmployeeMonitoring:
+        view = self._views([self._employee_for_read(user, employee_id)])[0]
+        return self._monitoring([view])[0] if user.role == "hr" else view
+
+    def _full_employee(self, user: User, employee_id: str) -> Employee:
+        """Pełny widok (wewnętrznie, np. po zapisie przez przełożonego)."""
         return self._views([self._employee_for_read(user, employee_id)])[0]
 
     def create_employee(self, user: User, data: CreateEmployeeInput) -> Employee:
@@ -334,7 +425,7 @@ class DataService:
                     due_date=view.next_assessment_due or today(),
                 )
             )
-        return self.get_employee(user, record.id)
+        return self._full_employee(user, record.id)
 
     def extend_contract(self, user: User, employee_id: str, new_end_date: date, absence_days: int) -> Employee:
         """
@@ -357,7 +448,7 @@ class DataService:
             for a in self.repo.list_assessments({employee_id}):
                 if a.kind == "first" and a.status != "completed":
                     self.repo.save_assessment(a.model_copy(update={"due_date": new_due}))
-        return self.get_employee(user, employee_id)
+        return self._full_employee(user, employee_id)
 
     # --- kalendarz terminów ----------------------------------------------------------------
 
@@ -456,6 +547,7 @@ class DataService:
 
     def list_notes(self, user: User, employee_id: str) -> list[Note]:
         self._employee_for_read(user, employee_id)
+        self._deny_hr(user, HR_NO_NOTES)
         return self.repo.list_notes(employee_id, user.id)
 
     def add_note(self, user: User, employee_id: str, text: str) -> Note:
@@ -468,6 +560,7 @@ class DataService:
 
     def list_job_descriptions(self, user: User, employee_id: str) -> list[JobDescriptionDocument]:
         self._employee_for_read(user, employee_id)
+        self._deny_hr(user, HR_NO_JOB_DESCRIPTIONS)
         return self.repo.list_job_descriptions(employee_id)
 
     def attach_job_description(
@@ -524,6 +617,11 @@ class DataService:
             last_step=record.last_step,
             updated_at=record.updated_at,
             evaluation=evaluation,
+            development_conclusions=record.development_conclusions,
+            exam_status=record.exam_status,
+            report_on_time=record.report_on_time,
+            initial_interview_date=record.initial_interview_date,
+            evaluation_interview_date=record.evaluation_interview_date,
         )
 
     def list_assessments(
@@ -542,6 +640,7 @@ class DataService:
 
     def get_assessment(self, user: User, assessment_id: str) -> AssessmentDetail:
         record, _ = self._assessment_for(user, assessment_id, write=False)
+        self._deny_hr(user, HR_NO_CONTENT)
         return self._detail(record)
 
     def create_assessment_draft(self, user: User, data: CreateAssessmentInput) -> AssessmentSummary:
@@ -585,6 +684,7 @@ class DataService:
         for d in data.decisions:
             if d.selected_level is not None and d.selected_level not in PERIODIC_ALLOWED_SCORES:
                 raise ServiceError(422, f"Niedozwolony poziom {d.selected_level} dla kryterium {d.competency_id}.")
+        _validate_first_eval_scale(data)
         updated = record.model_copy(
             update={
                 "form": data.form,
@@ -597,6 +697,8 @@ class DataService:
                 "last_step": data.last_step,
                 "updated_at": _now(),
                 "suggested_levels": _suggested_levels(data.answers),
+                "development_conclusions": _conclusions(data),
+                **_first_eval_fields(data),
             }
         )
         return self._detail(self.repo.save_assessment(updated))
@@ -607,6 +709,25 @@ class DataService:
         names = competency_names()
         first = record.form == "first"
         supervisor = users.get(employee.supervisor_id) if employee else None
+        first_fields: dict[str, Any] = {}
+        if first:
+            try:
+                deadlines = first_assessment_deadlines(employee) if employee else None
+            except Exception:  # noqa: BLE001 – niepełne dane pracownika nie mogą blokować oceny ani PDF
+                deadlines = None
+            first_fields = {
+                "wnioski_rozwojowe_pierwsza_ocena": record.development_conclusions,
+                "egzamin_sluzba_przygotowawcza": EXAM_TO_ENGINE.get(record.exam_status or ""),
+                "sprawozdanie_zlozone_w_terminie": record.report_on_time,
+                "data_rozmowy_wstepnej": record.initial_interview_date,
+                "data_rozmowy_oceniajacej": record.evaluation_interview_date,
+                # Termin sprawozdania: od upływu 8 miesięcy (§ 4 ust. 1) do ostatniego dnia na ocenę.
+                "termin_zlozenia_sprawozdania_od": deadlines.termin_zlozenia_sprawozdania_min if deadlines else None,
+                "termin_zlozenia_sprawozdania_do": deadlines.termin_dokonania_oceny_max if deadlines else None,
+                # Okres, w którym powinna zostać dokonana pierwsza ocena.
+                "okres_oceny_od": deadlines.termin_dokonania_oceny_min if deadlines else None,
+                "okres_oceny_do": deadlines.termin_dokonania_oceny_max if deadlines else None,
+            }
         return EvaluationRequest(
             evaluation_type=EvaluationType.FIRST_EVALUATION if first else EvaluationType.PERIODIC_EVALUATION,
             form_type=FormType.FIRST_EVAL_FORM if first else FormType(f"FORM_{record.form}"),
@@ -630,6 +751,8 @@ class DataService:
                 if d.selected_level is not None
             ],
             uzasadnienie=record.justification_draft.strip() or None,
+            wnioski_iprz=None if first else record.development_conclusions,
+            **first_fields,
         )
 
     def _evaluate(self, record: AssessmentRecord, employee: EmployeeRecord | None, users: dict[str, User]) -> EvaluationResponse:
@@ -642,7 +765,8 @@ class DataService:
         if not data.decisions or any(d.selected_level is None for d in data.decisions):
             raise ServiceError(422, "Nie wszystkie kryteria mają decyzję.")
         _validate_levels(data.answers)
-        if data.form in ("B", "C"):
+        _validate_first_eval_scale(data)
+        if data.form in ("B", "C", "first"):
             # Model kompetencji: "brak podstaw do oceny" dotyczy pojedynczego wskaźnika. Każde wybrane
             # kryterium otrzymuje ocenę cząstkową, więc musi mieć co najmniej jeden oceniony wskaźnik.
             names = competency_names()
@@ -650,9 +774,10 @@ class DataService:
                 own = [a for a in data.answers if a.competency_id == d.competency_id]
                 if own and all(a.selected_level is None for a in own):
                     name = names.get(d.competency_id, d.competency_id)
+                    label = "Element" if data.form == "first" else "Kryterium"
                     raise ServiceError(
                         422,
-                        f"Kryterium „{name}”: wszystkie wskaźniki mają „brak podstaw do oceny”. "
+                        f"{label} „{name}”: wszystkie wskaźniki mają „brak podstaw do oceny”. "
                         "Oceń co najmniej jeden wskaźnik – każde kryterium otrzymuje ocenę cząstkową.",
                     )
         now = _now()
@@ -667,6 +792,8 @@ class DataService:
                 "updated_at": now,
                 "completed_at": now,
                 "suggested_levels": _suggested_levels(data.answers),
+                "development_conclusions": _conclusions(data),
+                **_first_eval_fields(data),
             }
         )
         users = {u.id: u for u in self.repo.list_users()}
@@ -694,11 +821,85 @@ class DataService:
         from app.services.pdf_generator import generate_evaluation_pdf
 
         record, employee = self._assessment_for(user, assessment_id, write=False)
+        self._deny_hr(user, HR_NO_CONTENT)
         users = {u.id: u for u in self.repo.list_users()}
         request = self._evaluation_request(record, employee, users)
         pdf = generate_evaluation_pdf(request=request, result=evaluate(request))
         # Nazwa pliku bez polskich znaków (nagłówek Content-Disposition musi być w ASCII).
         return pdf, f"Arkusz_oceny_{record.id}.pdf"
+
+
+    # --- przypomnienia od kadr ------------------------------------------------------------
+
+    def _reminder_view(self, r: ReminderRecord, users: dict[str, User], employees: dict[str, EmployeeRecord]) -> Reminder:
+        def name(u: User | None) -> str:
+            return f"{u.first_name} {u.last_name}".strip() if u else ""
+
+        return Reminder(
+            id=r.id,
+            created_at=r.created_at,
+            author_id=r.author_id,
+            author_name=name(users.get(r.author_id or "")),
+            supervisor_id=r.supervisor_id,
+            supervisor_name=name(users.get(r.supervisor_id)),
+            employee_ids=r.employee_ids,
+            employee_names=[
+                f"{e.first_name} {e.last_name}".strip() if (e := employees.get(i)) else "" for i in r.employee_ids
+            ],
+            message=r.message,
+        )
+
+    def create_reminder(self, user: User, data: CreateReminderInput) -> Reminder:
+        """Kadry przypominają przełożonemu o czynnościach w procesie ocen (bez treści ocen)."""
+        if user.role != "hr":
+            raise ServiceError(403, "Przypomnienia wysyłają wyłącznie kadry.")
+        supervisor = self.repo.get_user(data.supervisor_id)
+        if supervisor is None or supervisor.role != "supervisor":
+            raise ServiceError(422, "Nie znaleziono przełożonego, do którego ma trafić przypomnienie.")
+        message = data.message.strip()
+        if not message:
+            raise ServiceError(422, "Treść przypomnienia nie może być pusta.")
+        if len(message) > REMINDER_MAX_LENGTH:
+            raise ServiceError(
+                422, f"Treść przypomnienia może mieć najwyżej {REMINDER_MAX_LENGTH} znaków (obecnie {len(message)})."
+            )
+        if _PESEL_RE.search(message):
+            raise ServiceError(422, "Treść przypomnienia nie może zawierać numeru PESEL ani innych danych osobowych.")
+        employee_ids = list(dict.fromkeys(data.employee_ids))
+        for employee_id in employee_ids:
+            employee = self.repo.get_employee(employee_id)
+            if employee is None:
+                raise ServiceError(422, f"Nie znaleziono pracownika o identyfikatorze „{employee_id}”.")
+            if employee.supervisor_id != supervisor.id:
+                raise ServiceError(
+                    422,
+                    f"Pracownik {employee.first_name} {employee.last_name} nie podlega przełożonemu "
+                    f"{supervisor.first_name} {supervisor.last_name}.",
+                )
+        try:
+            record = self.repo.add_reminder(
+                NewReminder(
+                    author_id=user.id,
+                    supervisor_id=supervisor.id,
+                    employee_ids=employee_ids,
+                    message=message,
+                    created_at=_now(),
+                )
+            )
+        except StorageError as error:
+            raise ServiceError(503, "Nie udało się zapisać przypomnienia. Spróbuj ponownie za chwilę.") from error
+        users, employees = self._names()
+        return self._reminder_view(record, users, employees)
+
+    def list_reminders(self, user: User) -> list[Reminder]:
+        """Kadry: wszystkie przypomnienia; przełożony: tylko skierowane do niego. Najnowsze pierwsze."""
+        try:
+            records = self.repo.list_reminders(None if user.role == "hr" else user.id)
+        except StorageError as error:
+            raise ServiceError(503, "Nie udało się wczytać przypomnień. Spróbuj ponownie za chwilę.") from error
+        users, employees = self._names()
+        views = [self._reminder_view(r, users, employees) for r in records]
+        return sorted(views, key=lambda r: r.created_at, reverse=True)
 
 
 def _to_evaluation(r: EvaluationResponse) -> AssessmentEvaluation:

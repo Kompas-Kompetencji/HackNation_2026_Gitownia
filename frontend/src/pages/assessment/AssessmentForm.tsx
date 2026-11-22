@@ -41,7 +41,7 @@ import { BackLink } from './BackLink'
 const t = texts.assessment
 const AUTOSAVE_MS = 2500
 
-type SaveState = { kind: 'idle' } | { kind: 'saving' } | { kind: 'saved'; at: string } | { kind: 'error' }
+export type SaveState = { kind: 'idle' } | { kind: 'saving' } | { kind: 'saved'; at: string } | { kind: 'error' }
 
 function initialState(detail: AssessmentDetail): FormState {
   return {
@@ -52,6 +52,7 @@ function initialState(detail: AssessmentDetail): FormState {
       detail.decisions.map((d) => [d.competency_id, { selected_level: d.selected_level, decision_note: d.decision_note }]),
     ),
     justification: detail.justification_draft,
+    conclusions: detail.development_conclusions ?? '',
     step: detail.last_step ?? SETUP_STEP,
   }
 }
@@ -395,6 +396,7 @@ export function AssessmentForm({
               criteria={criteria}
               completing={completing}
               onJustification={(justification) => update((s) => ({ ...s, justification }))}
+              onConclusions={(conclusions) => update((s) => ({ ...s, conclusions }))}
               onGoTo={goTo}
               onSaveBeforeExport={save}
               onPrepareInterview={(request) => setAssistantRequest(request)}
@@ -484,7 +486,7 @@ export function AssessmentForm({
 }
 
 /** Kontener kroku kryterium: osobna wskazówka poziomu dla każdego kryterium. */
-function CriterionContainer(
+export function CriterionContainer(
   props: Omit<Parameters<typeof CriterionStep>[0], 'hint' | 'onRetryHint'> & { criterion: Criterion },
 ) {
   const answers = answersFor(props.state, props.criterion.competency)
@@ -492,7 +494,7 @@ function CriterionContainer(
   return <CriterionStep {...props} hint={hint} onRetryHint={retry} />
 }
 
-function SaveStatus({
+export function SaveStatus({
   state,
   dirty,
   onSave,
