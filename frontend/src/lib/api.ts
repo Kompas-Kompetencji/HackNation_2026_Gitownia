@@ -16,6 +16,8 @@
  * poniżej (funkcje from*), komponenty widzą wyłącznie typy z src/types.
  */
 import type {
+  CreateReminderInput,
+  Reminder,
   EmployeeMonitoring,
   AssessmentDetail,
   AssessmentDraftInput,
@@ -65,6 +67,7 @@ import {
   type PdfBlock,
 } from './mocks'
 import { ApiError } from './apiError'
+import { REMINDER_MAX_LENGTH } from '../types'
 import { readSessionUserId } from './session'
 
 /** Funkcje api.ts, które da się osobno przełączyć na backend (VITE_REAL_API). */
@@ -96,6 +99,8 @@ export const API_FUNCTIONS = [
   'completeAssessment',
   'getCalendar',
   'listMonitoredEmployees',
+  'sendReminder',
+  'listReminders',
 ] as const
 
 export type ApiFunctionName = (typeof API_FUNCTIONS)[number]
@@ -1029,4 +1034,76 @@ function mockAssessmentPdf(a: AssessmentDetail): Promise<Blob> {
   }
   blocks.push({ text: 'Podpis oceniającego: ................................................', gap: 40 })
   return buildSimplePdf(blocks, 'Kompas Kompetencji · dokument przykładowy z makiety', `Arkusz oceny: ${a.employee_name}`)
+}
+
+/* ------------------------------------------------------------------ */
+/* Przypomnienia od kadr dla przełożonych (POST/GET /reminders)         */
+/* ------------------------------------------------------------------ */
+
+// Tryb makiet: przypomnienia w pamięci modułu (do odświeżenia strony), jak dodani pracownicy i notatki.
+const reminders: Reminder[] = []
+
+function mockUserName(id: string | null | undefined): string {
+  const user = mockUsers.find((u) => u.id === id)
+  return user ? `${user.first_name} ${user.last_name}` : ''
+}
+
+/** Makieta walidacji backendu (te same komunikaty po polsku). */
+function mockCreateReminder(input: CreateReminderInput): Reminder {
+  const user = currentUser()
+  if (user?.role !== 'hr') throw new ApiError(403, 'Przypomnienia wysyłają wyłącznie kadry.')
+  const supervisor = mockUsers.find((u) => u.id === input.supervisor_id && u.role === 'supervisor')
+  if (!supervisor) throw new ApiError(422, 'Nie znaleziono przełożonego, do którego ma trafić przypomnienie.')
+  const message = input.message.trim()
+  if (!message) throw new ApiError(422, 'Treść przypomnienia nie może być pusta.')
+  if (message.length > REMINDER_MAX_LENGTH) {
+    throw new ApiError(422, `Treść przypomnienia może mieć najwyżej ${REMINDER_MAX_LENGTH} znaków (obecnie ${message.length}).`)
+  }
+  const ids = [...new Set(input.employee_ids)]
+  for (const id of ids) {
+    const employee = employees.find((e) => e.id === id)
+    if (!employee) throw new ApiError(422, `Nie znaleziono pracownika o identyfikatorze „${id}”.`)
+    if (employee.supervisor_id !== supervisor.id) {
+      throw new ApiError(
+        422,
+        `Pracownik ${employee.first_name} ${employee.last_name} nie podlega przełożonemu ${supervisor.first_name} ${supervisor.last_name}.`,
+      )
+    }
+  }
+  const reminder: Reminder = {
+    id: `rem-${crypto.randomUUID().slice(0, 8)}`,
+    created_at: new Date().toISOString(),
+    author_id: user.id,
+    author_name: mockUserName(user.id),
+    supervisor_id: supervisor.id,
+    supervisor_name: mockUserName(supervisor.id),
+    employee_ids: ids,
+    employee_names: ids.map((id) => {
+      const e = employees.find((x) => x.id === id)
+      return e ? `${e.first_name} ${e.last_name}` : ''
+    }),
+    message,
+  }
+  reminders.unshift(reminder)
+  return reminder
+}
+
+/**
+ * Kadry wysyłają przełożonemu przypomnienie o czynnościach w procesie ocen.
+ * employee_ids: pracownicy tego przełożonego (pusta lista = przypomnienie ogólne).
+ * Błędy: 403 (nie kadry), 422 (walidacja, komunikat po polsku), 503 (awaria zapisu w bazie).
+ */
+export async function sendReminder(supervisor_id: string, employee_ids: string[], message: string): Promise<Reminder> {
+  const input: CreateReminderInput = { supervisor_id, employee_ids, message }
+  if (usesMock('sendReminder')) return mockCall(() => mockCreateReminder(input), 450)
+  return request<Reminder>('/reminders', postJson(input))
+}
+
+/** Kadry: wszystkie przypomnienia; przełożony: skierowane do niego. Najnowsze pierwsze. */
+export async function listReminders(): Promise<Reminder[]> {
+  if (usesMock('listReminders')) {
+    const user = currentUser()
+    return mockDelay(user?.role === 'hr' ? reminders : reminders.filter((r) => r.supervisor_id === user?.id), 200)
+  }
+  return request<Reminder[]>('/reminders')
 }

@@ -431,3 +431,31 @@ export interface CalendarEvent {
   supervisor_name: string
   severity: CalendarSeverity
 }
+
+/* --- Przypomnienia od kadr (POST/GET /reminders) ----------------------------------------- */
+
+/** Najdłuższa treść przypomnienia (limit backendu). */
+export const REMINDER_MAX_LENGTH = 1000
+
+/**
+ * Przypomnienie wysłane przez kadry do przełożonego. Treść bez danych z oceny (kadry ich nie znają).
+ * Kadry widzą wszystkie przypomnienia, przełożony tylko skierowane do niego.
+ */
+export interface Reminder {
+  id: string
+  created_at: string
+  author_id: string | null
+  author_name: string
+  supervisor_id: string
+  supervisor_name: string
+  /** Pracownicy tego przełożonego, których dotyczy przypomnienie; pusta lista = przypomnienie ogólne. */
+  employee_ids: string[]
+  employee_names: string[]
+  message: string
+}
+
+export interface CreateReminderInput {
+  supervisor_id: string
+  employee_ids: string[]
+  message: string
+}
