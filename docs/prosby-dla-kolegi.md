@@ -228,3 +228,15 @@ Wymagania: kadry widzą statusy, terminy i przypomnienia, „bez szczegółów o
 
 Do ustalenia: czy kadry widzą `result` (pozytywna/negatywna) na liście. Frontend etapu 6 zakłada, że tak.
 
+
+## 10. Kolumna na datę rozmowy oceniającej w pierwszej ocenie (P2, nowe, dev_maks)
+
+Formularz pierwszej oceny (gałąź `dev_maks`) zbiera datę rozmowy wstępnej i datę rozmowy oceniającej.
+Rozmowa wstępna trafia do istniejącej kolumny `evaluations.initial_talk_date`, ale na rozmowę
+oceniającą kolumny nie ma. Prośba: dodać kolumnę `evaluations.evaluation_talk_date` (typ `date`,
+opcjonalna) i mapowanie w `SupabaseRepository` (`evaluation_interview_date` ↔ `evaluation_talk_date`,
+odczyt i osobny zapis w `_save_first_eval_fields`).
+
+**Uwaga:** do czasu dodania kolumny data rozmowy oceniającej nie jest trwale zapisywana we wdrożeniu
+(Postgres, Supabase). Działa tylko w wersji pamięciowej; w PDF z wdrożenia to pole będzie puste.
+Opis zmian backendu: [zmiany-backendu-dev_maks.md](zmiany-backendu-dev_maks.md).
