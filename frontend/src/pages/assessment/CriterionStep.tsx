@@ -178,10 +178,10 @@ function FirstScaleOptions({
   onPick: (l: Level) => void
 }) {
   return (
-    <div className="grid grid-cols-[2fr_1fr_2fr] gap-3">
+    <div className="grid grid-cols-[2fr_1.15fr_2fr] gap-3">
       {FIRST_SCALE_GROUPS.map((group) => (
         <div key={group.points} role="group" aria-labelledby={`${uid}-grupa-${group.points}`}>
-          <p id={`${uid}-grupa-${group.points}`} className="mb-1.5 text-xs font-semibold text-ink-muted">
+          <p id={`${uid}-grupa-${group.points}`} className="mb-1.5 flex min-h-8 items-end text-xs leading-tight font-semibold text-ink-muted">
             {tf.scaleGroups[group.points]}
           </p>
           <div className={`grid gap-1.5 ${group.levels.length === 2 ? 'grid-cols-2' : 'grid-cols-1'}`}>

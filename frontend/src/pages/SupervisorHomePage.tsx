@@ -11,6 +11,7 @@ import { listEmployees } from '../lib/api'
 import { formatDate, formatRelativeDue, fullName } from '../lib/format'
 import { texts } from '../lib/texts'
 import { isFirstAssessmentDone } from '../lib/employee'
+import { SupervisorReminders } from './SupervisorReminders'
 import type { Employee, EmployeeStatus } from '../types'
 
 type SortKey = 'name' | 'position' | 'status' | 'due'
@@ -92,6 +93,7 @@ export function SupervisorHomePage() {
   return (
     <AppLayout>
       <PageHeader title={t.title} lead={t.lead} actions={hasEmployees ? addButton : undefined} />
+      <SupervisorReminders />
 
       {state.kind === 'error' && (
         <Alert

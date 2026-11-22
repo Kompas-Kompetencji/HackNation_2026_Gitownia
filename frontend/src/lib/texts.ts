@@ -59,6 +59,17 @@ export const texts = {
   },
 
   supervisorHome: {
+    reminders: {
+      title: 'Przypomnienie od kadr',
+      meta: (date: string, author: string) => `${date}${author ? ` · ${author}` : ''}`,
+      employees: 'Dotyczy',
+      dismiss: 'Zamknij',
+      dismissLabel: (date: string) => `Zamknij przypomnienie z ${date}`,
+      dismissed: 'Przypomnienie zamknięte.',
+      showMore: (n: number) => `Pokaż starsze przypomnienia (${n})`,
+      showLess: 'Pokaż mniej',
+      error: 'Nie udało się sprawdzić przypomnień od kadr.',
+    },
     title: 'Moi pracownicy',
     lead: 'Pracownicy, których oceniasz, z terminami następnych ocen.',
     addEmployee: 'Dodaj pracownika i rozpocznij pierwszą ocenę',
