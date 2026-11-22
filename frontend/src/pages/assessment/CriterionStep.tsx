@@ -442,12 +442,12 @@ function ScoreHintView({
           </p>
         )}
         {result && (
-          <div className="flex items-baseline gap-8">
+          <div className="flex flex-wrap items-baseline gap-x-8 gap-y-1">
             {result.mean === null ? (
               <p className="text-sm text-ink-muted">{h.noMean}</p>
             ) : (
               <>
-                <p className="text-ink">
+                <p className="shrink-0 text-ink">
                   <span className="font-semibold tabular-nums">{h.mean(formatOneDecimal(result.mean))}</span>
                 </p>
                 {variant === 'first' && result.suggested_level && (

@@ -218,6 +218,7 @@ export function SummaryStep({
           onEdit={onGoTo}
           caption={first ? tf.summary.caption : undefined}
           criterionLabel={first ? tf.summary.element : undefined}
+          showKind={!first}
         />
       </div>
 
@@ -249,7 +250,7 @@ export function SummaryStep({
           )}
           {evaluation && (
             <div className={`transition-opacity duration-150 ${evalState.kind === 'loading' ? 'opacity-60' : ''}`}>
-              <EvaluationResultView evaluation={evaluation} />
+              <EvaluationResultView evaluation={evaluation} meanLabel={first ? tf.summary.mean : undefined} />
             </div>
           )}
         </div>

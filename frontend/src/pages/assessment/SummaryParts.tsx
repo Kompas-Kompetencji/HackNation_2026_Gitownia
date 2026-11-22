@@ -31,7 +31,10 @@ export function DecisionsTable({
   decisionLabel = t.table.decision,
   caption = t.table.caption,
   criterionLabel = t.table.criterion,
+  showKind = true,
 }: {
+  /** false = bez podpisu „obowiązkowe/dodatkowe” (pierwsza ocena ma tylko stałe elementy). */
+  showKind?: boolean
   rows: DecisionRow[]
   onEdit?: (step: string) => void
   showSuggestion?: boolean
@@ -61,7 +64,7 @@ export function DecisionsTable({
             <tr key={r.competency_id} className="align-top">
               <th scope="row" className="px-4 py-3 font-normal">
                 <span className="text-ink">{r.name}</span>
-                <span className="block text-xs text-ink-muted">{r.mandatory ? c.mandatory : c.additional}</span>
+                {showKind && <span className="block text-xs text-ink-muted">{r.mandatory ? c.mandatory : c.additional}</span>}
                 {r.noEvidence && (
                   <span className="mt-1 flex items-center gap-1 text-xs font-medium text-danger">
                     <CircleAlert aria-hidden className="size-3.5" />
@@ -121,7 +124,7 @@ export function DecisionsTable({
 }
 
 /** Wynik z backendu: ocena pozytywna lub negatywna, średnia, ogólny poziom, powody. */
-export function EvaluationResultView({ evaluation }: { evaluation: AssessmentEvaluation }) {
+export function EvaluationResultView({ evaluation, meanLabel }: { evaluation: AssessmentEvaluation; meanLabel?: string }) {
   const r = t.result
   const negative = evaluation.result === 'negative'
   return (
@@ -132,7 +135,7 @@ export function EvaluationResultView({ evaluation }: { evaluation: AssessmentEva
         </div>
         <dl className="flex gap-8">
           <div>
-            <dt className="text-sm text-ink-muted">{r.mean}</dt>
+            <dt className="text-sm text-ink-muted">{meanLabel ?? r.mean}</dt>
             <dd className="font-semibold text-ink tabular-nums">{r.points(formatTwoDecimals(evaluation.mean))}</dd>
           </div>
           {evaluation.overall_level && (

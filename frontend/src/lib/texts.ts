@@ -670,6 +670,7 @@ export const texts = {
       edit: 'Zmień dane',
       caption: 'Decyzje dla pięciu elementów pierwszej oceny',
       element: 'Element',
+      mean: 'Średnia z pięciu elementów',
       missingResult: 'Wynik pojawi się, gdy wszystkie elementy dostaną decyzję, a dane pierwszej oceny będą uzupełnione.',
       issues: {
         exam: 'Brak informacji o egzaminie ze służby przygotowawczej',
@@ -682,6 +683,7 @@ export const texts = {
     },
     readOnly: {
       data: 'Dane pierwszej oceny',
+      decisions: 'Oceny elementów',
       afterNegative:
         'Dalsze kroki po negatywnej pierwszej ocenie wynikają z przepisów ustawy o służbie cywilnej i decyzji pracodawcy. System nie wyznacza kolejnego terminu.',
       afterPositive: 'Wynik został zapisany w historii ocen pracownika.',

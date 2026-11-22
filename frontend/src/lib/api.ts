@@ -409,12 +409,26 @@ export async function calculateScore(answers: IndicatorAnswer[]): Promise<ScoreR
   return request<ScoreResult>('/calculate-score', postJson({ answers }))
 }
 
+/**
+ * Zapis powodów wyniku z backendu w języku interfejsu: polski przecinek w liczbach, znaki ≤ i ≥,
+ * słowne nazwy wartości egzaminu. Treść i reguły zostają takie, jak podał backend.
+ */
+export function readableReason(reason: string): string {
+  return reason
+    .replace(/egzamin \(TAK\)/g, 'egzamin zdany')
+    .replace(/egzamin \(NIE_DOTYCZY\)/g, 'zwolnienie z egzaminu na podstawie wyjątku')
+    .replace(/egzamin \(NIE\)/g, 'egzamin niezdany')
+    .replace(/(\d+)\.(\d{2})(?=\s*pkt)/g, '$1,$2')
+    .replace(/<=/g, '≤')
+    .replace(/>=/g, '≥')
+}
+
 function fromBackendEvaluation(response: BackendEvaluationResponse): AssessmentEvaluation {
   return {
     mean: response.srednia_arytmetyczna,
     overall_level: response.ogolny_poziom,
     result: response.werdykt === 'POZYTYWNA' ? 'positive' : 'negative',
-    reasons: response.powody_werdyktu,
+    reasons: response.powody_werdyktu.map(readableReason),
     justification_required: response.uzasadnienie_obowiazkowe,
     development_criteria: response.iprz_mandatory_criteria,
     errors: response.errors,
@@ -756,7 +770,7 @@ function normalizeDetail(detail: AssessmentDetail): AssessmentDetail {
     decisions: detail.decisions ?? [],
     justification_draft: detail.justification_draft ?? '',
     last_step: detail.last_step ?? null,
-    evaluation: detail.evaluation ?? null,
+    evaluation: detail.evaluation ? { ...detail.evaluation, reasons: detail.evaluation.reasons.map(readableReason) } : null,
   }
   if (detail.form !== 'first') return base
   return {

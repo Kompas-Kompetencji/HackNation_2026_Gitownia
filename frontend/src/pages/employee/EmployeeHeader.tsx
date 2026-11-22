@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { CalendarClock, LoaderCircle } from 'lucide-react'
-import { EmployeeStatusBadge } from '../../components/StatusBadge'
+import { EmployeeStatusBadge, ResultBadge } from '../../components/StatusBadge'
 import { Alert, Button } from '../../components/ui'
 import { employeeStatusTone, toneClasses } from '../../components/styles'
 import { ApiError, extendContract, getFirstAssessmentSchedule } from '../../lib/api'
@@ -105,7 +105,11 @@ export function EmployeeHeader({
             <p className="text-ink-muted">{t.deadline.notSet}</p>
           )}
         </div>
-        <EmployeeStatusBadge status={e.status} />
+        {firstDone && e.last_assessment_result ? (
+          <ResultBadge result={e.last_assessment_result} />
+        ) : (
+          <EmployeeStatusBadge status={e.status} />
+        )}
       </div>
 
       <dl className="mt-6 grid grid-cols-4 gap-x-8 gap-y-4 border-b border-line pb-6">
@@ -134,7 +138,7 @@ export function EmployeeHeader({
         </Detail>
       </dl>
 
-      {isFirst && <FirstSchedule employee={e} />}
+      {isFirst && !firstDone && <FirstSchedule employee={e} />}
     </header>
   )
 }

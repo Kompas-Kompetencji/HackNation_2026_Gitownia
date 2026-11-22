@@ -67,7 +67,7 @@ export function AssessmentReadOnly({ detail, model }: { detail: AssessmentDetail
               <h2 id="wynik" className="mb-3 text-title font-semibold text-ink">
                 {texts.assessment.summary.result.title}
               </h2>
-              <EvaluationResultView evaluation={detail.evaluation} />
+              <EvaluationResultView evaluation={detail.evaluation} meanLabel={first ? tf.summary.mean : undefined} />
               {first && (
                 <p className="mt-3 max-w-prose text-sm text-ink-muted">
                   {detail.evaluation.result === 'negative' ? tf.readOnly.afterNegative : tf.readOnly.afterPositive}
@@ -85,7 +85,7 @@ export function AssessmentReadOnly({ detail, model }: { detail: AssessmentDetail
           )}
           <section aria-labelledby="decyzje">
             <h2 id="decyzje" className="mb-3 text-title font-semibold text-ink">
-              {t.decisions}
+              {first ? tf.readOnly.decisions : t.decisions}
             </h2>
             <DecisionsTable
               rows={rows}
@@ -93,6 +93,7 @@ export function AssessmentReadOnly({ detail, model }: { detail: AssessmentDetail
               decisionLabel={t.level}
               caption={first ? tf.summary.caption : undefined}
               criterionLabel={first ? tf.summary.element : undefined}
+              showKind={!first}
             />
           </section>
           <section aria-labelledby="uzasadnienie">
