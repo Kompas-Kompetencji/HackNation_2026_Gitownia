@@ -179,3 +179,28 @@ Testy: `backend/tests/test_osp_parser.py` (trzy pliki, te same pliki pod zmienio
   `GET /competencies?form_type=…`). Podpowiedź z analizy (pkt 13 opisu) jest zaznaczona na start
   i opisana; przełożony może ją zmienić. Po zmianie arkusza wybór, który stał się obowiązkowy, jest odznaczany.
 - Backend bez zmian w tej części (limit 3 nadal po stronie frontendu — prośba 3).
+
+---
+
+# Terminy oceny okresowej przy umowie na czas nieokreślony (gałąź `dev_maks`)
+
+## 10. Backend: termin następnej oceny zamiast braku terminu
+
+- `service.py`: nowa funkcja `periodic_assessment_deadlines(record)` — wywołuje istniejący kalkulator
+  (`calculate_deadlines`, ścieżka `PERIODIC_EVALUATION`) z `data_poprzedniej_oceny_lub_zatrudnienia`
+  = data zatrudnienia. Nie dodano nowych reguł: kalkulator już liczył rozmowę rozpoczynającą i zapoznanie
+  z kryteriami w 30 dni (§ 7 pkt 1 rozporządzenia z 2016 r.) oraz termin oceny po 24 miesiącach,
+  z przesunięciem z art. 115 k.c.
+- `_employee_view`: pracownik na ścieżce okresowej bez zakończonej oceny i bez otwartej oceny dostaje
+  `next_assessment_due` = `termin_dokonania_oceny_max` (wcześniej `null`). Błąd liczenia → `null`, lista
+  działa dalej. Kolejność reguł bez zmian: otwarta ocena → jej termin; zakończona → +24 albo +6 miesięcy.
+- Skutek uboczny do sprawdzenia: pracownicy okresowi w danych demonstracyjnych bez zakończonej oceny
+  mogą teraz mieć status „po terminie” albo „wkrótce” (wcześniej „aktualna” bez terminu).
+- Frontend: podsumowanie kreatora na ścieżce okresowej pokazuje termin rozmowy rozpoczynającej i termin
+  oceny z `POST /deadlines/calculate` (nowa funkcja `getPeriodicAssessmentSchedule`); na ścieżce pierwszej
+  oceny bez zmian (terminy pierwszej oceny). Poprawione napisy, które przy umowie na czas nieokreślony
+  mówiły o „pierwszej ocenie” (przycisk „Dodaj pracownika”, opis pustej listy, wstęp kreatora, „ostatnia
+  ocena” w nagłówku pracownika).
+
+Testy: `backend/tests/test_periodic_deadlines.py` (nowy pracownik na czas nieokreślony ma termin,
+funkcja pomocnicza, trasa terminów, przesunięcie ze święta).

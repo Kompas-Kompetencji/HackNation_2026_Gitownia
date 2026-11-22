@@ -43,6 +43,7 @@ import type {
   Level,
   Note,
   OspAnalysis,
+  PeriodicAssessmentSchedule,
   ScoreResult,
   User,
 } from '../types'
@@ -82,6 +83,7 @@ export const API_FUNCTIONS = [
   'exportAssessmentPdf',
   'getAssessmentTemplate',
   'getFirstAssessmentSchedule',
+  'getPeriodicAssessmentSchedule',
   // Dane (użytkownicy, pracownicy, notatki, opisy stanowiska, oceny); użytkownik z nagłówka X-User-Id:
   'listDemoUsers',
   'getUser',
@@ -558,6 +560,30 @@ export async function getFirstAssessmentSchedule(input: FirstAssessmentScheduleI
   }
 }
 
+/**
+ * Terminy oceny okresowej pracownika zatrudnionego na czas nieokreślony (bez poprzedniej oceny):
+ * rozmowa rozpoczynająca (30 dni, § 7 pkt 1 rozporządzenia z 2016 r.) i termin oceny. Liczy backend
+ * (POST /deadlines/calculate, ścieżka PERIODIC_EVALUATION od daty zatrudnienia).
+ */
+export async function getPeriodicAssessmentSchedule(hire_date: string): Promise<PeriodicAssessmentSchedule> {
+  if (usesMock('getPeriodicAssessmentSchedule')) return mockCall(() => mockPeriodicAssessmentSchedule(hire_date), 400)
+  const r = await request<BackendDeadlineResponse>(
+    '/deadlines/calculate',
+    postJson({ evaluation_type: 'PERIODIC_EVALUATION', data_poprzedniej_oceny_lub_zatrudnienia: hire_date }),
+  )
+  if (r.errors.length || !r.termin_rozmowy_wstepnej_max || !r.termin_dokonania_oceny_max) {
+    throw new ApiError(422, r.errors.join(' ') || 'Backend nie wyliczył terminów oceny okresowej.')
+  }
+  return { starting_interview_due: r.termin_rozmowy_wstepnej_max, assessment_due: r.termin_dokonania_oceny_max }
+}
+
+/** Makieta (tylko tryb bez backendu): przybliżenie bez przesunięć na dzień roboczy; prawdziwe terminy liczy backend. */
+function mockPeriodicAssessmentSchedule(hire_date: string): PeriodicAssessmentSchedule {
+  const start = new Date(`${hire_date}T12:00:00Z`)
+  start.setUTCDate(start.getUTCDate() + 30)
+  return { starting_interview_due: start.toISOString().slice(0, 10), assessment_due: mockAddMonths(hire_date, 24) }
+}
+
 /* ------------------------------------------------------------------ */
 /* Dane: pracownicy, notatki, opisy stanowiska, oceny (backend-dane)    */
 /* ------------------------------------------------------------------ */
@@ -690,7 +716,9 @@ export async function createEmployee(data: CreateEmployeeInput): Promise<Employe
       last_assessment_result: null,
       // Termin i status wylicza backend; makieta podaje wartości przykładowe.
       next_assessment_due:
-        data.assessment_kind === 'first' ? mockFirstAssessmentSchedule(data).first_assessment_period_end : null,
+        data.assessment_kind === 'first'
+          ? mockFirstAssessmentSchedule(data).first_assessment_period_end
+          : mockPeriodicAssessmentSchedule(data.hire_date).assessment_due,
       status: data.assessment_kind === 'first' ? 'awaiting_first_assessment' : 'up_to_date',
     }
     employees.push(employee)

@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { ArrowLeft, Check, LoaderCircle } from 'lucide-react'
 import { Alert, Button } from '../../components/ui'
-import { getFirstAssessmentSchedule } from '../../lib/api'
+import { getFirstAssessmentSchedule, getPeriodicAssessmentSchedule } from '../../lib/api'
 import { formatDate } from '../../lib/format'
 import { texts } from '../../lib/texts'
-import type { FirstAssessmentSchedule } from '../../types'
+import type { FirstAssessmentSchedule, PeriodicAssessmentSchedule } from '../../types'
 import { needsContractEnd, type DocumentData, type FirstDocumentData, type PersonalData } from './model'
 
 type ScheduleState = { kind: 'loading' } | { kind: 'error' } | { kind: 'ready'; schedule: FirstAssessmentSchedule }
+type PeriodicState = { kind: 'loading' } | { kind: 'error' } | { kind: 'ready'; schedule: PeriodicAssessmentSchedule }
 
 export function StepSummary({
   personal,
@@ -33,6 +34,7 @@ export function StepSummary({
   const isFirst = personal.assessment_kind === 'first'
   const [state, setState] = useState<'idle' | 'creating' | 'error'>('idle')
   const [schedule, setSchedule] = useState<ScheduleState>({ kind: 'loading' })
+  const [periodic, setPeriodic] = useState<PeriodicState>({ kind: 'loading' })
   const edited = doc.edited
 
   const loadSchedule = useCallback(() => {
@@ -48,9 +50,19 @@ export function StepSummary({
       .catch(() => setSchedule({ kind: 'error' }))
   }, [personal.contract_type, personal.hire_date, personal.contract_end_date, personal.first_eval_agreement_date])
 
+  // Ścieżka okresowa: terminy z backendu od daty zatrudnienia (frontend ich nie liczy).
+  const loadPeriodic = useCallback(() => {
+    if (!personal.hire_date) return
+    setPeriodic({ kind: 'loading' })
+    getPeriodicAssessmentSchedule(personal.hire_date)
+      .then((s) => setPeriodic({ kind: 'ready', schedule: s }))
+      .catch(() => setPeriodic({ kind: 'error' }))
+  }, [personal.hire_date])
+
   useEffect(() => {
     if (isFirst) loadSchedule()
-  }, [isFirst, loadSchedule])
+    else loadPeriodic()
+  }, [isFirst, loadSchedule, loadPeriodic])
 
   async function handleCreate() {
     setState('creating')
@@ -151,6 +163,36 @@ export function StepSummary({
         )
       )}
 
+      {!isFirst && (
+        <ScheduleSection title={t.periodicScheduleTitle} lead={t.periodicScheduleLead}>
+          {periodic.kind === 'loading' && (
+            <p role="status" className="flex items-center gap-2 px-5 py-3 text-ink-muted">
+              <LoaderCircle aria-hidden className="size-4 animate-spin" />
+              {t.scheduleLoading}
+            </p>
+          )}
+          {periodic.kind === 'error' && (
+            <div className="px-5 py-3">
+              <Alert
+                action={
+                  <Button variant="secondary" onClick={loadPeriodic} className="py-1.5 text-sm">
+                    {texts.common.retry}
+                  </Button>
+                }
+              >
+                {t.periodicScheduleError}
+              </Alert>
+            </div>
+          )}
+          {periodic.kind === 'ready' && (
+            <dl className="divide-y divide-line">
+              <Row label={t.startingInterview}>{t.startingInterviewValue(formatDate(periodic.schedule.starting_interview_due))}</Row>
+              <Row label={t.periodicDue}>{t.periodicDueValue(formatDate(periodic.schedule.assessment_due))}</Row>
+            </dl>
+          )}
+        </ScheduleSection>
+      )}
+
       {state === 'error' && <Alert>{t.createError}</Alert>}
 
       <div className="flex items-center justify-between border-t border-line pt-6">
@@ -192,5 +234,20 @@ function Row({ label, children }: { label: string; children: ReactNode }) {
       <dt className="text-ink-muted">{label}</dt>
       <dd className="text-ink">{children}</dd>
     </div>
+  )
+}
+
+/** Ramka z terminami wyliczonymi przez backend; zawartość ogłaszana czytnikom ekranu po wczytaniu. */
+function ScheduleSection({ title, lead, children }: { title: string; lead: string; children: ReactNode }) {
+  return (
+    <section aria-labelledby="terminy-okresowe" className="rounded-md border border-line bg-surface">
+      <div className="border-b border-line px-5 py-3">
+        <h3 id="terminy-okresowe" className="font-semibold text-ink">
+          {title}
+        </h3>
+        <p className="text-sm text-ink-muted">{lead}</p>
+      </div>
+      <div aria-live="polite">{children}</div>
+    </section>
   )
 }

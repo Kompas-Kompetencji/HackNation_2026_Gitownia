@@ -288,6 +288,17 @@ export interface FirstAssessmentSchedule {
   first_assessment_period_end: string
 }
 
+/**
+ * Terminy pierwszej oceny okresowej pracownika na czas nieokreślony (lub mianowanego) bez poprzedniej
+ * oceny w systemie, wyliczone przez backend od daty zatrudnienia.
+ */
+export interface PeriodicAssessmentSchedule {
+  /** Rozmowa rozpoczynająca i zapoznanie z kryteriami: 30 dni (§ 7 pkt 1 rozporządzenia z 2016 r.). */
+  starting_interview_due: string
+  /** Ostatni dzień na sporządzenie oceny okresowej. */
+  assessment_due: string
+}
+
 export interface JobDescriptionDocument {
   id: string
   employee_id: string

@@ -214,6 +214,20 @@ def first_assessment_deadlines(record: EmployeeRecord):  # noqa: ANN201
     )
 
 
+def periodic_assessment_deadlines(record: EmployeeRecord):  # noqa: ANN201
+    """
+    Terminy pierwszej oceny okresowej pracownika bez zakończonej oceny w systemie (czas nieokreślony,
+    mianowanie). Istniejąca logika kalkulatora: rozmowa rozpoczynająca i zapoznanie z kryteriami w ciągu
+    30 dni od zatrudnienia na czas nieokreślony (§ 7 pkt 1 rozporządzenia z 2016 r.), ocena po 24 miesiącach.
+    """
+    return calculate_deadlines(
+        DeadlineRequest(
+            evaluation_type=EvaluationType.PERIODIC_EVALUATION,
+            data_poprzedniej_oceny_lub_zatrudnienia=record.hire_date,
+        )
+    )
+
+
 class DataService:
     def __init__(self, repo: DataRepository) -> None:
         self.repo = repo
@@ -289,7 +303,11 @@ class DataService:
         elif record.assessment_kind == "first":
             next_due = first_assessment_deadlines(record).termin_dokonania_oceny_max
         else:
-            next_due = None
+            # Ocena okresowa bez zakończonej oceny w systemie: termin liczony od zatrudnienia.
+            try:
+                next_due = periodic_assessment_deadlines(record).termin_dokonania_oceny_max
+            except Exception:  # noqa: BLE001 – niepełne dane nie mogą psuć listy pracowników
+                next_due = None
 
         now = today()
         if next_due is not None and next_due < now:

@@ -133,7 +133,7 @@ export function EmployeeHeader({
           {e.last_assessment_date && e.last_assessment_result ? (
             `${formatDate(e.last_assessment_date)}, ${t.result[e.last_assessment_result]}`
           ) : (
-            <span className="text-ink-muted">{t.noAssessment}</span>
+            <span className="text-ink-muted">{isFirst ? t.noAssessment : t.noAssessmentPeriodic}</span>
           )}
         </Detail>
       </dl>
