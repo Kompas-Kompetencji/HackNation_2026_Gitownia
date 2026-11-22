@@ -150,3 +150,32 @@ danych ich nie przyjmowały, więc sekcja w PDF była zawsze pusta.
 
 Testy: `backend/tests/test_development_conclusions.py` (szkic, limit 2000, PDF arkusza C i pierwszej oceny,
 odrzucenie wniosków przy negatywnej pierwszej ocenie, awaria brakującej kolumny w Postgresie, odczyt, skrypt 004).
+
+---
+
+# Opis stanowiska: nazwa z pkt 1.3 i kryteria dodatkowe z wykazu (gałąź `dev_maks`)
+
+## 8. Parser `backend/app/services/osp_parser.py` (prośba 2.1)
+
+- Przyczyna błędu: w plikach OSP wartość pkt 1.3 to lista rozwijana Worda zapisana jako kontrolka
+  zawartości obejmująca całą komórkę (`w:sdt` → `w:sdtContent` → `w:tc`). python-docx takich komórek nie
+  zwraca, więc ostatnią „komórką” wiersza była etykieta i parser oddawał nagłówek „NAZWA STANOWISKA PRACY”.
+- Poprawka: komórki części I czytane wprost z XML wiersza (`_row_cell_lines`), także te w kontrolkach;
+  wartość to wyłącznie komórki **po** komórce z etykietą (nigdy sama etykieta); tekst zastępczy listy
+  („wybierz … z listy”) traktowany jak puste pole; wiersz kontynuacji z pionowo scaloną etykietą
+  (wydział pod departamentem w pkt 1.2) dopisywany do poprzedniego punktu, jak wcześniej.
+- Wynik dla plików z `backend/data/raw`: „starszy specjalista”, „radca”, „naczelnik wydziału”; komórka
+  organizacyjna i symbol bez zmian względem poprzedniej wersji. Nazwa pliku nie ma wpływu na wynik.
+- Frontend (`analyzeOsp`): usunięte zgadywanie nazwy stanowiska z nazwy pliku; gdy dokument nie zawiera
+  nazwy, pole zostaje puste do uzupełnienia przez przełożonego.
+
+Testy: `backend/tests/test_osp_parser.py` (trzy pliki, te same pliki pod zmienioną nazwą, trasa
+`/osp/parse` z plikiem wysłanym jako „opis.docx”).
+
+## 9. Kryteria dodatkowe w kreatorze (frontend)
+
+- Krok opisu stanowiska: zamiast trzech pól tekstowych wybór od 0 do 3 kryteriów z wykazu 14 kompetencji
+  (§ 5 ust. 2 rozporządzenia z 2016 r.), bez kompetencji obowiązkowych wybranego arkusza (z
+  `GET /competencies?form_type=…`). Podpowiedź z analizy (pkt 13 opisu) jest zaznaczona na start
+  i opisana; przełożony może ją zmienić. Po zmianie arkusza wybór, który stał się obowiązkowy, jest odznaczany.
+- Backend bez zmian w tej części (limit 3 nadal po stronie frontendu — prośba 3).

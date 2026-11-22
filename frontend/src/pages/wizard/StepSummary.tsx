@@ -137,11 +137,15 @@ export function StepSummary({
             <Row label={d.subordinates}>{edited.subordinates_count}</Row>
             <Row label={d.form}>{d.formOptions[edited.form].label}</Row>
             <Row label={d.criteria}>
-              <ol className="list-decimal space-y-0.5 pl-5">
-                {edited.criteria.map((c, i) => (
-                  <li key={i}>{c}</li>
-                ))}
-              </ol>
+              {edited.criteria.length === 0 ? (
+                d.noCriteria
+              ) : (
+                <ol className="list-decimal space-y-0.5 pl-5">
+                  {edited.criteria.map((c) => (
+                    <li key={c.criterion_id}>{c.name}</li>
+                  ))}
+                </ol>
+              )}
             </Row>
           </SummarySection>
         )

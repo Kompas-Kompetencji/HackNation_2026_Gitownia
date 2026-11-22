@@ -297,20 +297,17 @@ interface BackendOspParseResult {
   warnings: string[]
 }
 
-/** Parser backendu zwraca czasem nagłówek tabeli zamiast nazwy stanowiska. */
+/** Nagłówek tabeli w OSP; gdyby parser go zwrócił, nie traktujemy go jako nazwy stanowiska. */
 const OSP_TITLE_PLACEHOLDER = 'NAZWA STANOWISKA PRACY'
 
 /**
- * Nazwa stanowiska: z dokumentu, a gdy parser zwrócił nagłówek albo nic, z nazwy pliku
- * ("OSP DC WZKSOiC 6 starszy specjalista.docx" → "Starszy specjalista"). Przełożony ją potwierdza.
+ * Nazwa stanowiska wyłącznie z treści dokumentu (pkt 1.3 opisu stanowiska, odczyt w backendzie).
+ * Gdy dokument jej nie zawiera, pole zostaje puste i przełożony ją wpisuje (nie zgadujemy z nazwy pliku).
  */
-function positionTitle(raw: BackendOspParseResult, filename: string): string {
+function positionTitle(raw: BackendOspParseResult): string {
   const fromDoc = raw.stanowisko_pracy.trim()
-  if (fromDoc && fromDoc.toUpperCase() !== OSP_TITLE_PLACEHOLDER) return fromDoc
-  let base = filename.replace(/\.docx$/i, '').replace(/^OSP\s+/i, '')
-  if (raw.symbol_stanowiska && base.startsWith(raw.symbol_stanowiska)) base = base.slice(raw.symbol_stanowiska.length)
-  base = base.trim()
-  return base ? base[0].toUpperCase() + base.slice(1) : ''
+  if (!fromDoc || fromDoc.toUpperCase() === OSP_TITLE_PLACEHOLDER) return ''
+  return fromDoc[0].toLocaleUpperCase('pl') + fromDoc.slice(1)
 }
 
 /**
@@ -345,7 +342,7 @@ async function fromOspParse(raw: BackendOspParseResult, filename: string): Promi
     }))
   return {
     filename,
-    position_title: positionTitle(raw, filename),
+    position_title: positionTitle(raw),
     organizational_unit: raw.komorka_organizacyjna.trim() || null,
     has_management_duties: raw.kieruje_pracownikami,
     subordinates_count: subordinatesCount(raw),
