@@ -31,7 +31,7 @@ logger = logging.getLogger(__name__)
 GEMINI_NATIVE = "gemini"
 
 _DEFAULT_MODELS = {
-    "gemini": "gemini-3.5-flash",
+    "gemini": "gemini-3.8-flash",
     "openai": "gpt-4o-mini",
     "groq": "llama-3.3-70b-versatile",
     "openrouter": "meta-llama/llama-3.3-70b-instruct:free",
