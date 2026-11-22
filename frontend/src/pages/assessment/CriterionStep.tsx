@@ -1,5 +1,5 @@
 import { forwardRef, useId, useRef, useState, type ReactNode } from 'react'
-import { ChevronDown, CircleAlert, CircleSlash, LoaderCircle, NotebookText, RotateCcw, Trash2 } from 'lucide-react'
+import { Check, ChevronDown, CircleAlert, CircleSlash, LoaderCircle, NotebookText, RotateCcw, Trash2 } from 'lucide-react'
 import { Button } from '../../components/ui'
 import { formatDate } from '../../lib/format'
 import { texts } from '../../lib/texts'
@@ -178,44 +178,56 @@ function FirstScaleOptions({
   onPick: (l: Level) => void
 }) {
   return (
-    <div className="grid grid-cols-[2fr_1.15fr_2fr] gap-3">
+    // Pięć równych kolumn i dwa rzędy (nagłówki, kafelki). Każda grupa to podsiatka (subgrid) zajmująca
+    // 2, 1 i 2 kolumny: kafelki mają równą szerokość i wysokość, nagłówki wyrównują się do dołu rzędu.
+    <div className="grid grid-cols-5 grid-rows-[auto_1fr] gap-x-2 gap-y-1.5">
       {FIRST_SCALE_GROUPS.map((group) => (
-        <div key={group.points} role="group" aria-labelledby={`${uid}-grupa-${group.points}`}>
-          <p id={`${uid}-grupa-${group.points}`} className="mb-1.5 flex min-h-8 items-end text-xs leading-tight font-semibold text-ink-muted">
+        <div
+          key={group.points}
+          role="group"
+          aria-labelledby={`${uid}-grupa-${group.points}`}
+          className={`row-span-2 grid grid-cols-subgrid grid-rows-subgrid ${group.levels.length === 2 ? 'col-span-2' : 'col-span-1'}`}
+        >
+          <p
+            id={`${uid}-grupa-${group.points}`}
+            className="col-span-full self-end border-b border-line pb-1 text-xs leading-tight font-semibold text-ink-muted"
+          >
             {tf.scaleGroups[group.points]}
           </p>
-          <div className={`grid gap-1.5 ${group.levels.length === 2 ? 'grid-cols-2' : 'grid-cols-1'}`}>
-            {group.levels.map((l) => {
-              const checked = level === l
-              return (
-                <label key={l} className="block h-full">
-                  <input
-                    type="radio"
-                    name={name}
-                    value={l}
-                    checked={checked}
-                    onChange={() => onPick(l)}
-                    aria-describedby={indicator.level_descriptions?.[l] ? `${uid}-opis-${l}` : undefined}
-                    className="peer sr-only"
-                  />
-                  <span
-                    className={`${optionClass} justify-center py-2.5 ${
-                      checked
-                        ? 'border-accent bg-accent text-accent-ink'
-                        : 'border-line-strong bg-surface text-ink hover:border-accent hover:bg-accent-soft'
-                    }`}
-                  >
-                    <span className="text-sm leading-tight font-medium first-letter:uppercase">{texts.assessment.levels[l]}</span>
+          {group.levels.map((l) => {
+            const checked = level === l
+            return (
+              <label key={l} className="block min-w-0">
+                <input
+                  type="radio"
+                  name={name}
+                  value={l}
+                  checked={checked}
+                  onChange={() => onPick(l)}
+                  aria-describedby={indicator.level_descriptions?.[l] ? `${uid}-opis-${l}` : undefined}
+                  className="peer sr-only"
+                />
+                <span
+                  className={`${optionClass} relative justify-center px-2 py-3 ${
+                    checked
+                      ? 'border-accent bg-accent text-accent-ink'
+                      : 'border-line-strong bg-surface text-ink hover:border-accent hover:bg-accent-soft'
+                  }`}
+                >
+                  {/* Zaznaczenie nie tylko kolorem: znacznik w rogu kafelka. */}
+                  {checked && <Check aria-hidden className="absolute top-1 right-1 size-3.5" strokeWidth={3} />}
+                  <span className="text-sm leading-tight font-medium break-words hyphens-auto first-letter:uppercase" lang="pl">
+                    {texts.assessment.levels[l]}
                   </span>
-                  {indicator.level_descriptions?.[l] && (
-                    <span id={`${uid}-opis-${l}`} hidden>
-                      {indicator.level_descriptions[l]}
-                    </span>
-                  )}
-                </label>
-              )
-            })}
-          </div>
+                </span>
+                {indicator.level_descriptions?.[l] && (
+                  <span id={`${uid}-opis-${l}`} hidden>
+                    {indicator.level_descriptions[l]}
+                  </span>
+                )}
+              </label>
+            )
+          })}
         </div>
       ))}
     </div>
