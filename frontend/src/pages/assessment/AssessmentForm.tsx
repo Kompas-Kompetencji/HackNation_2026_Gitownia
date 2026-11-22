@@ -52,6 +52,7 @@ function initialState(detail: AssessmentDetail): FormState {
       detail.decisions.map((d) => [d.competency_id, { selected_level: d.selected_level, decision_note: d.decision_note }]),
     ),
     justification: detail.justification_draft,
+    conclusions: detail.development_conclusions ?? '',
     step: detail.last_step ?? SETUP_STEP,
   }
 }
@@ -395,6 +396,7 @@ export function AssessmentForm({
               criteria={criteria}
               completing={completing}
               onJustification={(justification) => update((s) => ({ ...s, justification }))}
+              onConclusions={(conclusions) => update((s) => ({ ...s, conclusions }))}
               onGoTo={goTo}
               onSaveBeforeExport={save}
               onPrepareInterview={(request) => setAssistantRequest(request)}

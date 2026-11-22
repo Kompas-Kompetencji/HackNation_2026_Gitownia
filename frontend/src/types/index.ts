@@ -353,6 +353,12 @@ export interface AssessmentDetail extends AssessmentSummary {
   updated_at: string | null
   /** Wynik zapisany przy zakończeniu oceny (widok tylko do odczytu). */
   evaluation: AssessmentEvaluation | null
+  /**
+   * Arkusze B i C: wnioski dotyczące indywidualnego programu rozwoju zawodowego (§ 11 pkt 5
+   * rozporządzenia z 2016 r.); pierwsza ocena: wnioski dotyczące rozwoju zawodowego ocenianego.
+   * Opcjonalne, do 2000 znaków. Starsze odpowiedzi mogą go nie mieć (brak = null).
+   */
+  development_conclusions?: string | null
   /*
    * Tylko pierwsza ocena (backend dev_maks). W ocenach okresowych pól nie ma, a starsze szkice
    * pierwszej oceny mogą ich nie mieć: brak pola = null.
@@ -389,7 +395,7 @@ export interface FirstEvaluationInput extends Pick<FirstAssessmentFields, 'exam_
 export type AssessmentDraftInput = Pick<
   AssessmentDetail,
   'additional_competency_ids' | 'answers' | 'decisions' | 'justification_draft' | 'last_step'
-> & { form: AssessmentForm | 'first' } & Partial<FirstAssessmentFields>
+> & { form: AssessmentForm | 'first'; development_conclusions?: string | null } & Partial<FirstAssessmentFields>
 
 /** Wejście createAssessmentDraft. Arkusz backend bierze z pracownika (form). */
 export interface CreateAssessmentInput {

@@ -11,6 +11,8 @@ import { answersFor, criterionStep, FIRST_DATA_STEP, isBlocked, toFirstScaleHint
 import { DecisionsTable, EvaluationResultView, PdfButton, type DecisionRow } from './SummaryParts'
 
 const t = texts.assessment.summary
+/** Limit pola wniosków rozwojowych (ten sam co w backendzie). */
+const CONCLUSIONS_MAX = 2000
 const tf = texts.firstAssessment
 
 type EvalState =
@@ -26,6 +28,7 @@ export function SummaryStep({
   criteria,
   completing,
   onJustification,
+  onConclusions,
   onGoTo,
   onSaveBeforeExport,
   onPrepareInterview,
@@ -36,6 +39,7 @@ export function SummaryStep({
   criteria: Criterion[]
   completing: boolean
   onJustification: (value: string) => void
+  onConclusions: (value: string) => void
   onGoTo: (step: string) => void
   onSaveBeforeExport: () => Promise<boolean>
   onPrepareInterview: (request: AssistantRequest) => void
@@ -54,6 +58,7 @@ export function SummaryStep({
   const [evalAttempt, setEvalAttempt] = useState(0)
   const issuesRef = useRef<HTMLDivElement>(null)
   const justificationRef = useRef<HTMLTextAreaElement>(null)
+  const conclusionsRef = useRef<HTMLTextAreaElement>(null)
 
   /* Wskazówki dla tabeli: ta sama funkcja backendu co w krokach kryteriów. */
   useEffect(() => {
@@ -140,13 +145,17 @@ export function SummaryStep({
   const justificationRequired = evaluation?.justification_required ?? false
   const justificationMissing = justificationRequired && !state.justification.trim()
 
-  const issues: Array<{ text: string; step?: string; focus?: 'justification' }> = [
+  // § 10 ust. 6 rozporządzenia z 2015 r.: przy negatywnej pierwszej ocenie wniosków się nie sporządza.
+  const conclusionsForbidden = first && evaluation?.result === 'negative' && state.conclusions.trim() !== ''
+
+  const issues: Array<{ text: string; step?: string; focus?: 'justification' | 'conclusions' }> = [
     ...(first && firstData?.exam_status == null ? [{ text: tf.summary.issues.exam, step: FIRST_DATA_STEP }] : []),
     ...(first && firstData?.report_on_time == null ? [{ text: tf.summary.issues.report, step: FIRST_DATA_STEP }] : []),
     ...missing.map((c) => ({ text: t.issues.missingDecision(c.competency.name), step: criterionStep(c.competency.competency_id) })),
     ...blocked.map((c) => ({ text: t.issues.blocked(c.competency.name), step: criterionStep(c.competency.competency_id) })),
     ...noEvidence.map((c) => ({ text: t.issues.noEvidence(c.competency.name), step: criterionStep(c.competency.competency_id) })),
     ...(justificationMissing ? [{ text: t.issues.justification, focus: 'justification' as const }] : []),
+    ...(conclusionsForbidden ? [{ text: t.issues.conclusionsNegativeFirst, focus: 'conclusions' as const }] : []),
     ...(missing.length === 0 && !firstDataMissing && evalState.kind !== 'ready' ? [{ text: t.issues.resultPending }] : []),
   ]
 
@@ -287,6 +296,38 @@ export function SummaryStep({
         )}
       </section>
 
+      <section className="mt-10">
+        <label htmlFor={`${uid}-wnioski`} className="block text-title font-semibold text-ink">
+          {first ? t.conclusions.labelFirst : t.conclusions.label}{' '}
+          <span className="text-base font-normal text-ink-muted">({t.conclusions.optional})</span>
+        </label>
+        <p id={`${uid}-wnioski-opis`} className="mt-1 text-sm text-ink-muted">
+          {first ? t.conclusions.hintFirst : t.conclusions.hint}
+        </p>
+        <textarea
+          ref={conclusionsRef}
+          id={`${uid}-wnioski`}
+          rows={5}
+          maxLength={CONCLUSIONS_MAX}
+          value={state.conclusions}
+          onChange={(e) => onConclusions(e.target.value)}
+          aria-invalid={conclusionsForbidden}
+          aria-describedby={`${uid}-wnioski-opis ${uid}-wnioski-licznik${conclusionsForbidden ? ` ${uid}-wnioski-blad` : ''}`}
+          className={`mt-2 block w-full resize-y rounded-md border bg-surface px-3 py-2.5 text-ink focus-visible:outline-2 focus-visible:outline-offset-0 ${
+            conclusionsForbidden ? 'border-danger' : 'border-line-strong'
+          }`}
+        />
+        <p id={`${uid}-wnioski-licznik`} className="mt-1 text-right text-sm text-ink-muted tabular-nums">
+          {t.conclusions.counter(state.conclusions.length, CONCLUSIONS_MAX)}
+        </p>
+        {conclusionsForbidden && (
+          <p id={`${uid}-wnioski-blad`} className="mt-1.5 flex items-center gap-1.5 text-sm text-danger">
+            <CircleAlert aria-hidden className="size-4" />
+            {t.conclusions.negativeFirst}
+          </p>
+        )}
+      </section>
+
       <section className="mt-10 flex items-start gap-6 rounded-md bg-sunken px-5 py-4">
         <div className="flex-1">
           <Button variant="secondary" onClick={prepareInterview} className="whitespace-nowrap">
@@ -321,7 +362,9 @@ export function SummaryStep({
                 {(issue.step || issue.focus) && (
                   <button
                     type="button"
-                    onClick={() => (issue.step ? onGoTo(issue.step) : justificationRef.current?.focus())}
+                    onClick={() => (issue.step
+                        ? onGoTo(issue.step)
+                        : (issue.focus === 'conclusions' ? conclusionsRef : justificationRef).current?.focus())}
                     className="rounded-md px-1.5 py-0.5 text-sm font-medium text-accent underline underline-offset-2 hover:bg-surface"
                   >
                     {t.issues.goTo}

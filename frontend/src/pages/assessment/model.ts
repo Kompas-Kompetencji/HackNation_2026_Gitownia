@@ -47,6 +47,8 @@ export interface FormState<F extends EmployeeForm = AssessmentForm> {
   /** Po competency_id. */
   decisions: Record<string, { selected_level: Level | null; decision_note: string }>
   justification: string
+  /** Wnioski rozwojowe (IPRZ w ocenie okresowej, rozwój zawodowy w pierwszej ocenie); opcjonalne. */
+  conclusions: string
   step: string
   /** Tylko pierwsza ocena: rozmowy, sprawozdanie, egzamin. */
   first?: FirstAssessmentFields
@@ -85,6 +87,7 @@ export function toDraftInput(state: FormState<EmployeeForm>, criteria: Criterion
       decision_note: state.decisions[c.competency.competency_id]?.decision_note ?? '',
     })),
     justification_draft: state.justification,
+    development_conclusions: state.conclusions.trim() || null,
     last_step: state.step,
     ...(state.form === 'first' && state.first ? state.first : {}),
   }

@@ -117,3 +117,36 @@ Testy: `backend/tests/test_hr_privacy.py` (przełożony ma dostęp, kadry dostaj
 
 Testy: `backend/tests/test_reminders.py` (16 testów: obie role, walidacja, kolejność, atrapa Supabase,
 awaria tabeli, migracja tylko dodająca).
+
+---
+
+# Wnioski rozwojowe w arkuszu (gałąź `dev_maks`)
+
+> **Nietestowane na prawdziwej bazie, wymaga uruchomienia skryptu 004 w Supabase**
+> (`supabase/schema-additions-004.sql`). Sprawdzone tylko w pamięci i na atrapie połączenia Postgres.
+
+Podstawa: § 11 pkt 5 rozporządzenia o ocenach okresowych z 2016 r. (wnioski dotyczące indywidualnego
+programu rozwoju zawodowego wpisywane do arkusza) oraz sekcja VI arkusza pierwszej oceny (wnioski
+dotyczące rozwoju zawodowego ocenianego, tylko przy ocenie pozytywnej — § 10 ust. 6 rozporządzenia z 2015 r.).
+Silnik i szablony PDF miały już te pola (`wnioski_iprz`, `wnioski_rozwojowe_pierwsza_ocena`), ale trasy
+danych ich nie przyjmowały, więc sekcja w PDF była zawsze pusta.
+
+## 7. Pole `development_conclusions`
+
+- `schemas.py`: opcjonalne pole w `AssessmentDraftInput` (najwyżej 2000 znaków, dłuższe → 422),
+  `AssessmentDetail` i `AssessmentRecord`. Pole jest w odpowiedzi dla wszystkich arkuszy (B, C, pierwsza).
+- `service.py`: szkic i zakończenie zapisują pole (puste lub same spacje → `null`). `_evaluation_request`
+  przekazuje je do silnika i PDF jako `wnioski_iprz` (B i C) albo `wnioski_rozwojowe_pierwsza_ocena`
+  (pierwsza ocena). Przy negatywnej pierwszej ocenie z wpisanymi wnioskami zakończenie daje 422
+  z komunikatem silnika (reguła § 10 ust. 6 istniała, teraz jest osiągalna).
+- Supabase i Postgres: odczyt kolumny `evaluations.development_conclusions` (brak kolumny → `null`);
+  zapis osobnym poleceniem `UPDATE` po głównym zapisie (`_save_development_conclusions`), dla każdego
+  arkusza. Błąd (np. kolumna jeszcze nie istnieje) trafia tylko do logu (`ERROR`) i nie psuje zapisu oceny.
+- Baza: `supabase/schema-additions-004.sql` i kopia `backend/app/data/migrations/004_development_conclusions.sql`
+  (`alter table public.evaluations add column if not exists development_conclusions text`). Migracja 004
+  jest na liście `OPTIONAL_MIGRATIONS`: jej błąd nie zatrzymuje startu backendu.
+- Frontend: pole tekstowe w podsumowaniu formularza (oba rodzaje ocen, licznik znaków, ostrzeżenie przy
+  negatywnej pierwszej ocenie), zapis w szkicu i zakończeniu, widok tylko do odczytu, makieta PDF.
+
+Testy: `backend/tests/test_development_conclusions.py` (szkic, limit 2000, PDF arkusza C i pierwszej oceny,
+odrzucenie wniosków przy negatywnej pierwszej ocenie, awaria brakującej kolumny w Postgresie, odczyt, skrypt 004).

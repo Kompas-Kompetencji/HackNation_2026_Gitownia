@@ -106,6 +106,16 @@ export function AssessmentReadOnly({ detail, model }: { detail: AssessmentDetail
               <p className="text-ink-muted">{t.noJustification}</p>
             )}
           </section>
+          <section aria-labelledby="wnioski">
+            <h2 id="wnioski" className="mb-3 text-title font-semibold text-ink">
+              {detail.form === 'first' ? t.conclusionsFirst : t.conclusions}
+            </h2>
+            {detail.development_conclusions?.trim() ? (
+              <p className="max-w-prose whitespace-pre-line text-ink">{detail.development_conclusions}</p>
+            ) : (
+              <p className="text-ink-muted">{t.noConclusions}</p>
+            )}
+          </section>
         </div>
       )}
     </AppLayout>

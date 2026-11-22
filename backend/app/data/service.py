@@ -82,6 +82,12 @@ def _first_eval_fields(data: AssessmentDraftInput) -> dict[str, Any]:
     }
 
 
+def _conclusions(data: AssessmentDraftInput) -> str | None:
+    """Wnioski rozwojowe z formularza: pusty tekst zapisujemy jako brak wartości."""
+    text = (data.development_conclusions or "").strip()
+    return text or None
+
+
 def _validate_first_eval_scale(data: AssessmentDraftInput) -> None:
     """Pierwsza ocena: decyzje przełożonego tylko w skali 3, 5, 7 (§ 9 ust. 1 rozporządzenia z 2015 r.)."""
     if data.form != "first":
@@ -593,6 +599,7 @@ class DataService:
             last_step=record.last_step,
             updated_at=record.updated_at,
             evaluation=evaluation,
+            development_conclusions=record.development_conclusions,
             exam_status=record.exam_status,
             report_on_time=record.report_on_time,
             initial_interview_date=record.initial_interview_date,
@@ -672,6 +679,7 @@ class DataService:
                 "last_step": data.last_step,
                 "updated_at": _now(),
                 "suggested_levels": _suggested_levels(data.answers),
+                "development_conclusions": _conclusions(data),
                 **_first_eval_fields(data),
             }
         )
@@ -690,6 +698,7 @@ class DataService:
             except Exception:  # noqa: BLE001 – niepełne dane pracownika nie mogą blokować oceny ani PDF
                 deadlines = None
             first_fields = {
+                "wnioski_rozwojowe_pierwsza_ocena": record.development_conclusions,
                 "egzamin_sluzba_przygotowawcza": EXAM_TO_ENGINE.get(record.exam_status or ""),
                 "sprawozdanie_zlozone_w_terminie": record.report_on_time,
                 "data_rozmowy_wstepnej": record.initial_interview_date,
@@ -724,6 +733,7 @@ class DataService:
                 if d.selected_level is not None
             ],
             uzasadnienie=record.justification_draft.strip() or None,
+            wnioski_iprz=None if first else record.development_conclusions,
             **first_fields,
         )
 
@@ -764,6 +774,7 @@ class DataService:
                 "updated_at": now,
                 "completed_at": now,
                 "suggested_levels": _suggested_levels(data.answers),
+                "development_conclusions": _conclusions(data),
                 **_first_eval_fields(data),
             }
         )

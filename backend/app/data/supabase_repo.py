@@ -369,6 +369,7 @@ class SupabaseRepository(DataRepository):
             suggested_levels={_competency_str(c["competency_id"]): c.get("suggested_score") for c in criteria if c.get("competency_id")},
             stored_mean=float(row["average_score"]) if row.get("average_score") is not None else None,
             stored_overall_level=row.get("overall_level"),
+            development_conclusions=row.get("development_conclusions"),
             # Pierwsza ocena: odczyt odporny na brak kolumn i nieznane wartości.
             exam_status=_exam_from_db(row.get("exam_passed")),  # type: ignore[arg-type]
             report_on_time=_bool_from_db(row.get("report_on_time")),
@@ -428,6 +429,7 @@ class SupabaseRepository(DataRepository):
         self._sync_criteria(db_id, record)
         self._sync_answers(db_id, record)
         self._save_first_eval_fields(db_id, record)
+        self._save_development_conclusions(db_id, record)
         saved = self.get_assessment(record.id)
         assert saved is not None
         return saved
@@ -452,6 +454,21 @@ class SupabaseRepository(DataRepository):
             )
         except Exception as exc:  # noqa: BLE001
             logger.error("Nie zapisano pól pierwszej oceny dla oceny %s: %s", evaluation_id, exc)
+
+    def _save_development_conclusions(self, evaluation_id: int, record: AssessmentRecord) -> None:
+        """
+        Wnioski rozwojowe (kolumna evaluations.development_conclusions ze skryptu 004) osobnym poleceniem
+        po głównym zapisie. Nietestowane na prawdziwej bazie: przy braku kolumny błąd trafia tylko do logu
+        i nie psuje zapisu oceny.
+        """
+        try:
+            self._update(
+                "evaluations",
+                {"development_conclusions": record.development_conclusions},
+                id=f"eq.{evaluation_id}",
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.error("Nie zapisano wniosków rozwojowych dla oceny %s: %s", evaluation_id, exc)
 
     def _sync_criteria(self, evaluation_id: int, record: AssessmentRecord) -> None:
         """Wiersze evaluation_criteria: decyzje + wybrane kryteria dodatkowe bez decyzji."""

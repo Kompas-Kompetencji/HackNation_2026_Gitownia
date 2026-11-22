@@ -805,6 +805,7 @@ function normalizeDetail(detail: AssessmentDetail): AssessmentDetail {
     answers: detail.answers ?? [],
     decisions: detail.decisions ?? [],
     justification_draft: detail.justification_draft ?? '',
+    development_conclusions: detail.development_conclusions ?? null,
     last_step: detail.last_step ?? null,
     evaluation: detail.evaluation ? { ...detail.evaluation, reasons: detail.evaluation.reasons.map(readableReason) } : null,
   }
@@ -937,6 +938,12 @@ export async function completeAssessment(id: string, input: AssessmentDraftInput
       if (evaluation.justification_required && !input.justification_draft.trim()) {
         throw new ApiError(422, 'Uzasadnienie jest obowiązkowe przy ocenie negatywnej.')
       }
+      if (input.form === 'first' && evaluation.result === 'negative' && input.development_conclusions?.trim()) {
+        throw new ApiError(
+          422,
+          'Wniosków dotyczących rozwoju zawodowego ocenianego nie sporządza się w przypadku przyznania negatywnej pierwszej oceny.',
+        )
+      }
       const now = new Date().toISOString()
       const { form, ...content } = input
       Object.assign(assessment, { form, status: 'completed', completed_at: now, result: evaluation.result })
@@ -1031,6 +1038,13 @@ function mockAssessmentPdf(a: AssessmentDetail): Promise<Blob> {
   }
   if (a.justification_draft.trim()) {
     blocks.push({ text: 'Uzasadnienie', size: 12, bold: true, gap: 16 }, { text: a.justification_draft })
+  }
+  if (a.development_conclusions?.trim()) {
+    const title =
+      a.form === 'first'
+        ? 'Wnioski dotyczące rozwoju zawodowego ocenianego'
+        : 'Wnioski dotyczące indywidualnego programu rozwoju zawodowego'
+    blocks.push({ text: title, size: 12, bold: true, gap: 16 }, { text: a.development_conclusions })
   }
   blocks.push({ text: 'Podpis oceniającego: ................................................', gap: 40 })
   return buildSimplePdf(blocks, 'Kompas Kompetencji · dokument przykładowy z makiety', `Arkusz oceny: ${a.employee_name}`)

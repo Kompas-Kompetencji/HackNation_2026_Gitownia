@@ -68,6 +68,7 @@ function initialState(detail: AssessmentDetail): FirstState {
       ]),
     ),
     justification: detail.justification_draft ?? '',
+    conclusions: detail.development_conclusions ?? '',
     step: detail.last_step ?? FIRST_DATA_STEP,
     first: {
       exam_status: detail.exam_status ?? null,
@@ -398,6 +399,7 @@ export function FirstAssessmentForm({
               criteria={criteria}
               completing={completing}
               onJustification={(justification) => update((s) => ({ ...s, justification }))}
+              onConclusions={(conclusions) => update((s) => ({ ...s, conclusions }))}
               onGoTo={goTo}
               onSaveBeforeExport={save}
               onPrepareInterview={(request) => setAssistantRequest(request)}
