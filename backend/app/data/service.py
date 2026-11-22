@@ -9,6 +9,7 @@ app.core.config); ta warstwa ich nie powiela.
 from __future__ import annotations
 
 import json
+import re
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 from functools import lru_cache
@@ -17,7 +18,7 @@ from typing import Any
 from app.core.config import FIRST_EVAL_ALLOWED_SCORES, PERIODIC_ALLOWED_SCORES, PERIODIC_SCORE_LABELS, settings
 from app.core.deadline_calc import add_months_art_112_kc, calculate_deadlines
 from app.core.scoring_engine import determine_periodic_overall_level, evaluate, round_half_up
-from app.data.repository import DataRepository
+from app.data.repository import DataRepository, StorageError
 from app.data.schemas import (
     AssessmentDetail,
     AssessmentDraftInput,
@@ -27,6 +28,7 @@ from app.data.schemas import (
     CalendarEvent,
     CreateAssessmentInput,
     CreateEmployeeInput,
+    CreateReminderInput,
     Employee,
     EmployeeMonitoring,
     EmployeeRecord,
@@ -34,8 +36,12 @@ from app.data.schemas import (
     JobDescriptionDocument,
     NewAssessment,
     NewEmployee,
+    NewReminder,
     Note,
     OspAnalysis,
+    REMINDER_MAX_LENGTH,
+    Reminder,
+    ReminderRecord,
     ScoreResult,
     User,
 )
@@ -58,6 +64,8 @@ DUE_SOON_DAYS = 30
 HR_NO_CONTENT = "Kadry nie mają dostępu do treści ocen. Widzą tylko status, terminy, rodzaj oceny i wynik końcowy."
 HR_NO_NOTES = "Kadry nie mają dostępu do notatek przełożonego."
 HR_NO_JOB_DESCRIPTIONS = "Kadry nie mają dostępu do opisów stanowiska pracy."
+# Numer PESEL (11 cyfr) nie powinien trafiać do treści przypomnienia.
+_PESEL_RE = re.compile(r"(?<!\d)\d{11}(?!\d)")
 
 # Pierwsza ocena: egzamin ze służby przygotowawczej → pole silnika (exempt = wyjątek § 10 ust. 3).
 EXAM_TO_ENGINE = {"passed": TriStateOption.TAK, "exempt": TriStateOption.NIE_DOTYCZY, "failed": TriStateOption.NIE}
@@ -790,6 +798,79 @@ class DataService:
         pdf = generate_evaluation_pdf(request=request, result=evaluate(request))
         # Nazwa pliku bez polskich znaków (nagłówek Content-Disposition musi być w ASCII).
         return pdf, f"Arkusz_oceny_{record.id}.pdf"
+
+
+    # --- przypomnienia od kadr ------------------------------------------------------------
+
+    def _reminder_view(self, r: ReminderRecord, users: dict[str, User], employees: dict[str, EmployeeRecord]) -> Reminder:
+        def name(u: User | None) -> str:
+            return f"{u.first_name} {u.last_name}".strip() if u else ""
+
+        return Reminder(
+            id=r.id,
+            created_at=r.created_at,
+            author_id=r.author_id,
+            author_name=name(users.get(r.author_id or "")),
+            supervisor_id=r.supervisor_id,
+            supervisor_name=name(users.get(r.supervisor_id)),
+            employee_ids=r.employee_ids,
+            employee_names=[
+                f"{e.first_name} {e.last_name}".strip() if (e := employees.get(i)) else "" for i in r.employee_ids
+            ],
+            message=r.message,
+        )
+
+    def create_reminder(self, user: User, data: CreateReminderInput) -> Reminder:
+        """Kadry przypominają przełożonemu o czynnościach w procesie ocen (bez treści ocen)."""
+        if user.role != "hr":
+            raise ServiceError(403, "Przypomnienia wysyłają wyłącznie kadry.")
+        supervisor = self.repo.get_user(data.supervisor_id)
+        if supervisor is None or supervisor.role != "supervisor":
+            raise ServiceError(422, "Nie znaleziono przełożonego, do którego ma trafić przypomnienie.")
+        message = data.message.strip()
+        if not message:
+            raise ServiceError(422, "Treść przypomnienia nie może być pusta.")
+        if len(message) > REMINDER_MAX_LENGTH:
+            raise ServiceError(
+                422, f"Treść przypomnienia może mieć najwyżej {REMINDER_MAX_LENGTH} znaków (obecnie {len(message)})."
+            )
+        if _PESEL_RE.search(message):
+            raise ServiceError(422, "Treść przypomnienia nie może zawierać numeru PESEL ani innych danych osobowych.")
+        employee_ids = list(dict.fromkeys(data.employee_ids))
+        for employee_id in employee_ids:
+            employee = self.repo.get_employee(employee_id)
+            if employee is None:
+                raise ServiceError(422, f"Nie znaleziono pracownika o identyfikatorze „{employee_id}”.")
+            if employee.supervisor_id != supervisor.id:
+                raise ServiceError(
+                    422,
+                    f"Pracownik {employee.first_name} {employee.last_name} nie podlega przełożonemu "
+                    f"{supervisor.first_name} {supervisor.last_name}.",
+                )
+        try:
+            record = self.repo.add_reminder(
+                NewReminder(
+                    author_id=user.id,
+                    supervisor_id=supervisor.id,
+                    employee_ids=employee_ids,
+                    message=message,
+                    created_at=_now(),
+                )
+            )
+        except StorageError as error:
+            raise ServiceError(503, "Nie udało się zapisać przypomnienia. Spróbuj ponownie za chwilę.") from error
+        users, employees = self._names()
+        return self._reminder_view(record, users, employees)
+
+    def list_reminders(self, user: User) -> list[Reminder]:
+        """Kadry: wszystkie przypomnienia; przełożony: tylko skierowane do niego. Najnowsze pierwsze."""
+        try:
+            records = self.repo.list_reminders(None if user.role == "hr" else user.id)
+        except StorageError as error:
+            raise ServiceError(503, "Nie udało się wczytać przypomnień. Spróbuj ponownie za chwilę.") from error
+        users, employees = self._names()
+        views = [self._reminder_view(r, users, employees) for r in records]
+        return sorted(views, key=lambda r: r.created_at, reverse=True)
 
 
 def _to_evaluation(r: EvaluationResponse) -> AssessmentEvaluation:

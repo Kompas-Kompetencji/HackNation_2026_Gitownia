@@ -82,3 +82,38 @@ ocen** (minimalizacja danych osobowych). Przełożeni widzą wszystko tak jak wc
   zamiast `listEmployees` i `listDemoUsers`; kolumna stanowiska zastąpiona komórką.
 
 Testy: `backend/tests/test_hr_privacy.py` (przełożony ma dostęp, kadry dostają 403 albo okrojone pola).
+
+## 6. Przypomnienia od kadr: `POST /reminders`, `GET /reminders`
+
+> **Zapis i odczyt przypomnień w Postgresie i Supabase są nietestowane na prawdziwej bazie.**
+> Sprawdzone tylko na atrapie PostgREST w testach. Przed wdrożeniem uruchomić na kopii bazy.
+
+- `POST /api/v1/reminders` (tylko kadry, inaczej 403 „Przypomnienia wysyłają wyłącznie kadry.”).
+  Treść żądania: `supervisor_id`, `employee_ids` (lista, może być pusta = przypomnienie ogólne), `message`.
+  Walidacja z komunikatami po polsku (422): przełożony istnieje i ma rolę przełożonego, każdy pracownik
+  istnieje i podlega temu przełożonemu, treść niepusta, najwyżej 1000 znaków, bez numeru PESEL
+  (11 cyfr). Powtórzone identyfikatory pracowników są scalane. Odpowiedź 201: `Reminder`.
+- `GET /api/v1/reminders`: kadry widzą wszystkie, przełożony tylko skierowane do niego; najnowsze pierwsze.
+- Model `Reminder` (`schemas.py`): `id`, `created_at`, `author_id`, `author_name`, `supervisor_id`,
+  `supervisor_name`, `employee_ids`, `employee_names`, `message`. Nazwiska dołącza usługa przy odczycie
+  (w bazie zapisywane są tylko identyfikatory).
+- Repozytoria: nowe metody `list_reminders` i `add_reminder` w `DataRepository`.
+  - Pamięć (`memory_repo.py`): pełna obsługa (dane znikają po restarcie, jak reszta).
+  - Supabase (`supabase_repo.py`) i Postgres (dziedziczy; tabela `reminders` dopisana do `_TABLES`):
+    każdy błąd zapisu i odczytu jest logowany (`ERROR`) i zamieniany na `StorageError`; usługa odpowiada
+    wtedy kodem 503 „Nie udało się zapisać przypomnienia…” / „Nie udało się wczytać przypomnień…”.
+    Pozostałe trasy działają normalnie (test `test_supabase_reminders_failure_is_readable_and_isolated`).
+
+### Baza: nowa tabela `reminders` (skrypt addytywny)
+
+- `supabase/schema-additions-003.sql` i kopia `backend/app/data/migrations/003_reminders.sql`:
+  `create table if not exists public.reminders` (`id` serial, `author_id` → `users`, `supervisor_id`
+  → `users`, `employee_ids` jsonb z listą liczb, `message` text 1–1000 znaków, `created_at`), indeks
+  `(supervisor_id, created_at desc)`, RLS włączone bez polityk. Nic poza tym; istniejące tabele bez zmian.
+- **Uwaga o wdrożeniu**: `postgres_repo.py` uruchamia migracje przy każdym starcie (`DB_AUTO_MIGRATE`),
+  więc po wdrożeniu tej gałęzi tabela powstanie automatycznie. Błąd migracji `003_reminders.sql`
+  (lista `OPTIONAL_MIGRATIONS`) jest tylko logowany i **nie zatrzymuje startu** backendu — nie działają
+  wtedy jedynie przypomnienia. Błędy migracji 001 i 002 nadal zatrzymują start, jak wcześniej.
+
+Testy: `backend/tests/test_reminders.py` (16 testów: obie role, walidacja, kolejność, atrapa Supabase,
+awaria tabeli, migracja tylko dodająca).

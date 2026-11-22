@@ -12,8 +12,10 @@ from app.data.schemas import (
     JobDescriptionDocument,
     NewAssessment,
     NewEmployee,
+    NewReminder,
     Note,
     OspAnalysis,
+    ReminderRecord,
     User,
 )
 from app.data.seed_data import SeedData, build_seed
@@ -35,6 +37,7 @@ class MemoryRepository(DataRepository):
         self._notes: list[tuple[Note, str]] = list(data.notes)
         self._job_descriptions = list(data.job_descriptions)
         self._assessments = {a.id: a for a in data.assessments}
+        self._reminders: list[ReminderRecord] = []
 
     # Użytkownicy
     def list_users(self) -> list[User]:
@@ -125,4 +128,16 @@ class MemoryRepository(DataRepository):
             if record.id not in self._assessments:
                 raise NotFoundError(record.id)
             self._assessments[record.id] = record.model_copy(deep=True)
+            return record.model_copy(deep=True)
+
+    # Przypomnienia od kadr
+    def list_reminders(self, supervisor_id: str | None = None) -> list[ReminderRecord]:
+        return [
+            r.model_copy(deep=True) for r in self._reminders if supervisor_id is None or r.supervisor_id == supervisor_id
+        ]
+
+    def add_reminder(self, data: NewReminder) -> ReminderRecord:
+        with self._lock:
+            record = ReminderRecord(id=_new_id("rem"), **data.model_dump())
+            self._reminders.append(record)
             return record.model_copy(deep=True)

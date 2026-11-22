@@ -356,4 +356,48 @@ class NewAssessment(BaseModel):
     due_date: date
 
 
+# --------------------------------------------------------------------------
+# Przypomnienia od kadr dla przełożonych (etap 6)
+# --------------------------------------------------------------------------
+
+REMINDER_MAX_LENGTH = 1000
+
+
+class CreateReminderInput(BaseModel):
+    """Długość i pustą treść sprawdza warstwa usług (komunikaty po polsku)."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    supervisor_id: str
+    employee_ids: list[str] = Field(default_factory=list)
+    message: str
+
+
+class Reminder(BaseModel):
+    """Przypomnienie w odpowiedzi API (nazwiska dołącza usługa przy odczycie)."""
+
+    id: str
+    created_at: datetime
+    author_id: str | None
+    author_name: str
+    supervisor_id: str
+    supervisor_name: str
+    employee_ids: list[str]
+    employee_names: list[str]
+    message: str
+
+
+class NewReminder(BaseModel):
+    author_id: str
+    supervisor_id: str
+    employee_ids: list[str]
+    message: str
+    created_at: datetime
+
+
+class ReminderRecord(NewReminder):
+    id: str
+    author_id: str | None  # type: ignore[assignment]
+
+
 JsonDict = dict[str, Any]

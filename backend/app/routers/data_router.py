@@ -28,11 +28,13 @@ from app.data.schemas import (
     CreateAssessmentInput,
     ContractExtensionInput,
     CreateEmployeeInput,
+    CreateReminderInput,
     Employee,
     EmployeeMonitoring,
     JobDescriptionDocument,
     Note,
     OspAnalysis,
+    Reminder,
     ScoreResult,
     User,
 )
@@ -200,3 +202,18 @@ def assessment_pdf(assessment_id: str, service: Service, user: CurrentUser) -> R
         media_type="application/pdf",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
+
+# --- przypomnienia od kadr ------------------------------------------------------------------
+
+
+@data_router.post("/reminders", response_model=Reminder, status_code=201, tags=["Przypomnienia"])
+def create_reminder(payload: CreateReminderInput, service: Service, user: CurrentUser) -> Reminder:
+    """Kadry wysyłają przełożonemu przypomnienie o czynnościach w procesie ocen (bez treści ocen)."""
+    return _call(service.create_reminder, user, payload)
+
+
+@data_router.get("/reminders", response_model=list[Reminder], tags=["Przypomnienia"])
+def list_reminders(service: Service, user: CurrentUser) -> list[Reminder]:
+    """Kadry: wszystkie przypomnienia; przełożony: tylko skierowane do niego. Najnowsze pierwsze."""
+    return _call(service.list_reminders, user)

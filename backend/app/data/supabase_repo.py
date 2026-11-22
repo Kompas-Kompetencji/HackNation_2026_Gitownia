@@ -33,7 +33,7 @@ from typing import Any
 
 import httpx
 
-from app.data.repository import DataRepository, NotFoundError
+from app.data.repository import DataRepository, NotFoundError, StorageError
 from app.data.schemas import (
     AssessmentRecord,
     CriterionDecision,
@@ -42,8 +42,10 @@ from app.data.schemas import (
     JobDescriptionDocument,
     NewAssessment,
     NewEmployee,
+    NewReminder,
     Note,
     OspAnalysis,
+    ReminderRecord,
     StarNote,
     User,
 )
@@ -498,3 +500,47 @@ class SupabaseRepository(DataRepository):
         if keep:
             filters["indicator_id"] = f"not.in.({','.join(keep)})"
         self._delete("evaluation_indicator_answers", **filters)
+
+    # --- przypomnienia od kadr (tabela reminders, supabase/schema-additions-003.sql) -------------
+    # NIETESTOWANE NA PRAWDZIWEJ BAZIE. Każdy błąd (np. brak tabeli) jest logowany i zamieniany na
+    # StorageError, który usługa zamienia na czytelny komunikat; reszta aplikacji działa dalej.
+
+    @staticmethod
+    def _reminder(row: dict[str, Any]) -> ReminderRecord:
+        ids = row.get("employee_ids") or []
+        return ReminderRecord(
+            id=str(row["id"]),
+            created_at=row["created_at"],
+            author_id=str(row["author_id"]) if row.get("author_id") is not None else None,
+            supervisor_id=str(row["supervisor_id"]),
+            employee_ids=[str(i) for i in ids] if isinstance(ids, list) else [],
+            message=row.get("message") or "",
+        )
+
+    def list_reminders(self, supervisor_id: str | None = None) -> list[ReminderRecord]:
+        try:
+            if supervisor_id is None:
+                rows = self._select("reminders", order="created_at.desc")
+            else:
+                db_id = _int_id(supervisor_id)
+                if db_id is None:
+                    return []
+                rows = self._select("reminders", supervisor_id=f"eq.{db_id}", order="created_at.desc")
+            return [self._reminder(r) for r in rows]
+        except Exception as exc:  # noqa: BLE001 – awaria tabeli przypomnień nie może psuć reszty aplikacji
+            logger.error("Nie odczytano przypomnień (supervisor_id=%s): %s", supervisor_id, exc)
+            raise StorageError("reminders: odczyt") from exc
+
+    def add_reminder(self, data: NewReminder) -> ReminderRecord:
+        row = {
+            "author_id": _int_id(data.author_id),
+            "supervisor_id": _int_id(data.supervisor_id),
+            "employee_ids": [i for i in (_int_id(e) for e in data.employee_ids) if i is not None],
+            "message": data.message,
+            "created_at": data.created_at.isoformat(),
+        }
+        try:
+            return self._reminder(self._insert("reminders", row)[0])
+        except Exception as exc:  # noqa: BLE001
+            logger.error("Nie zapisano przypomnienia dla przełożonego %s: %s", data.supervisor_id, exc)
+            raise StorageError("reminders: zapis") from exc

@@ -10,14 +10,20 @@ from app.data.schemas import (
     JobDescriptionDocument,
     NewAssessment,
     NewEmployee,
+    NewReminder,
     Note,
     OspAnalysis,
+    ReminderRecord,
     User,
 )
 
 
 class NotFoundError(LookupError):
     """Brak rekordu o podanym identyfikatorze."""
+
+
+class StorageError(RuntimeError):
+    """Awaria zapisu lub odczytu w magazynie danych (np. brak tabeli w bazie); komunikat jest w logu."""
 
 
 class DataRepository(ABC):
@@ -78,3 +84,11 @@ class DataRepository(ABC):
     @abstractmethod
     def save_assessment(self, record: AssessmentRecord) -> AssessmentRecord:
         """Zapisuje cały rekord oceny (status, treść szkicu, wynik)."""
+
+    # Przypomnienia od kadr (etap 6)
+    @abstractmethod
+    def list_reminders(self, supervisor_id: str | None = None) -> list[ReminderRecord]:
+        """supervisor_id=None: wszystkie (kadry). Kolejność dowolna – sortuje usługa."""
+
+    @abstractmethod
+    def add_reminder(self, data: NewReminder) -> ReminderRecord: ...
