@@ -3,7 +3,8 @@ Trasy danych dla frontendu (pracownicy, notatki, opisy stanowiska, oceny) oraz w
 Rejestrowane pod /api/v1 (app.main). Kształty JSON = frontend/src/types/index.ts.
 
 Użytkownik: nagłówek X-User-Id (logowanie demonstracyjne). Przełożony widzi tylko swoich
-pracowników (403 przy cudzych), kadry widzą wszystkich, ale niczego nie zmieniają.
+pracowników (403 przy cudzych), kadry widzą wszystkich, ale niczego nie zmieniają i nie widzą treści
+ocen, notatek ani opisów stanowiska (403); dane pracowników dla kadr to tylko pola do monitorowania.
 """
 
 from __future__ import annotations
@@ -28,6 +29,7 @@ from app.data.schemas import (
     ContractExtensionInput,
     CreateEmployeeInput,
     Employee,
+    EmployeeMonitoring,
     JobDescriptionDocument,
     Note,
     OspAnalysis,
@@ -82,8 +84,9 @@ def get_user(user_id: str, service: Service) -> User:
 # --- pracownicy ----------------------------------------------------------------------------
 
 
-@data_router.get("/employees", response_model=list[Employee])
-def list_employees(service: Service, user: CurrentUser) -> list[Employee]:
+# Kadry dostają okrojony widok (EmployeeMonitoring), przełożony pełny (Employee).
+@data_router.get("/employees", response_model=list[Employee] | list[EmployeeMonitoring])
+def list_employees(service: Service, user: CurrentUser) -> list[Employee] | list[EmployeeMonitoring]:
     return service.list_employees(user)
 
 
@@ -92,8 +95,8 @@ def create_employee(payload: CreateEmployeeInput, service: Service, user: Curren
     return _call(service.create_employee, user, payload)
 
 
-@data_router.get("/employees/{employee_id}", response_model=Employee)
-def get_employee(employee_id: str, service: Service, user: CurrentUser) -> Employee:
+@data_router.get("/employees/{employee_id}", response_model=Employee | EmployeeMonitoring)
+def get_employee(employee_id: str, service: Service, user: CurrentUser) -> Employee | EmployeeMonitoring:
     return _call(service.get_employee, user, employee_id)
 
 

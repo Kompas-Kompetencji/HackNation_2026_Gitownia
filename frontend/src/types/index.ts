@@ -237,6 +237,26 @@ export interface Employee {
 }
 
 /** Wejście createEmployee. Pracownik trafia do zalogowanego przełożonego (backend bierze go z sesji). */
+/**
+ * Widok pracownika dla kadr (GET /employees i /employees/{id} przy roli kadr). Minimalizacja danych:
+ * tylko pracownik, komórka, przełożony, rodzaj oceny, status, terminy i wynik końcowy.
+ * Bez stanowiska, umowy, arkusza i jakiejkolwiek treści oceny.
+ */
+export interface EmployeeMonitoring {
+  id: string
+  supervisor_id: string
+  supervisor_name: string
+  first_name: string
+  last_name: string
+  organizational_unit: string
+  assessment_kind: AssessmentKind
+  contract_end_date: string | null
+  last_assessment_date: string | null
+  last_assessment_result: AssessmentResult | null
+  next_assessment_due: string | null
+  status: EmployeeStatus
+}
+
 export interface CreateEmployeeInput {
   first_name: string
   last_name: string

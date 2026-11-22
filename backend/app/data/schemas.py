@@ -62,6 +62,27 @@ class Employee(BaseModel):
     status: EmployeeStatus
 
 
+class EmployeeMonitoring(BaseModel):
+    """
+    Widok pracownika dla kadr (minimalizacja danych): tylko to, co potrzebne do monitorowania terminów
+    i statusów – pracownik, komórka, przełożony, rodzaj oceny, status, terminy i wynik końcowy.
+    Bez stanowiska, umowy, arkusza, punktów, uzasadnień, notatek i opisów stanowiska.
+    """
+
+    id: str
+    supervisor_id: str
+    supervisor_name: str
+    first_name: str
+    last_name: str
+    organizational_unit: str
+    assessment_kind: AssessmentKind
+    contract_end_date: date | None
+    last_assessment_date: date | None
+    last_assessment_result: AssessmentResult | None
+    next_assessment_due: date | None
+    status: EmployeeStatus
+
+
 class CreateEmployeeInput(BaseModel):
     model_config = ConfigDict(extra="ignore")
 

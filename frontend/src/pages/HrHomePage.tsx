@@ -5,14 +5,14 @@ import { PageHeader } from '../components/PageHeader'
 import { EmployeeStatusBadge } from '../components/StatusBadge'
 import { AssessmentCalendar } from '../components/calendar/AssessmentCalendar'
 import { Alert, Button } from '../components/ui'
-import { listDemoUsers, listEmployees } from '../lib/api'
+import { listMonitoredEmployees } from '../lib/api'
 import { formatDate, formatRelativeDue, fullName } from '../lib/format'
 import { texts } from '../lib/texts'
 import { isFirstAssessmentDone } from '../lib/employee'
-import type { Employee, EmployeeStatus, User } from '../types'
+import type { EmployeeMonitoring, EmployeeStatus } from '../types'
 
 type Tile = 'assessment_overdue' | 'assessment_due_soon' | 'in_progress' | 'up_to_date'
-type LoadState = { kind: 'loading' } | { kind: 'error' } | { kind: 'ready'; employees: Employee[]; users: Map<string, User> }
+type LoadState = { kind: 'loading' } | { kind: 'error' } | { kind: 'ready'; employees: EmployeeMonitoring[] }
 
 const TILE_STATUSES: Record<Tile, EmployeeStatus[]> = {
   assessment_overdue: ['assessment_overdue'],
@@ -38,8 +38,8 @@ export function HrHomePage() {
 
   const load = useCallback(() => {
     setState({ kind: 'loading' })
-    Promise.all([listEmployees(), listDemoUsers()])
-      .then(([employees, users]) => setState({ kind: 'ready', employees, users: new Map(users.map((u) => [u.id, u])) }))
+    listMonitoredEmployees()
+      .then((employees) => setState({ kind: 'ready', employees }))
       .catch(() => setState({ kind: 'error' }))
   }, [])
 
@@ -145,14 +145,13 @@ export function HrHomePage() {
                   </tr>
                 )}
                 {rows.map((e) => {
-                  const sup = state.users.get(e.supervisor_id)
                   return (
                     <tr key={e.id} className="border-t border-line">
                       <td className="px-4 py-3">
                         <span className="font-medium text-ink">{fullName(e)}</span>
-                        <span className="block text-ink-muted">{e.position_title}</span>
+                        <span className="block text-ink-muted">{e.organizational_unit}</span>
                       </td>
-                      <td className="px-4 py-3 text-ink">{sup ? `${sup.first_name} ${sup.last_name}` : '—'}</td>
+                      <td className="px-4 py-3 text-ink">{e.supervisor_name || '—'}</td>
                       <td className="px-4 py-3 text-ink">{t.kind[e.assessment_kind]}</td>
                       <td className="px-4 py-3">
                         <EmployeeStatusBadge status={e.status} />

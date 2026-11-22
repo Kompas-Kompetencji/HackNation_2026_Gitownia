@@ -55,3 +55,30 @@ z wymaganym uzasadnieniem; zwolnienie z egzaminu jako warunek spełniony; odrzuc
 samych „brak podstaw”; PDF (200) i wypełnione pola arkusza (daty rozmów, egzamin, sprawozdanie, terminy);
 ocena okresowa bez nowych pól; Postgres z atrapą połączenia (awaria zapisu `exam_passed` nie psuje
 zapisu oceny) i odporny odczyt kolumn. Całość: `python -m pytest -q` → 76 testów zaliczonych.
+
+---
+
+# Etap 6: ochrona danych w panelu kadr (gałąź `dev_maks`)
+
+Kadry monitorują statusy i terminy oraz wysyłają przypomnienia, ale **nie oceniają i nie widzą treści
+ocen** (minimalizacja danych osobowych). Przełożeni widzą wszystko tak jak wcześniej.
+
+## 5. Dostęp kadr (`backend/app/data/service.py`, `app/routers/data_router.py`)
+
+- `GET /assessments/{id}` i `GET /assessments/{id}/pdf`: rola kadr → **403**
+  „Kadry nie mają dostępu do treści ocen. Widzą tylko status, terminy, rodzaj oceny i wynik końcowy.”
+  (nieistniejąca ocena dalej daje 404).
+- `GET /employees/{id}/notes` → 403 („Kadry nie mają dostępu do notatek przełożonego.”),
+  `GET /employees/{id}/job-descriptions` → 403 („Kadry nie mają dostępu do opisów stanowiska pracy.”).
+- `GET /employees` i `GET /employees/{id}` dla kadr zwracają nowy model `EmployeeMonitoring`
+  (`schemas.py`): `id`, `supervisor_id`, `supervisor_name`, `first_name`, `last_name`,
+  `organizational_unit`, `assessment_kind`, `contract_end_date`, `last_assessment_date`,
+  `last_assessment_result`, `next_assessment_due`, `status`. **Bez** `position_title`, `hire_date`,
+  `contract_type`, `first_eval_agreement_date`, `form`. Przełożony dostaje pełny `Employee` jak dotąd.
+- `GET /assessments` (`AssessmentSummary`) i `GET /calendar` (`CalendarEvent`) już wcześniej nie miały
+  punktów, średnich, uzasadnień, notatek ani odpowiedzi — bez zmian. `AssessmentSummary.form` (arkusz)
+  zostaje, bo to rodzaj arkusza, nie treść oceny.
+- Frontend: panel kadr używa nowej funkcji `listMonitoredEmployees` (typ `EmployeeMonitoring`)
+  zamiast `listEmployees` i `listDemoUsers`; kolumna stanowiska zastąpiona komórką.
+
+Testy: `backend/tests/test_hr_privacy.py` (przełożony ma dostęp, kadry dostają 403 albo okrojone pola).

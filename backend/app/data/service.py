@@ -28,6 +28,7 @@ from app.data.schemas import (
     CreateAssessmentInput,
     CreateEmployeeInput,
     Employee,
+    EmployeeMonitoring,
     EmployeeRecord,
     IndicatorAnswer,
     JobDescriptionDocument,
@@ -52,6 +53,11 @@ from app.schemas.models import (
 )
 
 DUE_SOON_DAYS = 30
+
+# Kadry monitorują terminy i statusy, ale nie widzą treści ocen (minimalizacja danych osobowych).
+HR_NO_CONTENT = "Kadry nie mają dostępu do treści ocen. Widzą tylko status, terminy, rodzaj oceny i wynik końcowy."
+HR_NO_NOTES = "Kadry nie mają dostępu do notatek przełożonego."
+HR_NO_JOB_DESCRIPTIONS = "Kadry nie mają dostępu do opisów stanowiska pracy."
 
 # Pierwsza ocena: egzamin ze służby przygotowawczej → pole silnika (exempt = wyjątek § 10 ust. 3).
 EXAM_TO_ENGINE = {"passed": TriStateOption.TAK, "exempt": TriStateOption.NIE_DOTYCZY, "failed": TriStateOption.NIE}
@@ -216,6 +222,12 @@ class DataService:
             raise ServiceError(403, "Brak dostępu do pracownika.")
         return employee
 
+    @staticmethod
+    def _deny_hr(user: User, detail: str) -> None:
+        """Treść ocen, notatki i opisy stanowiska widzi tylko przełożony pracownika."""
+        if user.role == "hr":
+            raise ServiceError(403, detail)
+
     def _employee_for_write(self, user: User, employee_id: str) -> EmployeeRecord:
         employee = self._employee_for_read(user, employee_id)
         if user.role != "supervisor" or employee.supervisor_id != user.id:
@@ -289,11 +301,28 @@ class DataService:
         assessments = self.repo.list_assessments({r.id for r in records})
         return [self._employee_view(r, assessments) for r in records]
 
-    def list_employees(self, user: User) -> list[Employee]:
-        records = self.repo.list_employees(None if user.role == "hr" else user.id)
-        return sorted(self._views(records), key=lambda e: (e.last_name, e.first_name))
+    def _monitoring(self, views: list[Employee]) -> list[EmployeeMonitoring]:
+        """Kadry: tylko pola potrzebne do monitorowania (bez stanowiska, umowy i arkusza)."""
+        users = {u.id: u for u in self.repo.list_users()}
+        fields = set(EmployeeMonitoring.model_fields) - {"supervisor_name"}
+        out = []
+        for e in views:
+            sup = users.get(e.supervisor_id)
+            name = f"{sup.first_name} {sup.last_name}".strip() if sup else ""
+            out.append(EmployeeMonitoring(**e.model_dump(include=fields), supervisor_name=name))
+        return out
 
-    def get_employee(self, user: User, employee_id: str) -> Employee:
+    def list_employees(self, user: User) -> list[Employee] | list[EmployeeMonitoring]:
+        records = self.repo.list_employees(None if user.role == "hr" else user.id)
+        views = sorted(self._views(records), key=lambda e: (e.last_name, e.first_name))
+        return self._monitoring(views) if user.role == "hr" else views
+
+    def get_employee(self, user: User, employee_id: str) -> Employee | EmployeeMonitoring:
+        view = self._views([self._employee_for_read(user, employee_id)])[0]
+        return self._monitoring([view])[0] if user.role == "hr" else view
+
+    def _full_employee(self, user: User, employee_id: str) -> Employee:
+        """Pełny widok (wewnętrznie, np. po zapisie przez przełożonego)."""
         return self._views([self._employee_for_read(user, employee_id)])[0]
 
     def create_employee(self, user: User, data: CreateEmployeeInput) -> Employee:
@@ -364,7 +393,7 @@ class DataService:
                     due_date=view.next_assessment_due or today(),
                 )
             )
-        return self.get_employee(user, record.id)
+        return self._full_employee(user, record.id)
 
     def extend_contract(self, user: User, employee_id: str, new_end_date: date, absence_days: int) -> Employee:
         """
@@ -387,7 +416,7 @@ class DataService:
             for a in self.repo.list_assessments({employee_id}):
                 if a.kind == "first" and a.status != "completed":
                     self.repo.save_assessment(a.model_copy(update={"due_date": new_due}))
-        return self.get_employee(user, employee_id)
+        return self._full_employee(user, employee_id)
 
     # --- kalendarz terminów ----------------------------------------------------------------
 
@@ -486,6 +515,7 @@ class DataService:
 
     def list_notes(self, user: User, employee_id: str) -> list[Note]:
         self._employee_for_read(user, employee_id)
+        self._deny_hr(user, HR_NO_NOTES)
         return self.repo.list_notes(employee_id, user.id)
 
     def add_note(self, user: User, employee_id: str, text: str) -> Note:
@@ -498,6 +528,7 @@ class DataService:
 
     def list_job_descriptions(self, user: User, employee_id: str) -> list[JobDescriptionDocument]:
         self._employee_for_read(user, employee_id)
+        self._deny_hr(user, HR_NO_JOB_DESCRIPTIONS)
         return self.repo.list_job_descriptions(employee_id)
 
     def attach_job_description(
@@ -576,6 +607,7 @@ class DataService:
 
     def get_assessment(self, user: User, assessment_id: str) -> AssessmentDetail:
         record, _ = self._assessment_for(user, assessment_id, write=False)
+        self._deny_hr(user, HR_NO_CONTENT)
         return self._detail(record)
 
     def create_assessment_draft(self, user: User, data: CreateAssessmentInput) -> AssessmentSummary:
@@ -752,6 +784,7 @@ class DataService:
         from app.services.pdf_generator import generate_evaluation_pdf
 
         record, employee = self._assessment_for(user, assessment_id, write=False)
+        self._deny_hr(user, HR_NO_CONTENT)
         users = {u.id: u for u in self.repo.list_users()}
         request = self._evaluation_request(record, employee, users)
         pdf = generate_evaluation_pdf(request=request, result=evaluate(request))

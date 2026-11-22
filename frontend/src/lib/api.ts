@@ -16,6 +16,7 @@
  * poniżej (funkcje from*), komponenty widzą wyłącznie typy z src/types.
  */
 import type {
+  EmployeeMonitoring,
   AssessmentDetail,
   AssessmentDraftInput,
   AssessmentEvaluation,
@@ -94,6 +95,7 @@ export const API_FUNCTIONS = [
   'saveAssessmentDraft',
   'completeAssessment',
   'getCalendar',
+  'listMonitoredEmployees',
 ] as const
 
 export type ApiFunctionName = (typeof API_FUNCTIONS)[number]
@@ -598,6 +600,35 @@ export async function listEmployees(): Promise<Employee[]> {
     return mockDelay(employees.filter((e) => e.supervisor_id === user?.id))
   }
   return request<Employee[]>('/employees')
+}
+
+/**
+ * Kadry: wszyscy pracownicy w widoku do monitorowania (bez stanowiska, umowy, arkusza i treści ocen).
+ * Ta sama trasa co listEmployees; backend sam zwraca okrojone pola dla roli kadr.
+ */
+export async function listMonitoredEmployees(): Promise<EmployeeMonitoring[]> {
+  if (usesMock('listMonitoredEmployees')) {
+    return mockDelay(
+      employees.map((e) => {
+        const sup = mockUsers.find((u) => u.id === e.supervisor_id)
+        return {
+          id: e.id,
+          supervisor_id: e.supervisor_id,
+          supervisor_name: sup ? `${sup.first_name} ${sup.last_name}` : '',
+          first_name: e.first_name,
+          last_name: e.last_name,
+          organizational_unit: e.organizational_unit,
+          assessment_kind: e.assessment_kind,
+          contract_end_date: e.contract_end_date,
+          last_assessment_date: e.last_assessment_date,
+          last_assessment_result: e.last_assessment_result,
+          next_assessment_due: e.next_assessment_due,
+          status: e.status,
+        }
+      }),
+    )
+  }
+  return request<EmployeeMonitoring[]>('/employees')
 }
 
 /**
