@@ -8,7 +8,7 @@ from __future__ import annotations
 from datetime import date, datetime
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, SerializationInfo, SerializerFunctionWrapHandler, model_serializer
 
 UserRole = Literal["supervisor", "hr"]
 # replacement = umowa w celu zastępstwa nieobecnego członka korpusu (art. 37 ust. 2 ustawy o służbie cywilnej)
@@ -27,6 +27,11 @@ EmployeeStatus = Literal[
 AssessmentStatus = Literal["not_started", "draft", "awaiting_interview", "completed", "overdue"]
 # Status przechowywany; "overdue" wylicza się z terminu, nie zapisuje.
 StoredAssessmentStatus = Literal["not_started", "draft", "awaiting_interview", "completed"]
+# Pierwsza ocena: egzamin ze służby przygotowawczej. exempt = wyjątek z § 10 ust. 3 rozporządzenia
+# z 2015 r. (w silniku NIE_DOTYCZY), passed = TAK, failed = NIE.
+ExamStatus = Literal["passed", "exempt", "failed"]
+# Pola tylko pierwszej oceny (dev_maks): w odpowiedziach ocen okresowych ich nie ma.
+FIRST_EVAL_FIELDS = ("exam_status", "report_on_time", "initial_interview_date", "evaluation_interview_date")
 
 
 class User(BaseModel):
@@ -207,6 +212,19 @@ class AssessmentDetail(AssessmentSummary):
     last_step: str | None
     updated_at: datetime | None
     evaluation: AssessmentEvaluation | None
+    # Tylko pierwsza ocena (opcjonalne; dla arkuszy B i C pomijane w odpowiedzi).
+    exam_status: ExamStatus | None = None
+    report_on_time: bool | None = None
+    initial_interview_date: date | None = None
+    evaluation_interview_date: date | None = None
+
+    @model_serializer(mode="wrap")
+    def _drop_first_eval_fields(self, handler: SerializerFunctionWrapHandler, info: SerializationInfo) -> Any:
+        data = handler(self)
+        if self.form != "first" and isinstance(data, dict):
+            for key in FIRST_EVAL_FIELDS:
+                data.pop(key, None)
+        return data
 
 
 class CreateAssessmentInput(BaseModel):
@@ -223,6 +241,11 @@ class AssessmentDraftInput(BaseModel):
     decisions: list[CriterionDecision] = Field(default_factory=list)
     justification_draft: str = ""
     last_step: str | None = None
+    # Tylko pierwsza ocena (opcjonalne, ignorowane dla arkuszy B i C).
+    exam_status: ExamStatus | None = None
+    report_on_time: bool | None = None
+    initial_interview_date: date | None = None
+    evaluation_interview_date: date | None = None
 
 
 class CalculateScoreInput(BaseModel):
@@ -294,6 +317,12 @@ class AssessmentRecord(BaseModel):
     # Wynik zapisany przy zakończeniu (Supabase: average_score, overall_level); nie trafia do API.
     stored_mean: float | None = None
     stored_overall_level: str | None = None
+    # Pierwsza ocena (Supabase/Postgres: exam_passed, report_on_time, initial_talk_date;
+    # evaluation_interview_date nie ma kolumny – trwale tylko w pamięci).
+    exam_status: ExamStatus | None = None
+    report_on_time: bool | None = None
+    initial_interview_date: date | None = None
+    evaluation_interview_date: date | None = None
 
 
 class NewAssessment(BaseModel):

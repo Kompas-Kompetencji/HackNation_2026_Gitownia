@@ -14,7 +14,7 @@ from decimal import Decimal
 from functools import lru_cache
 from typing import Any
 
-from app.core.config import PERIODIC_ALLOWED_SCORES, PERIODIC_SCORE_LABELS, settings
+from app.core.config import FIRST_EVAL_ALLOWED_SCORES, PERIODIC_ALLOWED_SCORES, PERIODIC_SCORE_LABELS, settings
 from app.core.deadline_calc import add_months_art_112_kc, calculate_deadlines
 from app.core.scoring_engine import determine_periodic_overall_level, evaluate, round_half_up
 from app.data.repository import DataRepository
@@ -48,9 +48,39 @@ from app.schemas.models import (
     EvaluationType,
     EvaluatorPersonData,
     FormType,
+    TriStateOption,
 )
 
 DUE_SOON_DAYS = 30
+
+# Pierwsza ocena: egzamin ze służby przygotowawczej → pole silnika (exempt = wyjątek § 10 ust. 3).
+EXAM_TO_ENGINE = {"passed": TriStateOption.TAK, "exempt": TriStateOption.NIE_DOTYCZY, "failed": TriStateOption.NIE}
+
+
+def _first_eval_fields(data: AssessmentDraftInput) -> dict[str, Any]:
+    """Pola tylko pierwszej oceny; dla arkuszy B i C zawsze puste (nie zmieniają oceny okresowej)."""
+    first = data.form == "first"
+    return {
+        "exam_status": data.exam_status if first else None,
+        "report_on_time": data.report_on_time if first else None,
+        "initial_interview_date": data.initial_interview_date if first else None,
+        "evaluation_interview_date": data.evaluation_interview_date if first else None,
+    }
+
+
+def _validate_first_eval_scale(data: AssessmentDraftInput) -> None:
+    """Pierwsza ocena: decyzje przełożonego tylko w skali 3, 5, 7 (§ 9 ust. 1 rozporządzenia z 2015 r.)."""
+    if data.form != "first":
+        return
+    names = competency_names()
+    for d in data.decisions:
+        if d.selected_level is not None and d.selected_level not in FIRST_EVAL_ALLOWED_SCORES:
+            name = names.get(d.competency_id, d.competency_id)
+            raise ServiceError(
+                422,
+                f"Element „{name}”: w pierwszej ocenie można przyznać tylko 3, 5 albo 7 punktów "
+                f"(wybrano {d.selected_level}).",
+            )
 
 
 class ServiceError(Exception):
@@ -524,6 +554,10 @@ class DataService:
             last_step=record.last_step,
             updated_at=record.updated_at,
             evaluation=evaluation,
+            exam_status=record.exam_status,
+            report_on_time=record.report_on_time,
+            initial_interview_date=record.initial_interview_date,
+            evaluation_interview_date=record.evaluation_interview_date,
         )
 
     def list_assessments(
@@ -585,6 +619,7 @@ class DataService:
         for d in data.decisions:
             if d.selected_level is not None and d.selected_level not in PERIODIC_ALLOWED_SCORES:
                 raise ServiceError(422, f"Niedozwolony poziom {d.selected_level} dla kryterium {d.competency_id}.")
+        _validate_first_eval_scale(data)
         updated = record.model_copy(
             update={
                 "form": data.form,
@@ -597,6 +632,7 @@ class DataService:
                 "last_step": data.last_step,
                 "updated_at": _now(),
                 "suggested_levels": _suggested_levels(data.answers),
+                **_first_eval_fields(data),
             }
         )
         return self._detail(self.repo.save_assessment(updated))
@@ -607,6 +643,24 @@ class DataService:
         names = competency_names()
         first = record.form == "first"
         supervisor = users.get(employee.supervisor_id) if employee else None
+        first_fields: dict[str, Any] = {}
+        if first:
+            try:
+                deadlines = first_assessment_deadlines(employee) if employee else None
+            except Exception:  # noqa: BLE001 – niepełne dane pracownika nie mogą blokować oceny ani PDF
+                deadlines = None
+            first_fields = {
+                "egzamin_sluzba_przygotowawcza": EXAM_TO_ENGINE.get(record.exam_status or ""),
+                "sprawozdanie_zlozone_w_terminie": record.report_on_time,
+                "data_rozmowy_wstepnej": record.initial_interview_date,
+                "data_rozmowy_oceniajacej": record.evaluation_interview_date,
+                # Termin sprawozdania: od upływu 8 miesięcy (§ 4 ust. 1) do ostatniego dnia na ocenę.
+                "termin_zlozenia_sprawozdania_od": deadlines.termin_zlozenia_sprawozdania_min if deadlines else None,
+                "termin_zlozenia_sprawozdania_do": deadlines.termin_dokonania_oceny_max if deadlines else None,
+                # Okres, w którym powinna zostać dokonana pierwsza ocena.
+                "okres_oceny_od": deadlines.termin_dokonania_oceny_min if deadlines else None,
+                "okres_oceny_do": deadlines.termin_dokonania_oceny_max if deadlines else None,
+            }
         return EvaluationRequest(
             evaluation_type=EvaluationType.FIRST_EVALUATION if first else EvaluationType.PERIODIC_EVALUATION,
             form_type=FormType.FIRST_EVAL_FORM if first else FormType(f"FORM_{record.form}"),
@@ -630,6 +684,7 @@ class DataService:
                 if d.selected_level is not None
             ],
             uzasadnienie=record.justification_draft.strip() or None,
+            **first_fields,
         )
 
     def _evaluate(self, record: AssessmentRecord, employee: EmployeeRecord | None, users: dict[str, User]) -> EvaluationResponse:
@@ -642,7 +697,8 @@ class DataService:
         if not data.decisions or any(d.selected_level is None for d in data.decisions):
             raise ServiceError(422, "Nie wszystkie kryteria mają decyzję.")
         _validate_levels(data.answers)
-        if data.form in ("B", "C"):
+        _validate_first_eval_scale(data)
+        if data.form in ("B", "C", "first"):
             # Model kompetencji: "brak podstaw do oceny" dotyczy pojedynczego wskaźnika. Każde wybrane
             # kryterium otrzymuje ocenę cząstkową, więc musi mieć co najmniej jeden oceniony wskaźnik.
             names = competency_names()
@@ -650,9 +706,10 @@ class DataService:
                 own = [a for a in data.answers if a.competency_id == d.competency_id]
                 if own and all(a.selected_level is None for a in own):
                     name = names.get(d.competency_id, d.competency_id)
+                    label = "Element" if data.form == "first" else "Kryterium"
                     raise ServiceError(
                         422,
-                        f"Kryterium „{name}”: wszystkie wskaźniki mają „brak podstaw do oceny”. "
+                        f"{label} „{name}”: wszystkie wskaźniki mają „brak podstaw do oceny”. "
                         "Oceń co najmniej jeden wskaźnik – każde kryterium otrzymuje ocenę cząstkową.",
                     )
         now = _now()
@@ -667,6 +724,7 @@ class DataService:
                 "updated_at": now,
                 "completed_at": now,
                 "suggested_levels": _suggested_levels(data.answers),
+                **_first_eval_fields(data),
             }
         )
         users = {u.id: u for u in self.repo.list_users()}
