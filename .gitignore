@@ -1,11 +1,29 @@
-cat << 'EOF' > .gitignore
+# --- Sekrety: NIGDY nie commitować ---
 .env
-.env.local
+.env.*
+!.env.example
+!frontend/.env.example
+!frontend/.env.development
+!frontend/.env.mixed
+!frontend/.env.production
+
+# --- Python ---
 __pycache__/
+*.pyc
 .venv/
+venv/
+.pytest_cache/
+
+# --- Node / frontend ---
 node_modules/
-.next/
+frontend/dist/
+
+# --- Artefakty lokalne ---
+backend/static
+backend/chroma_db/
 *.db
 *.sqlite3
-backend/chroma_db/
-EOF
+*.zip
+.DS_Store
+.vscode/
+.idea/

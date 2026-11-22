@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <title>Arkusz C – Ocena okresowa w służbie cywilnej</title>
+    <link rel="stylesheet" href="base_gov.css">
+</head>
+<body>
+
+    <!-- ==================== CZĘŚĆ I ==================== -->
+    <div class="attachment-label">Załącznik nr 4</div>
+    <div class="wzor-label">WZÓR</div>
+    <div class="arkusz-code">ARKUSZ C</div>
+    <div class="doc-title">
+        OCENA OKRESOWA<br>
+        URZĘDNIKA SŁUŻBY CYWILNEJ LUB PRACOWNIKA SŁUŻBY CYWILNEJ
+    </div>
+
+    <div class="part-heading">CZĘŚĆ I</div>
+
+    <table class="gov-table">
+        <tr>
+            <td class="label-cell" style="width: 32%;">NAZWA URZĘDU</td>
+            <td class="value-cell" style="width: 68%;">{{ req.nazwa_urzedu }}</td>
+        </tr>
+    </table>
+
+    <div class="section-caption">DANE OCENIANEGO</div>
+    <table class="gov-table">
+        <tr>
+            <td class="label-cell" style="width: 32%;">Imię</td>
+            <td class="value-cell" style="width: 68%;">{{ req.oceniany.imie }}</td>
+        </tr>
+        <tr>
+            <td class="label-cell">Nazwisko</td>
+            <td class="value-cell">{{ req.oceniany.nazwisko }}</td>
+        </tr>
+        <tr>
+            <td class="label-cell">Komórka organizacyjna</td>
+            <td class="value-cell">{{ req.oceniany.komorka_organizacyjna }}</td>
+        </tr>
+        <tr>
+            <td class="label-cell">Stanowisko pracy</td>
+            <td class="value-cell">{{ req.oceniany.stanowisko_pracy }}</td>
+        </tr>
+    </table>
+
+    <div class="section-caption">DANE OCENIAJĄCEGO</div>
+    <table class="gov-table">
+        <tr>
+            <td class="label-cell" style="width: 32%;">Imię</td>
+            <td class="value-cell" style="width: 68%;">{{ req.oceniajacy.imie }}</td>
+        </tr>
+        <tr>
+            <td class="label-cell">Nazwisko</td>
+            <td class="value-cell">{{ req.oceniajacy.nazwisko }}</td>
+        </tr>
+        <tr>
+            <td class="label-cell">Komórka organizacyjna</td>
+            <td class="value-cell">{{ req.oceniajacy.komorka_organizacyjna }}</td>
+        </tr>
+        <tr>
+            <td class="label-cell">Stanowisko pracy</td>
+            <td class="value-cell">{{ req.oceniajacy.stanowisko_pracy }}</td>
+        </tr>
+    </table>
+
+    <div class="section-caption">KRYTERIA OCENY I TERMIN SPORZĄDZENIA OCENY</div>
+    <table class="gov-table">
+        <tr>
+            <th class="label-cell center" style="width: 50%;">Kryteria obowiązkowe</th>
+            <th class="label-cell center" style="width: 50%;" colspan="2">
+                Kryteria dodatkowe<br>
+                wybrane przez oceniającego<br>
+                <span class="italic" style="font-weight: normal;">(nie więcej niż 3)</span>
+            </th>
+        </tr>
+        <tr>
+            <td class="value-cell">{{ mandatory_rows[0].name }}</td>
+            <td class="value-cell" colspan="2">{{ additional_slots[0].name }}</td>
+        </tr>
+        <tr>
+            <td class="value-cell">{{ mandatory_rows[1].name }}</td>
+            <td class="value-cell" colspan="2">{{ additional_slots[1].name }}</td>
+        </tr>
+        <tr>
+            <td class="value-cell">{{ mandatory_rows[2].name }}</td>
+            <td class="value-cell" colspan="2">{{ additional_slots[2].name }}</td>
+        </tr>
+        <tr>
+            <td class="value-cell">{{ mandatory_rows[3].name }}</td>
+            <td class="label-cell center" style="width: 24%;" rowspan="2">Termin sporządzenia oceny</td>
+            <td class="value-cell center" style="width: 26%;" rowspan="2">
+                <div>{{ req.termin_sporzadzenia_oceny | fmt_date }}</div>
+                <div class="small-hint">(dd.mm.rrrr)</div>
+            </td>
+        </tr>
+        <tr>
+            <td class="value-cell">{{ mandatory_rows[4].name }}</td>
+        </tr>
+    </table>
+
+    <table class="gov-table avoid-break">
+        <tr>
+            <td class="bg-gray italic" style="padding: 5pt 6pt;">
+                <div>Potwierdzamy:</div>
+                <ul class="clause-list">
+                    <li>przeprowadzenie rozmowy, o której mowa w § 5 ust. 1 rozporządzenia Prezesa Rady Ministrów z dnia 4 kwietnia 2016 r. w sprawie warunków i sposobu przeprowadzania ocen okresowych urzędników służby cywilnej i pracowników służby cywilnej (Dz. U. poz. 470), i omówienie w trakcie tej rozmowy wszystkich wymaganych zagadnień,</li>
+                    <li>zapoznanie ocenianego z kryteriami oceny oraz terminem sporządzenia oceny.</li>
+                </ul>
+            </td>
+        </tr>
+        <tr>
+            <td class="value-cell">
+                <table class="sig-layout">
+                    <tr>
+                        <td style="width: 33%;">
+                            <div class="sig-value">{{ req.miejscowosc }}</div>
+                            <div class="sig-dots">………………………………….</div>
+                            <div class="sig-caption">miejscowość</div>
+                        </td>
+                        <td style="width: 34%;">
+                            <div class="sig-value">{{ req.data_rozmowy_wstepnej | fmt_date }}</div>
+                            <div class="sig-dots">………………………………….</div>
+                            <div class="sig-caption">data (dd.mm.rrrr)</div>
+                        </td>
+                        <td style="width: 33%;">
+                            <div class="sig-value">&nbsp;</div>
+                            <div class="sig-dots">………………………………….</div>
+                            <div class="sig-caption">podpis oceniającego</div>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+        <tr>
+            <td class="bg-separator">&nbsp;</td>
+        </tr>
+        <tr>
+            <td class="value-cell">
+                <table class="sig-layout">
+                    <tr>
+                        <td style="width: 33%;">
+                            <div class="sig-value">{{ req.miejscowosc }}</div>
+                            <div class="sig-dots">………………………………….</div>
+                            <div class="sig-caption">miejscowość</div>
+                        </td>
+                        <td style="width: 34%;">
+                            <div class="sig-value">{{ req.data_rozmowy_wstepnej | fmt_date }}</div>
+                            <div class="sig-dots">………………………………….</div>
+                            <div class="sig-caption">data (dd.mm.rrrr)</div>
+                        </td>
+                        <td style="width: 33%;">
+                            <div class="sig-value">&nbsp;</div>
+                            <div class="sig-dots">………………………………….</div>
+                            <div class="sig-caption">podpis ocenianego</div>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+
+    <!-- ==================== CZĘŚĆ II ==================== -->
+    <div class="page-break"></div>
+    <div class="part-heading">CZĘŚĆ II</div>
+
+    <table class="gov-table">
+        <tr>
+            <td class="label-cell" style="width: 46%;">DATA PRZEPROWADZENIA ROZMOWY OCENIAJĄCEJ</td>
+            <td class="value-cell right" style="width: 54%;" colspan="4">
+                <span>{{ req.data_rozmowy_oceniajacej | fmt_date }}</span>
+                <span class="small-hint">&nbsp;(dd.mm.rrrr)</span>
+            </td>
+        </tr>
+        <tr>
+            <td class="label-cell">OKRES, W KTÓRYM OCENIANY PODLEGAŁ OCENIE</td>
+            <td class="label-cell center" style="width: 7%;">OD:</td>
+            <td class="value-cell center" style="width: 20%;">
+                <div>{{ req.okres_oceny_od | fmt_date }}</div>
+                <div class="small-hint">(dd.mm.rrrr)</div>
+            </td>
+            <td class="label-cell center" style="width: 7%;">DO:</td>
+            <td class="value-cell center" style="width: 20%;">
+                <div>{{ req.okres_oceny_do | fmt_date }}</div>
+                <div class="small-hint">(dd.mm.rrrr)</div>
+            </td>
+        </tr>
+    </table>
+
+    <table class="gov-table">
+        <tr>
+            <th class="label-cell" style="width: 45%;" rowspan="3">KRYTERIA OBOWIĄZKOWE</th>
+            <th class="label-cell center" style="width: 55%;" colspan="5">OCENA CZĄSTKOWA</th>
+        </tr>
+        <tr>
+            <th class="score-header" style="width: 11%;">Znacznie<br>poniżej<br>oczekiwań</th>
+            <th class="score-header" style="width: 11%;">Poniżej<br>oczekiwań</th>
+            <th class="score-header" style="width: 11%;">Na<br>poziomie<br>oczekiwań</th>
+            <th class="score-header" style="width: 11%;">Powyżej<br>oczekiwań</th>
+            <th class="score-header" style="width: 11%;">Znacznie<br>powyżej<br>oczekiwań</th>
+        </tr>
+        <tr>
+            <th class="score-pts-header"><strong>1</strong><br>punkt</th>
+            <th class="score-pts-header"><strong>3</strong><br>punkty</th>
+            <th class="score-pts-header"><strong>5</strong><br>punktów</th>
+            <th class="score-pts-header"><strong>7</strong><br>punktów</th>
+            <th class="score-pts-header"><strong>9</strong><br>punktów</th>
+        </tr>
+        {% for item in mandatory_rows %}
+        <tr>
+            <td class="value-cell">{{ item.name }}</td>
+            <td class="mark-box">{% if item.score == 1 %}X{% endif %}</td>
+            <td class="mark-box">{% if item.score == 3 %}X{% endif %}</td>
+            <td class="mark-box">{% if item.score == 5 %}X{% endif %}</td>
+            <td class="mark-box">{% if item.score == 7 %}X{% endif %}</td>
+            <td class="mark-box">{% if item.score == 9 %}X{% endif %}</td>
+        </tr>
+        {% endfor %}
+        <tr>
+            <td class="label-cell">KRYTERIA DODATKOWE WYBRANE PRZEZ OCENIAJĄCEGO</td>
+            <td class="label-cell center" colspan="5">OCENA CZĄSTKOWA</td>
+        </tr>
+        {% for item in additional_slots %}
+        <tr>
+            <td class="value-cell">{% if item.name %}{{ item.name }}{% else %}&nbsp;{% endif %}</td>
+            <td class="mark-box">{% if item.score == 1 %}X{% endif %}</td>
+            <td class="mark-box">{% if item.score == 3 %}X{% endif %}</td>
+            <td class="mark-box">{% if item.score == 5 %}X{% endif %}</td>
+            <td class="mark-box">{% if item.score == 7 %}X{% endif %}</td>
+            <td class="mark-box">{% if item.score == 9 %}X{% endif %}</td>
+        </tr>
+        {% endfor %}
+        <tr>
+            <td class="label-cell" colspan="4">Średnia arytmetyczna z ocen cząstkowych przyznanych za poszczególne kryteria oceny:</td>
+            <td class="value-cell center bold" colspan="2">{{ result.srednia_arytmetyczna | fmt_score }}</td>
+        </tr>
+    </table>
+
+    <div class="section-caption">PRZYZNANIE OCENY</div>
+    <table class="gov-table avoid-break">
+        <tr>
+            <th class="label-cell center" style="width: 22%; font-weight: normal;">
+                Należy wstawić<br>znak „X”<br>w odpowiednie pole
+            </th>
+            <th class="label-cell center" style="width: 40%;">
+                Liczba punktów stanowiąca średnią<br>arytmetyczną ze wszystkich ocen cząstkowych
+            </th>
+            <th class="label-cell center" style="width: 38%;">
+                Ogólny poziom spełnienia kryteriów oceny
+            </th>
+        </tr>
+        <tr>
+            <td class="mark-box">{% if result.ogolny_poziom == "znacznie poniżej oczekiwań" %}X{% endif %}</td>
+            <td class="label-cell-normal center">od <strong>1</strong> punktu do <strong>2</strong> punktów</td>
+            <td class="label-cell center">znacznie poniżej oczekiwań</td>
+        </tr>
+        <tr>
+            <td class="mark-box">{% if result.ogolny_poziom == "poniżej oczekiwań" %}X{% endif %}</td>
+            <td class="label-cell-normal center">powyżej <strong>2</strong> punktów do <strong>4</strong> punktów</td>
+            <td class="label-cell center">poniżej oczekiwań</td>
+        </tr>
+        <tr>
+            <td class="mark-box">{% if result.ogolny_poziom == "na poziomie oczekiwań" %}X{% endif %}</td>
+            <td class="label-cell-normal center">powyżej <strong>4</strong> punktów do <strong>6</strong> punktów</td>
+            <td class="label-cell center">na poziomie oczekiwań</td>
+        </tr>
+        <tr>
+            <td class="mark-box">{% if result.ogolny_poziom == "powyżej oczekiwań" %}X{% endif %}</td>
+            <td class="label-cell-normal center">powyżej <strong>6</strong> punktów do <strong>8</strong> punktów</td>
+            <td class="label-cell center">powyżej oczekiwań</td>
+        </tr>
+        <tr>
+            <td class="mark-box">{% if result.ogolny_poziom == "znacznie powyżej oczekiwań" %}X{% endif %}</td>
+            <td class="label-cell-normal center">powyżej <strong>8</strong> punktów do <strong>9</strong> punktów</td>
+            <td class="label-cell center">znacznie powyżej oczekiwań</td>
+        </tr>
+    </table>
+
+    <table class="gov-table avoid-break">
+        <tr>
+            <td class="value-cell bold" style="width: 22%;">OCENA OKRESOWA<br>W SŁUŻBIE<br>CYWILNEJ</td>
+            <td class="label-cell center" style="width: 28%;">POZYTYWNA</td>
+            <td class="mark-box" style="width: 11%;">{% if result.werdykt == "POZYTYWNA" %}X{% endif %}</td>
+            <td class="label-cell center" style="width: 28%;">NEGATYWNA</td>
+            <td class="mark-box" style="width: 11%;">{% if result.werdykt == "NEGATYWNA" %}X{% endif %}</td>
+        </tr>
+    </table>
+
+    <div class="page-break"></div>
+
+    <div class="section-caption">UZASADNIENIE PRZYZNANEJ OCENY OKRESOWEJ</div>
+    <table class="gov-table">
+        <tr>
+            <td class="value-cell text-box-large">{{ req.uzasadnienie or "" }}</td>
+        </tr>
+    </table>
+
+    <div class="section-caption">WNIOSKI DOTYCZĄCE INDYWIDUALNEGO PROGRAMU ROZWOJU ZAWODOWEGO</div>
+    <table class="gov-table">
+        <tr>
+            <td class="value-cell text-box-large">{{ req.wnioski_iprz or "" }}</td>
+        </tr>
+    </table>
+
+    <div class="section-caption">DANE DOTYCZĄCE POPRZEDNIEJ OCENY OKRESOWEJ URZĘDNIKA SŁUŻBY CYWILNEJ</div>
+    <table class="gov-table">
+        <tr>
+            <td class="label-cell center" style="width: 12%;">Ocena</td>
+            <td class="value-cell center" style="width: 18%;">{{ req.poprzednia_ocena.ocena if req.poprzednia_ocena and req.poprzednia_ocena.ocena else "" }}</td>
+            <td class="label-cell center" style="width: 12%;">Poziom</td>
+            <td class="value-cell center" style="width: 26%;">{{ req.poprzednia_ocena.poziom if req.poprzednia_ocena and req.poprzednia_ocena.poziom else "" }}</td>
+            <td class="label-cell center" style="width: 16%;">Data sporządzenia</td>
+            <td class="value-cell center" style="width: 16%;">
+                <div>{{ req.poprzednia_ocena.data_sporzadzenia | fmt_date if req.poprzednia_ocena else "" }}</div>
+                <div class="small-hint">(dd.mm.rrrr)</div>
+            </td>
+        </tr>
+    </table>
+
+    <div class="section-caption">CZY DO OCENY OKRESOWEJ DOŁĄCZONO WNIOSEK O PRZYZNANIE KOLEJNEGO STOPNIA SŁUŻBOWEGO?</div>
+    <table class="gov-table">
+        <tr>
+            <td class="label-cell center" style="width: 14%;">TAK</td>
+            <td class="mark-box" style="width: 7%;">{% if wniosek_stopien_choice == "TAK" %}X{% endif %}</td>
+            <td class="label-cell center" style="width: 14%;">NIE</td>
+            <td class="mark-box" style="width: 7%;">{% if wniosek_stopien_choice == "NIE" %}X{% endif %}</td>
+            <td class="label-cell center" style="width: 51%;">NIE DOTYCZY (oceniany jest pracownikiem służby cywilnej)</td>
+            <td class="mark-box" style="width: 7%;">{% if wniosek_stopien_choice == "NIE_DOTYCZY" %}X{% endif %}</td>
+        </tr>
+    </table>
+
+    <div class="section-caption">DANE OCENIAJĄCEGO</div>
+    <table class="gov-table avoid-break">
+        <tr>
+            <td class="label-cell" style="width: 32%;">Imię</td>
+            <td class="value-cell" style="width: 68%;">{{ req.oceniajacy.imie }}</td>
+        </tr>
+        <tr>
+            <td class="label-cell">Nazwisko</td>
+            <td class="value-cell">{{ req.oceniajacy.nazwisko }}</td>
+        </tr>
+        <tr>
+            <td class="label-cell">Komórka organizacyjna</td>
+            <td class="value-cell">{{ req.oceniajacy.komorka_organizacyjna }}</td>
+        </tr>
+        <tr>
+            <td class="label-cell">Stanowisko pracy</td>
+            <td class="value-cell">{{ req.oceniajacy.stanowisko_pracy }}</td>
+        </tr>
+        <tr>
+            <td class="value-cell" colspan="2">
+                <table class="sig-layout">
+                    <tr>
+                        <td style="width: 33%;">
+                            <div class="sig-value">{{ req.miejscowosc }}</div>
+                            <div class="sig-dots">………………………………….</div>
+                            <div class="sig-caption">miejscowość</div>
+                        </td>
+                        <td style="width: 34%;">
+                            <div class="sig-value">{{ req.data_sporzadzenia_oceny | fmt_date }}</div>
+                            <div class="sig-dots">………………………………….</div>
+                            <div class="sig-caption">data (dd.mm.rrrr)</div>
+                        </td>
+                        <td style="width: 33%;">
+                            <div class="sig-value">&nbsp;</div>
+                            <div class="sig-dots">………………………………….</div>
+                            <div class="sig-caption">podpis oceniającego</div>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+
+    <table class="gov-table avoid-break">
+        <tr>
+            <td class="bg-gray italic">
+                Przeprowadzono ze mną rozmowę oceniającą oraz zapoznałem(-łam) się z oceną okresową i wnioskami dotyczącymi indywidualnego programu rozwoju zawodowego.
+            </td>
+        </tr>
+        <tr>
+            <td class="value-cell">
+                <table class="sig-layout">
+                    <tr>
+                        <td style="width: 24%;">
+                            <div class="sig-value">{{ req.miejscowosc }}</div>
+                            <div class="sig-dots">…………………………</div>
+                            <div class="sig-caption">miejscowość</div>
+                        </td>
+                        <td style="width: 24%;">
+                            <div class="sig-value">&nbsp;</div>
+                            <div class="sig-dots">…………………………</div>
+                            <div class="sig-caption">data (dd.mm.rrrr)</div>
+                        </td>
+                        <td style="width: 28%;">
+                            <div class="sig-value">{{ (req.oceniany.imie ~ " " ~ req.oceniany.nazwisko).strip() }}</div>
+                            <div class="sig-dots">………………………………</div>
+                            <div class="sig-caption">imię i nazwisko lub pieczątka ocenianego</div>
+                        </td>
+                        <td style="width: 24%;">
+                            <div class="sig-value">&nbsp;</div>
+                            <div class="sig-dots">…………………………</div>
+                            <div class="sig-caption">podpis ocenianego</div>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+
+    <table class="gov-table avoid-break">
+        <tr>
+            <td class="bg-gray italic">Pouczenie</td>
+        </tr>
+        <tr>
+            <td class="value-cell italic">
+                Zgodnie z art. 83 ust. 1 ustawy z dnia 21 listopada 2008 r. o służbie cywilnej od oceny okresowej służy, w terminie 7 dni od dnia zapoznania się z oceną, sprzeciw do dyrektora generalnego urzędu.
+            </td>
+        </tr>
+    </table>
+
+    <!-- ==================== CZĘŚĆ III (WARUNKOWA) ==================== -->
+    {% if result.include_part_3 %}
+    <div class="page-break"></div>
+    <div class="part-heading">CZĘŚĆ III</div>
+    <div class="part3-intro">
+        Wniosek jest wypełniany i dołączany do arkusza oceny okresowej ocenianego<br>
+        tylko w sytuacji skorzystania przez oceniającego z możliwości przewidzianej w art. 89 ust. 1 ustawy<br>
+        z dnia 21 listopada 2008 r. o służbie cywilnej.
+    </div>
+
+    <div class="section-caption">DANE URZĘDNIKA SŁUŻBY CYWILNEJ</div>
+    <table class="gov-table">
+        <tr>
+            <td class="label-cell" style="width: 35%;">Imię</td>
+            <td class="value-cell" style="width: 65%;">{{ req.oceniany.imie }}</td>
+        </tr>
+        <tr>
+            <td class="label-cell">Nazwisko</td>
+            <td class="value-cell">{{ req.oceniany.nazwisko }}</td>
+        </tr>
+        <tr>
+            <td class="label-cell">Rok mianowania</td>
+            <td class="value-cell right">
+                <span>{{ req.wniosek_kolejny_stopien.rok_mianowania if req.wniosek_kolejny_stopien and req.wniosek_kolejny_stopien.rok_mianowania else "" }}</span>
+                <span class="small-hint">&nbsp;(rrrr)</span>
+            </td>
+        </tr>
+        <tr>
+            <td class="label-cell">Posiadany stopień służbowy</td>
+            <td class="value-cell">{{ req.wniosek_kolejny_stopien.posiadany_stopien_sluzbowy if req.wniosek_kolejny_stopien and req.wniosek_kolejny_stopien.posiadany_stopien_sluzbowy else "" }}</td>
+        </tr>
+        <tr>
+            <td class="label-cell">Data przyznania stopnia służbowego</td>
+            <td class="value-cell right">
+                <span>{{ req.wniosek_kolejny_stopien.data_przyznania_stopnia | fmt_date if req.wniosek_kolejny_stopien else "" }}</span>
+                <span class="small-hint">&nbsp;(dd.mm.rrrr)</span>
+            </td>
+        </tr>
+    </table>
+
+    <table class="gov-table" style="margin-top: 10pt;">
+        <tr>
+            <td class="label-cell">WNIOSEK O PRZYZNANIE URZĘDNIKOWI SŁUŻBY CYWILNEJ KOLEJNEGO STOPNIA SŁUŻBOWEGO</td>
+        </tr>
+        <tr>
+            <td class="value-cell" style="padding: 8pt 6pt;">
+                <div>W związku z uzyskaniem przez Panią/Pana</div>
+                <div class="center bold" style="margin: 8pt 0; border-bottom: 0.6pt dotted #000000; padding-bottom: 2pt;">
+                    {{ (req.oceniany.imie ~ " " ~ req.oceniany.nazwisko).strip() }}
+                </div>
+                <div>
+                    pozytywnej oceny okresowej, na podstawie art. 89 ust. 1 ustawy z dnia 21 listopada 2008 r. o służbie cywilnej wnioskuję o przyznanie
+                    <strong>{{ req.wniosek_kolejny_stopien.wnioskowany_stopien_sluzbowy if req.wniosek_kolejny_stopien and req.wniosek_kolejny_stopien.wnioskowany_stopien_sluzbowy else "………." }}</strong>
+                    stopnia służbowego.
+                </div>
+            </td>
+        </tr>
+        <tr>
+            <td class="label-cell">Umotywowanie wniosku</td>
+        </tr>
+        <tr>
+            <td class="value-cell text-box-xl">{{ req.wniosek_kolejny_stopien.umotywowanie_wniosku if req.wniosek_kolejny_stopien and req.wniosek_kolejny_stopien.umotywowanie_wniosku else "" }}</td>
+        </tr>
+        <tr>
+            <td class="value-cell">
+                <table class="sig-layout">
+                    <tr>
+                        <td style="width: 24%;">
+                            <div class="sig-value">{{ req.miejscowosc }}</div>
+                            <div class="sig-dots">…………………………</div>
+                            <div class="sig-caption">miejscowość</div>
+                        </td>
+                        <td style="width: 24%;">
+                            <div class="sig-value">{{ req.data_sporzadzenia_oceny | fmt_date }}</div>
+                            <div class="sig-dots">…………………………</div>
+                            <div class="sig-caption">data (dd.mm.rrrr)</div>
+                        </td>
+                        <td style="width: 28%;">
+                            <div class="sig-value">{{ (req.oceniajacy.imie ~ " " ~ req.oceniajacy.nazwisko).strip() }}</div>
+                            <div class="sig-dots">………………………………</div>
+                            <div class="sig-caption">imię i nazwisko lub pieczątka oceniającego</div>
+                        </td>
+                        <td style="width: 24%;">
+                            <div class="sig-value">&nbsp;</div>
+                            <div class="sig-dots">…………………………</div>
+                            <div class="sig-caption">podpis oceniającego</div>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+    {% endif %}
+
+</body>
+</html>

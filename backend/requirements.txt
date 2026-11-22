@@ -1,0 +1,24 @@
+# --- API ---
+fastapi>=0.115.0,<1.0.0
+uvicorn[standard]>=0.30.0,<1.0.0
+pydantic>=2.9.0,<3.0.0
+pydantic-settings>=2.5.0,<3.0.0
+python-multipart>=0.0.12,<1.0.0
+httpx>=0.27.2,<1.0.0
+
+# --- Baza danych (Supabase/Postgres przez DATABASE_URL) ---
+psycopg[binary,pool]>=3.2.0,<4.0.0
+
+# --- Dokumenty: OSP (.docx), model kompetencji (.xlsx), PDF do RAG, generator PDF ---
+python-docx>=1.1.2,<2.0.0
+openpyxl>=3.1.5,<4.0.0
+pypdf>=4.3.0,<6.0.0
+jinja2>=3.1.4,<4.0.0
+weasyprint>=62.3,<64.0
+xhtml2pdf>=0.2.16,<1.0.0
+
+# --- Testy ---
+pytest>=8.3.0,<9.0.0
+
+# Opcjonalnie (wektorowy RAG, duży obraz ~2 GB): pip install chromadb sentence-transformers
+# i uruchom: python scripts/build_rag_index.py  (bez nich działa indeks n-gramowy z rag_chunks.json)

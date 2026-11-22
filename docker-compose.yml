@@ -1,0 +1,12 @@
+# Lokalne uruchomienie całości jak na hostingu: http://localhost:8000 (frontend + API + /docs)
+# Zmienne czytane z backend/.env (DATABASE_URL, LLM_API_KEY, LLM_MODEL_NAME, JWT_SECRET, ALLOWED_ORIGINS).
+services:
+  kompas:
+    build: .
+    container_name: kompas-kompetencji
+    ports:
+      - "8000:8000"
+    env_file:
+      - path: ./backend/.env
+        required: false
+    restart: unless-stopped
